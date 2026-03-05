@@ -1599,7 +1599,7 @@ struct BattleDuelContext {
 // MARK: - Main App Delegate
 
 class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
-    static let currentVersion = "6.1.1"
+    static let currentVersion = "6.1.4"
     // UI
     var window: NSPanel!
     var miniWindow: NSPanel!
@@ -6740,9 +6740,17 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
             appendColored("✅ Downloaded v\(version) to:\n", color: cGreen, bold: true)
             appendColored("  \(destDir)/AgentO.app\n", color: cCyan)
-            appendColored("  Open it to use the new version\n\n", color: cGray)
+            appendColored("  Opening it now...\n\n", color: cGray)
             setState(.happy)
             bubbleLabel.stringValue = speechBubble("Updated! v\(version)")
+
+            let appPath = "\(destDir)/AgentO.app"
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                let proc = Process()
+                proc.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+                proc.arguments = [appPath]
+                try? proc.run()
+            }
         } catch {
             appendColored("❌ Extract failed: \(error.localizedDescription)\n\n", color: cRed)
             setState(.error)
