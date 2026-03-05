@@ -61,6 +61,8 @@ xattr -cr ~/Downloads/AgentO.app
 **Important command format:** all built-in commands use `/` prefix.
 - Correct: `/update`, `/battle user`, `/rent publish 50 7 CyberCat`
 - Incorrect: `update`, `!update`
+- Friendly aliases supported: `/help all commands`, `/quests daily quests`
+- Input box supports direct paste (Cmd+V / right-click Paste)
 
 ## New in v6.2.0
 

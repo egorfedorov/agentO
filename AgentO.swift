@@ -7,6 +7,21 @@ final class InputTextField: NSTextField {
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         if event.type == .keyDown,
            flags == .command,
+           event.charactersIgnoringModifiers?.lowercased() == "v",
+           let text = NSPasteboard.general.string(forType: .string) {
+            let normalized = text
+                .replacingOccurrences(of: "\r\n", with: "\n")
+                .replacingOccurrences(of: "\r", with: "\n")
+                .replacingOccurrences(of: "\n", with: " ")
+            if let editor = window?.fieldEditor(true, for: self) as? NSTextView {
+                editor.insertText(normalized, replacementRange: editor.selectedRange())
+            } else {
+                stringValue += normalized
+            }
+            return true
+        }
+        if event.type == .keyDown,
+           flags == .command,
            event.charactersIgnoringModifiers?.lowercased() == "a",
            let editor = window?.fieldEditor(true, for: self) as? NSTextView {
             editor.selectAll(nil)
@@ -1599,13 +1614,35 @@ struct BattleDuelContext {
 // MARK: - Main App Delegate
 
 class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
-    static let sourceVersion = "6.2.0"
+    static let sourceVersion = "6.2.1"
+    static func parseVersion(_ version: String) -> [Int] {
+        return version
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .split(separator: ".")
+            .map { Int($0) ?? 0 }
+    }
+
+    static func compareVersions(_ lhs: String, _ rhs: String) -> Int {
+        let left = parseVersion(lhs)
+        let right = parseVersion(rhs)
+        let count = max(left.count, right.count)
+        for idx in 0..<count {
+            let l = idx < left.count ? left[idx] : 0
+            let r = idx < right.count ? right[idx] : 0
+            if l < r { return -1 }
+            if l > r { return 1 }
+        }
+        return 0
+    }
+
     static var currentVersion: String {
+        let source = sourceVersion.trimmingCharacters(in: .whitespacesAndNewlines)
         if let bundleVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String,
            !bundleVersion.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return bundleVersion
+            let bundle = bundleVersion.trimmingCharacters(in: .whitespacesAndNewlines)
+            return compareVersions(source, bundle) >= 0 ? source : bundle
         }
-        return sourceVersion
+        return source
     }
     // UI
     var window: NSPanel!
@@ -3098,6 +3135,10 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             showHelp()
             return true
 
+        case "/help all commands":
+            showHelp()
+            return true
+
         case "/memory":
             showBrainMemory()
             return true
@@ -3123,6 +3164,10 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             return true
 
         case "/quests":
+            showDailyQuests()
+            return true
+
+        case "/quests daily quests":
             showDailyQuests()
             return true
 
@@ -3223,6 +3268,14 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             return true
 
         default:
+            if cmd.hasPrefix("/help ") {
+                showHelp()
+                return true
+            }
+            if cmd.hasPrefix("/quests ") {
+                showDailyQuests()
+                return true
+            }
             // Teach/train the pet brain
             if cmd.hasPrefix("/teach ") || cmd.hasPrefix("/train ") {
                 let fact = String(cmd.dropFirst(7)).trimmingCharacters(in: .whitespacesAndNewlines)
@@ -7165,6 +7218,25 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
     // MARK: - Auto-Update
 
+    func findFirstAppBundle(in rootPath: String) -> String? {
+        let fm = FileManager.default
+        let rootURL = URL(fileURLWithPath: rootPath)
+        guard let enumerator = fm.enumerator(
+            at: rootURL,
+            includingPropertiesForKeys: [.isDirectoryKey, .nameKey],
+            options: [.skipsHiddenFiles]
+        ) else {
+            return nil
+        }
+
+        for case let fileURL as URL in enumerator {
+            if fileURL.pathExtension.lowercased() == "app" {
+                return fileURL.path
+            }
+        }
+        return nil
+    }
+
     func checkForUpdate() {
         appendColored("🔄 Checking for updates...\n", color: cCyan)
         setState(.thinking)
@@ -7195,7 +7267,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
                     let remoteVersion = tagName.hasPrefix("v") ? String(tagName.dropFirst()) : tagName
 
-                    if remoteVersion == AgentODelegate.currentVersion {
+                    if AgentODelegate.compareVersions(remoteVersion, AgentODelegate.currentVersion) <= 0 {
                         self.appendColored("✅ Already up to date! v\(AgentODelegate.currentVersion)\n\n", color: self.cGreen, bold: true)
                         self.setState(.happy)
                         self.bubbleLabel.stringValue = speechBubble("Up to date!")
@@ -7270,16 +7342,19 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             unzipProc.arguments = ["-o", zipURL.path, "-d", tmpDir]
             try unzipProc.run()
             unzipProc.waitUntilExit()
+            guard unzipProc.terminationStatus == 0 else {
+                appendColored("❌ Failed to unzip update archive\n\n", color: cRed)
+                setState(.error)
+                return
+            }
 
-            // Find AgentO.app in extracted folder
-            let extracted = try fm.contentsOfDirectory(atPath: tmpDir)
-            guard let appName = extracted.first(where: { $0.hasSuffix(".app") }) else {
+            // Find .app in extracted folder (including nested dirs)
+            guard let newAppPath = findFirstAppBundle(in: tmpDir) else {
                 appendColored("❌ No .app found in update\n\n", color: cRed)
                 setState(.error)
                 return
             }
 
-            let newAppPath = tmpDir + "/" + appName
             let parentDir = (appPath as NSString).deletingLastPathComponent
             let backupPath = parentDir + "/AgentO-backup.app"
 
@@ -7324,6 +7399,11 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             proc.arguments = ["-o", zipURL.path, "-d", destDir]
             try proc.run()
             proc.waitUntilExit()
+            guard proc.terminationStatus == 0 else {
+                appendColored("❌ Failed to unzip update archive\n\n", color: cRed)
+                setState(.error)
+                return
+            }
 
             // Remove quarantine
             let xattr = Process()
@@ -7332,13 +7412,19 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             try xattr.run()
             xattr.waitUntilExit()
 
+            guard let appPath = findFirstAppBundle(in: destDir) else {
+                appendColored("❌ No .app found after extraction\n", color: cRed)
+                appendColored("  Folder: \(destDir)\n\n", color: cDimGray)
+                setState(.error)
+                return
+            }
+
             appendColored("✅ Downloaded v\(version) to:\n", color: cGreen, bold: true)
-            appendColored("  \(destDir)/AgentO.app\n", color: cCyan)
+            appendColored("  \(appPath)\n", color: cCyan)
             appendColored("  Opening it now...\n\n", color: cGray)
             setState(.happy)
             bubbleLabel.stringValue = speechBubble("Updated! v\(version)")
 
-            let appPath = "\(destDir)/AgentO.app"
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
                 let proc = Process()
                 proc.executableURL = URL(fileURLWithPath: "/usr/bin/open")
@@ -7366,7 +7452,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                       let tagName = json["tag_name"] as? String else { return }
 
                 let remoteVersion = tagName.hasPrefix("v") ? String(tagName.dropFirst()) : tagName
-                guard remoteVersion != AgentODelegate.currentVersion else { return }
+                guard AgentODelegate.compareVersions(remoteVersion, AgentODelegate.currentVersion) > 0 else { return }
 
                 DispatchQueue.main.async {
                     self.appendColored("🆕 Update available: v\(remoteVersion)! Type /update to install\n\n", color: self.cYellow, bold: true)
