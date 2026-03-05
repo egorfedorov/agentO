@@ -1658,10 +1658,13 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
     var battleActive = false
     var pendingBattlePollToken: UUID?
     var challengeInboxTimer: Timer?
+    var leaderboardSyncTimer: Timer?
     var knownIncomingChallengeKeys: Set<String> = []
     var activeDuel: BattleDuelContext?
     var duelStatusTimer: Timer?
     var duelLastStatusSignature: String = ""
+    var lastLeaderboardSubmittedSignature: String = ""
+    var lastSilentLeaderboardErrorAt: Date?
 
     // Clipboard watcher state
     var lastClipboard: String = ""
@@ -1724,6 +1727,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         pet.leaderboardUsername = playerUsername
         pet.leaderboardToken = playerAuthToken
         pet.save()
+        lastLeaderboardSubmittedSignature = ""
         setupMenuBar()
         setupMainWindow()
         setupMiniWindow()
@@ -2153,6 +2157,9 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         }
         challengeInboxTimer = Timer.scheduledTimer(withTimeInterval: 8.0, repeats: true) { [weak self] _ in
             self?.checkIncomingBattleChallenges(silent: true)
+        }
+        leaderboardSyncTimer = Timer.scheduledTimer(withTimeInterval: 120.0, repeats: true) { [weak self] _ in
+            self?.syncLeaderboardIfNeeded()
         }
     }
 
@@ -3313,6 +3320,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                         playerAuthToken = ""
                         UserDefaults.standard.removeObject(forKey: "agento_player_token")
                         pet.leaderboardToken = ""
+                        lastLeaderboardSubmittedSignature = ""
                         appendColored("🔐 Username changed: auth token reset for new owner binding\n", color: cDimGray)
                     }
                     pet.save()
@@ -5119,15 +5127,52 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
     // MARK: - Leaderboard
 
-    func submitToLeaderboard() {
+    func leaderboardSignature() -> String {
+        let data = [
+            playerUsername.lowercased(),
+            String(pet.level),
+            String(pet.xp),
+            String(pet.totalCommands),
+            String(pet.streak),
+            String(pet.unlockedAchievements.count),
+            String(pet.hunger),
+            String(pet.happiness),
+            String(pet.energy),
+            currentSkin.rawValue
+        ]
+        return data.joined(separator: "|")
+    }
+
+    func maybeShowSilentLeaderboardError(_ text: String) {
+        let now = Date()
+        if let last = lastSilentLeaderboardErrorAt, now.timeIntervalSince(last) < 300 {
+            return
+        }
+        lastSilentLeaderboardErrorAt = now
+        appendColored("⚠️  Auto-sync failed: \(text)\n", color: cYellow)
+        appendColored("  Run /leaderboard to retry and see details.\n\n", color: cDimGray)
+    }
+
+    func syncLeaderboardIfNeeded() {
+        guard !playerUsername.isEmpty else { return }
+        let currentSignature = leaderboardSignature()
+        if currentSignature == lastLeaderboardSubmittedSignature { return }
+        submitToLeaderboard(silent: true)
+    }
+
+    func submitToLeaderboard(silent: Bool = false) {
         if playerUsername.isEmpty {
-            appendColored("❌ Set your name first: /name YourName\n\n", color: cRed)
+            if !silent {
+                appendColored("❌ Set your name first: /name YourName\n\n", color: cRed)
+            }
             return
         }
 
-        setState(.thinking)
-        bubbleLabel.stringValue = speechBubble("Publishing to leaderboard...")
-        appendColored("🏆 Submitting to leaderboard...\n", color: cYellow)
+        if !silent {
+            setState(.thinking)
+            bubbleLabel.stringValue = speechBubble("Publishing to leaderboard...")
+            appendColored("🏆 Submitting to leaderboard...\n", color: cYellow)
+        }
 
         if playerAuthToken.isEmpty {
             playerAuthToken = UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
@@ -5153,8 +5198,10 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
         guard let jsonData = try? JSONSerialization.data(withJSONObject: payload),
               let url = URL(string: "\(AgentODelegate.leaderboardURL)/api/submit") else {
-            appendColored("❌ Failed to create request\n\n", color: cRed)
-            setState(.error)
+            if !silent {
+                appendColored("❌ Failed to create request\n\n", color: cRed)
+                setState(.error)
+            }
             return
         }
 
@@ -5167,8 +5214,12 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             DispatchQueue.main.async {
                 guard let self = self else { return }
                 if let error = error {
-                    self.appendColored("❌ \(error.localizedDescription)\n\n", color: self.cRed)
-                    self.setState(.error)
+                    if silent {
+                        self.maybeShowSilentLeaderboardError(error.localizedDescription)
+                    } else {
+                        self.appendColored("❌ \(error.localizedDescription)\n\n", color: self.cRed)
+                        self.setState(.error)
+                    }
                     return
                 }
 
@@ -5177,8 +5228,17 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                    let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
                     if statusCode >= 400 {
                         let errorText = json["error"] as? String ?? "Submit failed (HTTP \(statusCode))"
-                        self.appendColored("❌ \(errorText)\n\n", color: self.cRed)
-                        self.setState(.error)
+                        if silent {
+                            self.maybeShowSilentLeaderboardError(errorText)
+                        } else {
+                            self.appendColored("❌ \(errorText)\n", color: self.cRed)
+                            if errorText.lowercased().contains("protected by another device token") {
+                                self.appendColored("  Your saved token does not match server owner token.\n", color: self.cDimGray)
+                                self.appendColored("  Quick fix: set new name with /name NewName, then /leaderboard.\n", color: self.cDimGray)
+                            }
+                            self.appendOutput("\n")
+                            self.setState(.error)
+                        }
                         return
                     }
 
@@ -5189,27 +5249,40 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                         self.pet.leaderboardUsername = self.playerUsername
                         self.pet.save()
                     }
+                    self.lastLeaderboardSubmittedSignature = self.leaderboardSignature()
+                    self.lastSilentLeaderboardErrorAt = nil
 
-                    if let rank = json["rank"] as? Int {
-                        self.appendColored("✅ Published! ", color: self.cGreen, bold: true)
-                        self.appendColored("Rank: #\(rank)\n", color: self.cYellow, bold: true)
-                        self.appendColored("  Protected profile: enabled\n", color: self.cDimGray)
-                        self.appendColored("  View: \(AgentODelegate.leaderboardURL)\n\n", color: self.cCyan)
-                        self.setState(.happy)
-                        self.bubbleLabel.stringValue = speechBubble("Rank #\(rank)! 🏆")
-                        self.playSound("Glass")
-                    } else {
-                        self.appendColored("✅ Submitted!\n", color: self.cGreen, bold: true)
-                        self.appendColored("  Protected profile: enabled\n", color: self.cDimGray)
-                        self.appendColored("  View: \(AgentODelegate.leaderboardURL)\n\n", color: self.cCyan)
-                        self.setState(.happy)
+                    if !silent {
+                        if let rank = json["rank"] as? Int {
+                            self.appendColored("✅ Published! ", color: self.cGreen, bold: true)
+                            self.appendColored("Rank: #\(rank)\n", color: self.cYellow, bold: true)
+                            self.appendColored("  Protected profile: enabled\n", color: self.cDimGray)
+                            self.appendColored("  View: \(AgentODelegate.leaderboardURL)\n\n", color: self.cCyan)
+                            self.setState(.happy)
+                            self.bubbleLabel.stringValue = speechBubble("Rank #\(rank)! 🏆")
+                            self.playSound("Glass")
+                        } else {
+                            self.appendColored("✅ Submitted!\n", color: self.cGreen, bold: true)
+                            self.appendColored("  Protected profile: enabled\n", color: self.cDimGray)
+                            self.appendColored("  View: \(AgentODelegate.leaderboardURL)\n\n", color: self.cCyan)
+                            self.setState(.happy)
+                        }
                     }
                 } else if statusCode >= 400 {
-                    self.appendColored("❌ Submit failed (HTTP \(statusCode))\n\n", color: self.cRed)
-                    self.setState(.error)
+                    let msg = "Submit failed (HTTP \(statusCode))"
+                    if silent {
+                        self.maybeShowSilentLeaderboardError(msg)
+                    } else {
+                        self.appendColored("❌ \(msg)\n\n", color: self.cRed)
+                        self.setState(.error)
+                    }
                 } else {
-                    self.appendColored("✅ Submitted!\n\n", color: self.cGreen, bold: true)
-                    self.setState(.happy)
+                    self.lastLeaderboardSubmittedSignature = self.leaderboardSignature()
+                    self.lastSilentLeaderboardErrorAt = nil
+                    if !silent {
+                        self.appendColored("✅ Submitted!\n\n", color: self.cGreen, bold: true)
+                        self.setState(.happy)
+                    }
                 }
             }
         }
