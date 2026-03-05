@@ -2362,6 +2362,12 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         // Built-in commands
         if handleBuiltinCommand(prompt) { return }
 
+        // Translation: EN <text>, RU <text>, etc.
+        if let (targetLang, textToTranslate) = parseTranslateCommand(prompt) {
+            translateText(textToTranslate, to: targetLang)
+            return
+        }
+
         // Determine CLI
         var cli = "claude"
         var actualPrompt = prompt
@@ -2787,6 +2793,93 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         appendOutput("all commands\n\n")
     }
 
+    // MARK: - Translation
+
+    static let translateLangs: Set<String> = [
+        "EN", "RU", "ES", "FR", "DE", "IT", "PT", "JA", "KO", "ZH", "AR", "HI", "TR", "PL", "NL", "UK", "CS", "SV"
+    ]
+
+    func parseTranslateCommand(_ input: String) -> (String, String)? {
+        let trimmed = input.trimmingCharacters(in: .whitespaces)
+        guard trimmed.count > 3 else { return nil }
+        let prefix = String(trimmed.prefix(2)).uppercased()
+        let thirdChar = trimmed[trimmed.index(trimmed.startIndex, offsetBy: 2)]
+        guard thirdChar == " ", AgentODelegate.translateLangs.contains(prefix) else { return nil }
+        let text = String(trimmed.dropFirst(3)).trimmingCharacters(in: .whitespaces)
+        guard !text.isEmpty else { return nil }
+        return (prefix.lowercased(), text)
+    }
+
+    func translateText(_ text: String, to targetLang: String) {
+        setState(.thinking)
+        bubbleLabel.stringValue = speechBubble("Translating → \(targetLang.uppercased())...")
+        appendColored("🌐 Translating to \(targetLang.uppercased())...\n", color: cPurple)
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
+            let encoded = text.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? text
+            let urlString = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=\(targetLang)&dt=t&q=\(encoded)"
+            guard let url = URL(string: urlString) else {
+                DispatchQueue.main.async {
+                    self.appendColored("❌ Translation error\n\n", color: self.cRed)
+                    self.setState(.error)
+                }
+                return
+            }
+
+            let task = URLSession.shared.dataTask(with: url) { data, response, error in
+                DispatchQueue.main.async {
+                    if let error = error {
+                        self.appendColored("❌ \(error.localizedDescription)\n\n", color: self.cRed)
+                        self.setState(.error)
+                        return
+                    }
+                    guard let data = data else {
+                        self.appendColored("❌ No response\n\n", color: self.cRed)
+                        self.setState(.error)
+                        return
+                    }
+
+                    // Parse Google Translate JSON response
+                    // Format: [[["translated text","original text",null,null,10]],null,"ru",...]
+                    if let json = try? JSONSerialization.jsonObject(with: data) as? [Any],
+                       let sentences = json.first as? [Any] {
+                        var translated = ""
+                        for item in sentences {
+                            if let sentence = item as? [Any], let text = sentence.first as? String {
+                                translated += text
+                            }
+                        }
+                        if !translated.isEmpty {
+                            self.appendColored("✅ \(targetLang.uppercased()): ", color: self.cGreen, bold: true)
+                            self.appendOutput("\(translated)\n")
+                            // Copy to clipboard
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(translated, forType: .string)
+                            self.appendColored("📋 Copied to clipboard!\n\n", color: self.cGray)
+                            self.bubbleLabel.stringValue = speechBubble("Translated! 📋")
+                            self.setState(.happy)
+                            self.playSound("Pop")
+
+                            // XP for translation
+                            let oldLevel = self.pet.level
+                            self.pet.onCommandRun()
+                            self.pet.save()
+                            self.refreshStatsDisplay()
+                            if self.pet.level > oldLevel {
+                                self.appendColored("⭐ LEVEL UP! → \(self.pet.level)!\n", color: self.cYellow, bold: true)
+                            }
+                            return
+                        }
+                    }
+                    self.appendColored("❌ Could not parse translation\n\n", color: self.cRed)
+                    self.setState(.error)
+                }
+            }
+            task.resume()
+        }
+    }
+
     func showHelp() {
         appendColored("╭── Commands ─────────────────────────╮\n", color: cCyan)
         appendColored("  CLI\n", color: cPurple, bold: true)
@@ -2835,6 +2928,16 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             ("!en", "→ English language"),
         ]
         for (cmd, desc) in custCmds {
+            appendColored("  \(cmd.padding(toLength: 16, withPad: " ", startingAt: 0))", color: cYellow)
+            appendOutput("\(desc)\n")
+        }
+        appendColored("  Translation\n", color: cPurple, bold: true)
+        let transCmds: [(String, String)] = [
+            ("EN <text>", "→ translate to English"),
+            ("RU <text>", "→ translate to Russian"),
+            ("ES/FR/DE...", "→ any language (18 supported)"),
+        ]
+        for (cmd, desc) in transCmds {
             appendColored("  \(cmd.padding(toLength: 16, withPad: " ", startingAt: 0))", color: cYellow)
             appendOutput("\(desc)\n")
         }

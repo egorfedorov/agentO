@@ -65,6 +65,13 @@ Unlock badges for milestones — first command, 100 commands, commits, streaks, 
 - `!break` — 5 min break
 - +40 XP per completed pomodoro
 
+### Instant Translation
+- Type `EN текст` to translate to English
+- Type `RU text` to translate to Russian
+- **18 languages** supported: EN, RU, ES, FR, DE, IT, PT, JA, KO, ZH, AR, HI, TR, PL, NL, UK, CS, SV
+- Translation auto-copied to clipboard
+- Powered by Google Translate (no API key needed)
+
 ### Customization
 - **4 Skins:** Robot, Cat, Skull, Clippy
 - **5 Themes:** Matrix, Cyberpunk, Sunset, Ocean, Hacker
@@ -102,6 +109,9 @@ Unlock badges for milestones — first command, 100 commands, commits, streaks, 
 | `!stoppomo` | Stop timer |
 | `!skin <name>` | robot/cat/skull/clippy |
 | `!theme <name>` | matrix/cyberpunk/sunset/ocean/hacker |
+| `EN <text>` | Translate to English |
+| `RU <text>` | Translate to Russian |
+| `XX <text>` | Translate to any of 18 languages |
 | `!git` | Git project status |
 | `!ps` | Monitor processes |
 | `!tip` | Random tip |
