@@ -1366,6 +1366,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
     // UI
     var window: NSPanel!
     var miniWindow: NSPanel!
+    var miniLabel: NSTextField!
     var agentLabel: NSTextField!
     var bubbleLabel: NSTextField!
     var inputField: NSTextField!
@@ -1393,6 +1394,9 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
     var historyIndex = -1
     var lastInteraction = Date()
     var isWindowVisible = true
+    var isCompactMode = false
+    var dividerView: NSBox!
+    var sendBtn: NSButton!
     var globalMonitor: Any?
     var localMonitor: Any?
     var pet = PetStats.load()
@@ -1610,10 +1614,10 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
         // Divider
         yPos -= 6
-        let divider = NSBox(frame: NSRect(x: 16, y: yPos, width: w - 32, height: 1))
-        divider.boxType = .separator
-        divider.autoresizingMask = [.width, .minYMargin]
-        dropContainer.addSubview(divider)
+        dividerView = NSBox(frame: NSRect(x: 16, y: yPos, width: w - 32, height: 1))
+        dividerView.boxType = .separator
+        dividerView.autoresizingMask = [.width, .minYMargin]
+        dropContainer.addSubview(dividerView)
 
         // Quick action buttons row
         yPos -= 28
@@ -1677,7 +1681,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         dropContainer.addSubview(inputField)
 
         // Send button
-        let sendBtn = NSButton(frame: NSRect(x: w - 65, y: 10, width: 55, height: 30))
+        sendBtn = NSButton(frame: NSRect(x: w - 65, y: 10, width: 55, height: 30))
         sendBtn.title = "▶ Go"
         sendBtn.bezelStyle = .rounded
         sendBtn.target = self
@@ -1705,8 +1709,10 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
     func setupMiniWindow() {
         let screen = NSScreen.main!.visibleFrame
+        let mw: CGFloat = 52
+        let mh: CGFloat = 52
         miniWindow = NSPanel(
-            contentRect: NSRect(x: screen.maxX - 80, y: screen.minY + 16, width: 70, height: 30),
+            contentRect: NSRect(x: screen.maxX - mw - 16, y: screen.minY + 16, width: mw, height: mh),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -1715,23 +1721,32 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         miniWindow.level = .floating
         miniWindow.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         miniWindow.isMovableByWindowBackground = true
-        miniWindow.backgroundColor = bgColor
+        miniWindow.backgroundColor = .clear
         miniWindow.hasShadow = true
         miniWindow.isOpaque = false
 
-        let miniLabel = NSTextField(labelWithString: currentSkin.mini)
-        miniLabel.frame = NSRect(x: 0, y: 0, width: 70, height: 30)
-        miniLabel.font = NSFont.monospacedSystemFont(ofSize: 14, weight: .bold)
+        // Rounded container
+        let container = NSView(frame: NSRect(x: 0, y: 0, width: mw, height: mh))
+        container.wantsLayer = true
+        container.layer?.cornerRadius = 14
+        container.layer?.backgroundColor = NSColor(red: 0.08, green: 0.08, blue: 0.12, alpha: 0.95).cgColor
+        container.layer?.borderColor = NSColor(red: 0.3, green: 0.82, blue: 0.9, alpha: 0.4).cgColor
+        container.layer?.borderWidth = 1.5
+
+        miniLabel = NSTextField(labelWithString: currentSkin.mini)
+        miniLabel.frame = NSRect(x: 0, y: 4, width: mw, height: mh - 4)
+        miniLabel.font = NSFont.monospacedSystemFont(ofSize: 20, weight: .bold)
         miniLabel.textColor = cCyan
         miniLabel.alignment = .center
 
-        let clickArea = NSButton(frame: NSRect(x: 0, y: 0, width: 70, height: 30))
+        let clickArea = NSButton(frame: NSRect(x: 0, y: 0, width: mw, height: mh))
         clickArea.isTransparent = true
         clickArea.target = self
         clickArea.action = #selector(toggleWindow)
 
-        miniWindow.contentView?.addSubview(miniLabel)
-        miniWindow.contentView?.addSubview(clickArea)
+        container.addSubview(miniLabel)
+        container.addSubview(clickArea)
+        miniWindow.contentView = container
     }
 
     // MARK: - Global Hotkey (Cmd+Shift+O)
@@ -1762,6 +1777,104 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             window.makeFirstResponder(inputField)
         }
         isWindowVisible.toggle()
+    }
+
+    // MARK: - Compact / Full Mode
+
+    func switchToCompactMode() {
+        guard !isCompactMode else { return }
+        isCompactMode = true
+
+        // Hide elements
+        bubbleLabel.isHidden = true
+        statsLabel.isHidden = true
+        gitStatusLabel.isHidden = true
+        dividerView.isHidden = true
+        commitBtn.isHidden = true
+        testBtn.isHidden = true
+        explainBtn.isHidden = true
+        reviewBtn.isHidden = true
+
+        // Resize: ASCII (120) + output (flexible) + input (40) + padding
+        let w: CGFloat = 380
+        let h: CGFloat = 420
+        let screen = NSScreen.main!.visibleFrame
+        let x = screen.maxX - w - 16
+        let y = screen.minY + 16
+
+        window.setFrame(NSRect(x: x, y: y, width: w, height: h), display: true, animate: true)
+        window.minSize = NSSize(width: 300, height: 300)
+
+        // Reposition: agent label at top
+        agentLabel.frame = NSRect(x: 10, y: h - 30 - 100, width: w - 20, height: 100)
+        agentLabel.font = NSFont.monospacedSystemFont(ofSize: 10, weight: .medium)
+
+        // Output takes the middle
+        let outputTop = h - 30 - 105
+        outputScroll.frame = NSRect(x: 10, y: 48, width: w - 20, height: outputTop - 52)
+
+        // Input at bottom
+        inputField.frame = NSRect(x: 10, y: 12, width: w - 80, height: 28)
+        sendBtn.frame = NSRect(x: w - 65, y: 10, width: 55, height: 30)
+
+        window.title = "Agent-O"
+        appendColored("📐 Compact mode — type !full to expand\n\n", color: cGray)
+        playSound("Pop")
+    }
+
+    func switchToFullMode() {
+        guard isCompactMode else { return }
+        isCompactMode = false
+
+        // Show elements
+        bubbleLabel.isHidden = false
+        statsLabel.isHidden = false
+        gitStatusLabel.isHidden = false
+        dividerView.isHidden = false
+        commitBtn.isHidden = false
+        testBtn.isHidden = false
+        explainBtn.isHidden = false
+        reviewBtn.isHidden = false
+
+        // Resize back
+        let w: CGFloat = 440
+        let h: CGFloat = 760
+        let screen = NSScreen.main!.visibleFrame
+        let x = screen.maxX - w - 16
+        let y = screen.minY + 16
+
+        window.setFrame(NSRect(x: x, y: y, width: w, height: h), display: true, animate: true)
+        window.minSize = NSSize(width: 360, height: 500)
+
+        // Restore layout
+        var yPos = h - 30
+        yPos -= 75
+        bubbleLabel.frame = NSRect(x: 10, y: yPos, width: w - 20, height: 75)
+        yPos -= 150
+        agentLabel.frame = NSRect(x: 10, y: yPos, width: w - 20, height: 150)
+        agentLabel.font = NSFont.monospacedSystemFont(ofSize: 12, weight: .medium)
+        yPos -= 48
+        statsLabel.frame = NSRect(x: 10, y: yPos, width: w - 20, height: 44)
+        yPos -= 16
+        gitStatusLabel.frame = NSRect(x: 10, y: yPos, width: w - 20, height: 14)
+        yPos -= 6
+        dividerView.frame = NSRect(x: 16, y: yPos, width: w - 32, height: 1)
+        yPos -= 28
+        let btnW: CGFloat = 95
+        let btnGap: CGFloat = 6
+        commitBtn.frame = NSRect(x: 10, y: yPos, width: btnW, height: 22)
+        testBtn.frame = NSRect(x: 10 + btnW + btnGap, y: yPos, width: btnW, height: 22)
+        explainBtn.frame = NSRect(x: 10 + (btnW + btnGap)*2, y: yPos, width: btnW, height: 22)
+        reviewBtn.frame = NSRect(x: 10 + (btnW + btnGap)*3, y: yPos, width: btnW, height: 22)
+        yPos -= 6
+        let outputH = yPos - 48
+        outputScroll.frame = NSRect(x: 10, y: 48, width: w - 20, height: outputH)
+        inputField.frame = NSRect(x: 10, y: 12, width: w - 80, height: 28)
+        sendBtn.frame = NSRect(x: w - 65, y: 10, width: 55, height: 30)
+
+        window.title = "Agent-O v2"
+        appendColored("📐 Full mode restored\n\n", color: cGray)
+        playSound("Pop")
     }
 
     // MARK: - Timers
@@ -2442,6 +2555,14 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             outputText.textStorage?.setAttributedString(NSAttributedString(string: ""))
             bubbleLabel.stringValue = speechBubble(L10n.t("cleared"))
             playSound("Pop")
+            return true
+
+        case "!compact":
+            switchToCompactMode()
+            return true
+
+        case "!full":
+            switchToFullMode()
             return true
 
         case "!tip":
