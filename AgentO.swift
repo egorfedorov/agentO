@@ -1599,7 +1599,14 @@ struct BattleDuelContext {
 // MARK: - Main App Delegate
 
 class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
-    static let currentVersion = "6.1.4"
+    static let sourceVersion = "6.1.6"
+    static var currentVersion: String {
+        if let bundleVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String,
+           !bundleVersion.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return bundleVersion
+        }
+        return sourceVersion
+    }
     // UI
     var window: NSPanel!
     var miniWindow: NSPanel!
