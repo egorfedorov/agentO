@@ -1507,7 +1507,7 @@ class PetBrain {
 // MARK: - Main App Delegate
 
 class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
-    static let currentVersion = "6.0.0"
+    static let currentVersion = "6.1.0"
     // UI
     var window: NSPanel!
     var miniWindow: NSPanel!
