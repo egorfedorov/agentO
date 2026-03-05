@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0d0d1a"/>
+      <stop offset="100%" stop-color="#1a1a2e"/>
+    </linearGradient>
+    <linearGradient id="body-grad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2a2a4a"/>
+      <stop offset="100%" stop-color="#1a1a35"/>
+    </linearGradient>
+    <linearGradient id="screen-grad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0a2a3a"/>
+      <stop offset="100%" stop-color="#0a1a2a"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#4dd4e6"/>
+      <stop offset="100%" stop-color="#b388ff"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#4dd4e6" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#4dd4e6" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background rounded square -->
+  <rect width="512" height="512" rx="110" fill="url(#bg)"/>
+
+  <!-- Subtle grid pattern -->
+  <g opacity="0.04" stroke="#4dd4e6" stroke-width="0.5">
+    <line x1="0" y1="128" x2="512" y2="128"/>
+    <line x1="0" y1="256" x2="512" y2="256"/>
+    <line x1="0" y1="384" x2="512" y2="384"/>
+    <line x1="128" y1="0" x2="128" y2="512"/>
+    <line x1="256" y1="0" x2="256" y2="512"/>
+    <line x1="384" y1="0" x2="384" y2="512"/>
+  </g>
+
+  <!-- Antenna base -->
+  <rect x="244" y="52" width="24" height="30" rx="4" fill="#3a3a5a"/>
+
+  <!-- Antenna tip glow -->
+  <circle cx="256" cy="46" r="12" fill="#4dd4e6" opacity="0.15"/>
+  <circle cx="256" cy="46" r="8" fill="#4dd4e6" opacity="0.3"/>
+  <circle cx="256" cy="46" r="5" fill="#4dd4e6"/>
+
+  <!-- Head -->
+  <rect x="126" y="80" width="260" height="190" rx="24" fill="url(#body-grad)" stroke="#4dd4e640" stroke-width="2"/>
+
+  <!-- Screen / face area -->
+  <rect x="152" y="105" width="208" height="140" rx="16" fill="url(#screen-grad)" stroke="#4dd4e630" stroke-width="1.5"/>
+
+  <!-- Eyes -->
+  <circle cx="210" cy="165" r="22" fill="#0a1a2a" stroke="#4dd4e6" stroke-width="2.5"/>
+  <circle cx="210" cy="165" r="12" fill="#00e676"/>
+  <circle cx="210" cy="160" r="5" fill="#ffffff" opacity="0.7"/>
+
+  <circle cx="302" cy="165" r="22" fill="#0a1a2a" stroke="#4dd4e6" stroke-width="2.5"/>
+  <circle cx="302" cy="165" r="12" fill="#00e676"/>
+  <circle cx="302" cy="160" r="5" fill="#ffffff" opacity="0.7"/>
+
+  <!-- Mouth -->
+  <rect x="212" y="208" width="88" height="16" rx="8" fill="#0a1a2a" stroke="#4dd4e6" stroke-width="1.5"/>
+  <!-- Mouth segments (teeth/smile) -->
+  <line x1="234" y1="208" x2="234" y2="224" stroke="#4dd4e640" stroke-width="1"/>
+  <line x1="256" y1="208" x2="256" y2="224" stroke="#4dd4e640" stroke-width="1"/>
+  <line x1="278" y1="208" x2="278" y2="224" stroke="#4dd4e640" stroke-width="1"/>
+
+  <!-- Ear panels -->
+  <rect x="106" y="130" width="24" height="60" rx="8" fill="#3a3a5a" stroke="#4dd4e630" stroke-width="1"/>
+  <rect x="382" y="130" width="24" height="60" rx="8" fill="#3a3a5a" stroke="#4dd4e630" stroke-width="1"/>
+
+  <!-- Neck -->
+  <rect x="232" y="270" width="48" height="24" rx="4" fill="#3a3a5a"/>
+
+  <!-- Body -->
+  <rect x="146" y="290" width="220" height="130" rx="20" fill="url(#body-grad)" stroke="#4dd4e640" stroke-width="2"/>
+
+  <!-- Body screen / chest display -->
+  <rect x="176" y="310" width="160" height="50" rx="10" fill="url(#screen-grad)" stroke="#4dd4e630" stroke-width="1"/>
+
+  <!-- AGENT-O text on chest -->
+  <text x="256" y="342" text-anchor="middle" font-family="'SF Mono', 'Consolas', monospace" font-size="22" font-weight="bold" fill="#4dd4e6" letter-spacing="3">AGENT-O</text>
+
+  <!-- Chest indicator lights -->
+  <circle cx="200" cy="380" r="5" fill="#00e676"/>
+  <circle cx="224" cy="380" r="5" fill="#ffd740"/>
+  <circle cx="248" cy="380" r="5" fill="#ff4081"/>
+  <circle cx="272" cy="380" r="5" fill="#4dd4e6"/>
+  <circle cx="296" cy="380" r="5" fill="#b388ff"/>
+  <circle cx="320" cy="380" r="5" fill="#00e676"/>
+
+  <!-- Arms -->
+  <rect x="96" y="300" width="50" height="20" rx="10" fill="#3a3a5a" stroke="#4dd4e630" stroke-width="1"/>
+  <rect x="366" y="300" width="50" height="20" rx="10" fill="#3a3a5a" stroke="#4dd4e630" stroke-width="1"/>
+
+  <!-- Legs -->
+  <rect x="190" y="420" width="40" height="50" rx="8" fill="#3a3a5a" stroke="#4dd4e630" stroke-width="1"/>
+  <rect x="282" y="420" width="40" height="50" rx="8" fill="#3a3a5a" stroke="#4dd4e630" stroke-width="1"/>
+
+  <!-- Feet -->
+  <rect x="178" y="460" width="64" height="20" rx="10" fill="#2a2a4a" stroke="#4dd4e630" stroke-width="1"/>
+  <rect x="270" y="460" width="64" height="20" rx="10" fill="#2a2a4a" stroke="#4dd4e630" stroke-width="1"/>
+
+  <!-- Ambient glow under robot -->
+  <ellipse cx="256" cy="488" rx="120" ry="8" fill="#4dd4e6" opacity="0.08"/>
+</svg>
