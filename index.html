@@ -3,7 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Agent-O — Your ASCII Desktop Companion</title>
+    <title>Agent-O — Your ASCII Desktop Companion for AI Coding</title>
+    <meta name="description" content="A native macOS floating Tamagotchi that integrates with Claude CLI & Codex CLI. Zero dependencies, pure Swift. Feed it, play with it, watch it evolve as you code.">
+    <meta property="og:title" content="Agent-O — ASCII Desktop Companion">
+    <meta property="og:description" content="A floating Tamagotchi for developers. Integrates with Claude CLI & Codex CLI. Zero dependencies, pure Swift.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://egorfedorov.github.io/agentO/">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Agent-O — ASCII Desktop Companion">
+    <meta name="twitter:description" content="A floating Tamagotchi for developers. Feed it, play with it, watch it evolve as you code.">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700;800&display=swap');
 
@@ -93,6 +101,28 @@
             50% { transform: translateY(-10px); }
         }
 
+        .badge-row {
+            display: flex;
+            gap: 0.6rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.2rem 0.7rem;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .badge-swift { background: rgba(255, 110, 64, 0.15); color: var(--orange); border: 1px solid rgba(255, 110, 64, 0.3); }
+        .badge-macos { background: rgba(77, 212, 230, 0.15); color: var(--cyan); border: 1px solid rgba(77, 212, 230, 0.3); }
+        .badge-zero { background: rgba(0, 230, 118, 0.15); color: var(--green); border: 1px solid rgba(0, 230, 118, 0.3); }
+        .badge-mit { background: rgba(179, 136, 255, 0.15); color: var(--purple); border: 1px solid rgba(179, 136, 255, 0.3); }
+
         .title {
             font-size: 3.5rem;
             font-weight: 800;
@@ -108,14 +138,23 @@
             font-size: 1.2rem;
             color: var(--gray);
             font-weight: 300;
-            margin-bottom: 2rem;
+            margin-bottom: 1rem;
             text-align: center;
-            max-width: 600px;
+            max-width: 650px;
         }
 
         .subtitle span {
             color: var(--green);
             font-weight: 500;
+        }
+
+        .hero-tagline {
+            font-size: 0.9rem;
+            color: var(--gray);
+            margin-bottom: 2rem;
+            text-align: center;
+            max-width: 500px;
+            opacity: 0.7;
         }
 
         .cta-row {
@@ -295,7 +334,7 @@
 
         .skin-ascii {
             white-space: pre;
-            font-size: 0.65rem;
+            font-size: 0.55rem;
             line-height: 1.2;
             color: var(--cyan);
             margin-bottom: 0.5rem;
@@ -356,6 +395,22 @@
         .t-orange { color: var(--orange); }
         .t-white { color: var(--white); }
         .t-bold { font-weight: 700; }
+
+        /* Video/GIF placeholder */
+        .demo-placeholder {
+            background: var(--bg2);
+            border: 1px solid rgba(77, 212, 230, 0.15);
+            border-radius: 12px;
+            padding: 3rem;
+            text-align: center;
+            margin: 2rem 0;
+        }
+
+        .demo-placeholder .play-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
 
         /* Roadmap */
         .roadmap {
@@ -487,6 +542,27 @@
             margin-top: 0.3rem;
         }
 
+        /* "Built with" section */
+        .built-with {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            flex-wrap: wrap;
+            margin: 2rem 0;
+        }
+
+        .built-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--gray);
+            font-size: 0.85rem;
+        }
+
+        .built-item strong {
+            color: var(--white);
+        }
+
         /* Footer */
         footer {
             text-align: center;
@@ -510,19 +586,7 @@
             .features { grid-template-columns: 1fr; }
             .agent-ascii { font-size: 0.8rem; }
             .stats-bar { gap: 1.5rem; }
-        }
-
-        /* Typing animation for terminal demo */
-        .typewriter {
-            overflow: hidden;
-            animation: typing 2s steps(30) 1s forwards;
-            width: 0;
-            white-space: nowrap;
-        }
-
-        @keyframes typing {
-            from { width: 0; }
-            to { width: 100%; }
+            .skin-ascii { font-size: 0.45rem; }
         }
     </style>
 </head>
@@ -533,27 +597,40 @@
 <!-- Hero -->
 <div class="hero">
     <div class="agent-ascii" id="agent-anim">
-   ╭─────────╮
-   │  ◉   ◉  │
-   │    ▽    │
-   │  ╰───╯  │
-   ╰────┬────╯
-        │
-   ╭────┴────╮
-   │ AGENT-O │
-   ╰─────────╯
-      │   │
-      ╵   ╵</div>
+        ┌┤██├┐
+    ┌───┤ ▓▓ ├───┐
+    │ ╔═══════╗  │
+    │ ║ ●   ● ║  │
+    │ ║   ═   ║  │
+    │ ║ └───┘ ║  │
+    │ ╚═══════╝  │
+    └──────┬──────┘
+     ┌─────┴─────┐
+     │  AGENT-O  │
+     │ ░░░░░░░░░ │
+     └─────┬─────┘
+       ┌───┴───┐
+       █       █</div>
 
     <h1 class="title">Agent-O</h1>
     <p class="subtitle">
         Your <span>ASCII desktop companion</span> for Claude CLI & Codex CLI.
         A floating Tamagotchi that helps you code, learns, evolves, and keeps you company.
     </p>
+    <p class="hero-tagline">
+        Native macOS app. Zero dependencies. ~50KB binary. Written entirely by AI.
+    </p>
+
+    <div class="badge-row">
+        <span class="badge badge-swift">Swift 5</span>
+        <span class="badge badge-macos">macOS 12+</span>
+        <span class="badge badge-zero">0 Dependencies</span>
+        <span class="badge badge-mit">MIT License</span>
+    </div>
 
     <div class="cta-row">
         <a href="https://github.com/egorfedorov/agentO" class="btn btn-primary">
-            &#9733; Star on GitHub
+            &#9733; View on GitHub
         </a>
         <a href="#install" class="btn btn-secondary">
             $ ./run.sh
@@ -590,7 +667,7 @@
 <!-- Features -->
 <section>
     <h2 class="section-title">What <span class="accent">Agent-O</span> can do</h2>
-    <p class="section-sub">A native macOS floating panel with zero dependencies. Built with Swift + AppKit.</p>
+    <p class="section-sub">A native macOS floating panel. Built with Swift + AppKit. No Electron, no Python, no bloat.</p>
 
     <div class="features">
         <div class="feature-card">
@@ -608,7 +685,7 @@
         <div class="feature-card">
             <span class="feature-icon">&#128640;</span>
             <h3>Evolution & Leveling</h3>
-            <p>Baby &rarr; Evolved &rarr; Epic &rarr; Mythic &rarr; Cosmic. Each stage unlocks new visual flair for your agent.</p>
+            <p>Baby &#8594; Evolved &#8594; Epic &#8594; Mythic &#8594; Cosmic. Each stage unlocks new visual flair for your agent.</p>
             <span class="tag tag-new">NEW</span>
         </div>
         <div class="feature-card">
@@ -632,7 +709,7 @@
         <div class="feature-card">
             <span class="feature-icon">&#127912;</span>
             <h3>Skins & Themes</h3>
-            <p>4 character skins (Robot, Cat, Skull, Clippy) and 5 color themes (Matrix, Cyberpunk, Sunset, Ocean, Hacker).</p>
+            <p>4 detailed character skins (Robot, Cat, Skull, Clippy) and 5 color themes (Matrix, Cyberpunk, Sunset, Ocean, Hacker).</p>
             <span class="tag tag-fun">FUN</span>
         </div>
         <div class="feature-card">
@@ -671,61 +748,79 @@
 <!-- Skins -->
 <section>
     <h2 class="section-title">Choose your <span class="accent">skin</span></h2>
-    <p class="section-sub">4 unique ASCII characters. Switch anytime with !skin command.</p>
+    <p class="section-sub">4 unique ASCII characters with detailed art. Switch anytime with <code style="color: var(--green);">!skin</code> command.</p>
 
     <div class="skins-grid">
         <div class="skin-card">
             <div class="skin-ascii">
- ╭─────────╮
- │  ◉   ◉  │
- │    ▽    │
- │  ╰───╯  │
- ╰────┬────╯
-      │
- ╭────┴────╮
- │ AGENT-O │
- ╰─────────╯</div>
+        ┌┤██├┐
+    ┌───┤ ▓▓ ├───┐
+    │ ╔═══════╗  │
+    │ ║ ●   ● ║  │
+    │ ║   ═   ║  │
+    │ ║ └───┘ ║  │
+    │ ╚═══════╝  │
+    └──────┬──────┘
+     ┌─────┴─────┐
+     │  AGENT-O  │
+     │ ░░░░░░░░░ │
+     └─────┬─────┘
+       ┌───┴───┐
+       █       █</div>
             <div class="skin-name">Robot</div>
         </div>
         <div class="skin-card">
             <div class="skin-ascii">
-  /\_____/\
- /  ◉   ◉  \
-(     ▼     )
- \  ╰───╯  /
-  \_______/
-   |     |
-  ╭┴─────┴╮
-  │ MEOW-O│
-  ╰───────╯</div>
+      ╱╲     ╱╲
+     ╱  ╲___╱  ╲
+    ╱             ╲
+   │  ◉         ◉  │
+   │    ╲     ╱    │
+   │     ╰▼╯     │
+    ╲   ╰───╯   ╱
+     ╲_________╱
+     ┌────┴────┐
+     │ MEOW-O  │
+     │░░░░░░░░░│
+     └────┬────┘
+       ┌──┴──┐ ~
+       █     █</div>
             <div class="skin-name">Cat</div>
         </div>
         <div class="skin-card">
             <div class="skin-ascii">
-   ╭───────╮
-  ╱ ◉     ◉ ╲
- │    ▼▼    │
- │  ┬┬┬┬┬┬  │
-  ╲_________╱
-      │
- ╭────┴────╮
- │ SKULL-O │
- ╰─────────╯</div>
+      ╭──────────╮
+    ╱  ▓▓▓▓▓▓▓▓  ╲
+   │ ╔══════════╗ │
+   │ ║ ◉      ◉ ║ │
+   │ ╚══════════╝ │
+   │    ▼▼▼▼▼▼    │
+   │  ┬┬┬┬┬┬┬┬┬┬  │
+    ╲____________╱
+     ┌────┴────┐
+     │ SKULL-O │
+     │░░░░░░░░░│
+     └────┬────┘
+       ┌──┴──┐
+       █     █</div>
             <div class="skin-name">Skull</div>
         </div>
         <div class="skin-card">
             <div class="skin-ascii">
-  ╭───╮
-  │ ● │
-  ╰─┬─╯
-    │
-  ╭─┴─╮
-  │◉ ◉│
-  │ ▽ │
-  │╰─╯│
-  ╰─┬─╯
-    │
-  ──┴──</div>
+     ╭───────╮
+     │ ╭───╮ │
+     │ │ ● │ │
+     ╰─┤   ├─╯
+       ╰─┬─╯
+     ╭───┴───╮
+     │ ◉   ◉ │
+     │   ▽   │
+     │ ╰───╯ │
+     ╰───┬───╯
+     ┌───┴───┐
+     │CLIPPY │
+     └───┬───┘
+       ──┴──</div>
             <div class="skin-name">Clippy</div>
         </div>
     </div>
@@ -741,7 +836,7 @@
             <div class="terminal-dot red"></div>
             <div class="terminal-dot yellow"></div>
             <div class="terminal-dot green"></div>
-            <span class="terminal-title">Agent-O v2</span>
+            <span class="terminal-title">Agent-O v2.0</span>
         </div>
         <div class="terminal-body"><span class="t-cyan t-bold">&#10095; explain this function</span>
 <span class="t-gray">&#9203; &#8594; claude...</span>
@@ -764,6 +859,10 @@ Time complexity: O(n), Space: O(1).</span>
 <span class="t-cyan t-bold">&#10095; 75</span>
 <span class="t-green t-bold">&#127881; Correct! 2 guesses! +40 XP</span>
 
+<span class="t-cyan t-bold">&#10095; !stats</span>
+<span class="t-purple">&#9733; Level 5 | XP: 320/500 | Stage: Evolved</span>
+<span class="t-green">&#127828; Food: 85% | &#127881; Joy: 92% | &#9889; Energy: 78%</span>
+
 <span class="t-cyan t-bold">&#10095; !theme cyberpunk</span>
 <span class="t-pink t-bold">&#127912; Theme: Cyberpunk</span></div>
     </div>
@@ -772,7 +871,7 @@ Time complexity: O(n), Space: O(1).</span>
 <!-- Roadmap -->
 <section>
     <h2 class="section-title">&#128506; <span class="accent">Roadmap</span></h2>
-    <p class="section-sub">Where Agent-O is headed. Community contributions welcome!</p>
+    <p class="section-sub">Where Agent-O is headed. Contributions welcome!</p>
 
     <div class="roadmap">
         <div class="roadmap-item">
@@ -791,7 +890,7 @@ Time complexity: O(n), Space: O(1).</span>
             <div class="roadmap-dot done"></div>
             <div class="roadmap-label done">&#10003; v2.0 — Shipped</div>
             <div class="roadmap-title">Tamagotchi + Full Features</div>
-            <div class="roadmap-desc">Pet stats system, 4 skins, 5 themes, achievements, evolution, mini-games, pomodoro timer, git integration, drag &amp; drop, clipboard analysis, menu bar, global hotkey, notifications.</div>
+            <div class="roadmap-desc">Pet stats, 4 premium skins, 5 themes, 23 achievements, evolution, mini-games, pomodoro, git integration, drag &amp; drop, clipboard analysis, menu bar, global hotkey, notifications.</div>
             <div class="roadmap-tags">
                 <span class="roadmap-tag">tamagotchi</span>
                 <span class="roadmap-tag">achievements</span>
@@ -829,7 +928,7 @@ Time complexity: O(n), Space: O(1).</span>
             <div class="roadmap-dot planned"></div>
             <div class="roadmap-label planned">&#9675; v3.5 — Planned</div>
             <div class="roadmap-title">AI Personality</div>
-            <div class="roadmap-desc">Agent-O develops unique personality based on usage patterns. Remembers your preferences. Proactive suggestions based on project context. Learns your coding style.</div>
+            <div class="roadmap-desc">Agent-O develops unique personality based on your habits. Remembers preferences. Proactive suggestions based on project context.</div>
             <div class="roadmap-tags">
                 <span class="roadmap-tag">AI personality</span>
                 <span class="roadmap-tag">memory</span>
@@ -841,7 +940,7 @@ Time complexity: O(n), Space: O(1).</span>
             <div class="roadmap-dot planned"></div>
             <div class="roadmap-label planned">&#9675; v4.0 — Dream</div>
             <div class="roadmap-title">Cross-Platform & Mobile</div>
-            <div class="roadmap-desc">Linux and Windows support. Companion iOS/Android app to check on your pet. Widget support. Watch complication.</div>
+            <div class="roadmap-desc">Linux and Windows support. Companion iOS/Android app to check on your pet. Widget support.</div>
             <div class="roadmap-tags">
                 <span class="roadmap-tag">linux</span>
                 <span class="roadmap-tag">windows</span>
@@ -858,12 +957,19 @@ Time complexity: O(n), Space: O(1).</span>
         <h2 class="section-title" style="margin-bottom: 0.5rem;">Get <span class="accent">Agent-O</span></h2>
         <p class="section-sub" style="margin-bottom: 1.5rem;">Zero dependencies. Just Swift and a Mac. Takes 3 seconds to build.</p>
 
-        <div class="install-cmd" onclick="navigator.clipboard.writeText('git clone https://github.com/egorfedorov/agentO && cd agentO && ./run.sh')">
+        <div class="install-cmd" onclick="navigator.clipboard.writeText('git clone https://github.com/egorfedorov/agentO.git && cd agentO && ./run.sh'); this.style.borderColor='var(--green)'; this.textContent='&#10003; Copied!'; setTimeout(() => { this.textContent='$ git clone && cd agentO && ./run.sh'; this.style.borderColor='#30363d'; }, 2000);">
             $ git clone &amp;&amp; cd agentO &amp;&amp; ./run.sh
         </div>
         <p style="color: var(--gray); font-size: 0.8rem; margin-top: 0.5rem;">click to copy</p>
 
-        <div style="margin-top: 2rem; display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+        <div class="built-with">
+            <div class="built-item"><strong>Language:</strong> Swift 5</div>
+            <div class="built-item"><strong>Framework:</strong> AppKit</div>
+            <div class="built-item"><strong>Binary:</strong> ~50KB</div>
+            <div class="built-item"><strong>Dependencies:</strong> 0</div>
+        </div>
+
+        <div style="margin-top: 1.5rem; display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
             <div style="text-align: left; color: var(--gray); font-size: 0.85rem;">
                 <strong style="color: var(--white);">Requirements:</strong><br>
                 &#10003; macOS 12+<br>
@@ -927,15 +1033,16 @@ window.addEventListener('resize', () => {
 
 // Agent animation
 const frames = [
-    `   ╭─────────╮\n   │  ◉   ◉  │\n   │    ▽    │\n   │  ╰───╯  │\n   ╰────┬────╯\n        │\n   ╭────┴────╮\n   │ AGENT-O │\n   ╰─────────╯\n      │   │\n      ╵   ╵`,
-    `   ╭─────────╮\n   │  ◉   ◉  │\n   │    ▽    │\n   │  ╰───╯  │\n   ╰────┬────╯\n        │\n   ╭────┴────╮\n   │ AGENT-O │\n   ╰─────────╯\n      ╵   │\n      │   ╵`
+    `        ┌┤██├┐\n    ┌───┤ ▓▓ ├───┐\n    │ ╔═══════╗  │\n    │ ║ ●   ● ║  │\n    │ ║   ═   ║  │\n    │ ║ └───┘ ║  │\n    │ ╚═══════╝  │\n    └──────┬──────┘\n     ┌─────┴─────┐\n     │  AGENT-O  │\n     │ ░░░░░░░░░ │\n     └─────┬─────┘\n       ┌───┴───┐\n       █       █`,
+    `        ┌┤██├┐\n    ┌───┤ ▓▓ ├───┐\n    │ ╔═══════╗  │\n    │ ║ ─   ─ ║  │\n    │ ║   ═   ║  │\n    │ ║ └───┘ ║  │\n    │ ╚═══════╝  │\n    └──────┬──────┘\n     ┌─────┴─────┐\n     │  AGENT-O  │\n     │ ░░░░░░░░░ │\n     └─────┬─────┘\n       ┌───┴───┐\n       █       █`,
+    `        ┌┤██├┐\n    ┌───┤ ▓▓ ├───┐\n    │ ╔═══════╗  │\n    │ ║ ●   ● ║  │\n    │ ║   ═   ║  │\n    │ ║ └───┘ ║  │\n    │ ╚═══════╝  │\n    └──────┬──────┘\n     ┌─────┴─────┐\n     │  AGENT-O  │\n     │ ▓▓▓▓▓▓▓▓▓ │\n     └─────┬─────┘\n       ┌───┴───┐\n       █       █`
 ];
 
 let frame = 0;
 setInterval(() => {
     frame = (frame + 1) % frames.length;
     document.getElementById('agent-anim').textContent = frames[frame];
-}, 800);
+}, 1200);
 </script>
 
 </body>
