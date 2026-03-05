@@ -1477,7 +1477,7 @@ class PetBrain {
 // MARK: - Main App Delegate
 
 class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
-    static let currentVersion = "5.2.0"
+    static let currentVersion = "5.3.0"
     // UI
     var window: NSPanel!
     var miniWindow: NSPanel!
@@ -2066,19 +2066,25 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         refreshBottomStats()
     }
 
+    func miniBar(_ value: Int, _ max: Int = 100, width: Int = 8) -> String {
+        let filled = Int(Double(value) * Double(width) / Double(max))
+        let empty = width - min(filled, width)
+        return "[\(String(repeating: "█", count: min(filled, width)))\(String(repeating: "░", count: empty))]"
+    }
+
     func refreshSideStats() {
         guard sideStatsLabel != nil else { return }
         let p = pet
         let evo = Evolution.stage(for: p.level)
+        let xpPct = p.xpForNextLevel > 0 ? p.xp : 0
         var lines: [String] = []
-        lines.append("Lv.\(p.level) \(p.moodEmoji)")
-        lines.append(evo)
+        lines.append("Lv.\(p.level) \(p.moodEmoji) \(evo)")
         lines.append("")
-        lines.append("Food  \(p.hunger)%")
-        lines.append("Joy   \(p.happiness)%")
-        lines.append("Nrg   \(p.energy)%")
+        lines.append("Food \(miniBar(p.hunger)) \(p.hunger)%")
+        lines.append("Joy  \(miniBar(p.happiness)) \(p.happiness)%")
+        lines.append("Nrg  \(miniBar(p.energy)) \(p.energy)%")
         lines.append("")
-        lines.append("XP \(p.xp)/\(p.xpForNextLevel)")
+        lines.append("XP   \(miniBar(xpPct, p.xpForNextLevel)) \(p.xp)/\(p.xpForNextLevel)")
         lines.append("Streak \(p.streak)d")
         sideStatsLabel.stringValue = lines.joined(separator: "\n")
     }
