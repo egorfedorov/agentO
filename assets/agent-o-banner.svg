@@ -56,18 +56,12 @@
     .title-c { fill: #8b949e; font-size: 13px; }
   </style>
 
-  <defs>
-    <clipPath id="clip">
-      <rect x="1" y="1" width="798" height="438" rx="9"/>
-    </clipPath>
-  </defs>
-
   <!-- Window frame -->
-  <rect width="800" height="440" rx="10" fill="#0d1117" stroke="#30363d" stroke-width="1"/>
+  <rect width="800" height="440" rx="10" fill="#0d1117"/>
+  <rect width="800" height="440" rx="10" fill="none" stroke="#30363d" stroke-width="1"/>
 
   <!-- Title bar -->
-  <rect width="800" height="36" rx="10" fill="#161b22" clip-path="url(#clip)"/>
-  <rect y="26" width="800" height="10" fill="#161b22"/>
+  <rect x="1" y="1" width="798" height="35" rx="9" fill="#161b22"/>
   <line x1="0" y1="36" x2="800" y2="36" stroke="#30363d" stroke-width="1"/>
 
   <!-- Window dots -->
@@ -76,30 +70,29 @@
   <circle cx="60" cy="18" r="6" fill="#3fb950"/>
 
   <!-- Title -->
-  <text x="400" y="22" text-anchor="middle" class="title-c">Agent-O -- Your ASCII Desktop Companion</text>
+  <text x="400" y="23" text-anchor="middle" class="title-c">Agent-O -- Your ASCII Desktop Companion</text>
 
   <!-- Left side: Robot ASCII art -->
   <g transform="translate(30, 56)">
-    <!-- Robot body (static, always visible) -->
-    <text x="0" y="16" class="cyan">      ┌┤██├┐</text>
-    <text x="0" y="32" class="cyan">  ┌───┤ ▓▓ ├───┐</text>
-    <text x="0" y="48" class="cyan">  │ ╔═══════╗  │</text>
-    <text x="0" y="64" class="cyan">  │ ║       ║  │</text>
-    <text x="0" y="80" class="cyan">  │ ║   ═   ║  │</text>
-    <text x="0" y="96" class="cyan">  │ ║ └───┘ ║  │</text>
-    <text x="0" y="112" class="cyan">  │ ╚═══════╝  │</text>
-    <text x="0" y="128" class="cyan">  └──────┬──────┘</text>
-    <text x="0" y="144" class="cyan">   ┌─────┴─────┐</text>
-    <text x="0" y="160" class="cyan">   │  AGENT-O  │</text>
-    <text x="0" y="176" class="cyan">   │ ░░░░░░░░░ │</text>
-    <text x="0" y="192" class="cyan">   └─────┬─────┘</text>
-    <text x="0" y="208" class="cyan">     ┌───┴───┐</text>
-    <text x="0" y="224" class="cyan">     █       █</text>
+    <text x="0" y="16"  class="cyan">      +--||--+</text>
+    <text x="0" y="32"  class="cyan">  +---| :::: |---+</text>
+    <text x="0" y="48"  class="cyan">  | +=========+ |</text>
+    <text x="0" y="64"  class="cyan">  | |         | |</text>
+    <text x="0" y="80"  class="cyan">  | |   ===   | |</text>
+    <text x="0" y="96"  class="cyan">  | | +-----+ | |</text>
+    <text x="0" y="112" class="cyan">  | +=========+ |</text>
+    <text x="0" y="128" class="cyan">  +------+------+</text>
+    <text x="0" y="144" class="cyan">   +-----+-----+</text>
+    <text x="0" y="160" class="cyan">   |  AGENT-O  |</text>
+    <text x="0" y="176" class="cyan">   | ......... |</text>
+    <text x="0" y="192" class="cyan">   +-----+-----+</text>
+    <text x="0" y="208" class="cyan">     +---+---+</text>
+    <text x="0" y="224" class="cyan">     |       |</text>
 
     <!-- Eyes open (blinking) -->
-    <text class="eyes-open" x="36" y="64" fill="#00e676">●   ●</text>
+    <text class="eyes-open" x="36" y="64" fill="#00e676">O   O</text>
     <!-- Eyes closed (inverse blink) -->
-    <text class="eyes-closed" x="36" y="64" class="cyan">─   ─</text>
+    <text class="eyes-closed" x="36" y="64" fill="#4dd4e6">-   -</text>
 
     <!-- Antenna pulse dot -->
     <circle class="antenna" cx="63" cy="4" r="4" fill="#4dd4e6"/>
@@ -110,13 +103,13 @@
 
     <!-- Line 1: prompt + command -->
     <g class="s1">
-      <text x="0" y="16" class="green">❯</text>
+      <text x="0" y="16" class="green">&gt;</text>
       <text x="16" y="16" class="white">explain this function</text>
     </g>
 
     <!-- Line 2: loading indicator -->
     <g class="s2">
-      <text x="0" y="40" class="gray">⏳ → claude...</text>
+      <text x="0" y="40" class="gray">... asking claude</text>
     </g>
 
     <!-- Line 3: response -->
@@ -128,36 +121,36 @@
 
     <!-- Line 4: done + XP -->
     <g class="s4">
-      <text x="0" y="128" class="green">✓ Done! +15 XP</text>
-      <text x="180" y="128" class="gray">← Level 7 Epic</text>
+      <text x="0" y="128" class="green">[ok] Done! +15 XP</text>
+      <text x="200" y="128" class="gray">&lt;- Level 7 Epic</text>
     </g>
 
     <!-- Line 5: feed command -->
     <g class="s5">
-      <text x="0" y="162" class="green">❯</text>
+      <text x="0" y="162" class="green">&gt;</text>
       <text x="16" y="162" class="white">!feed</text>
-      <text x="80" y="162" class="gray">← take care of your pet</text>
+      <text x="80" y="162" class="gray">&lt;- take care of your pet</text>
     </g>
 
     <!-- Line 6: feed response -->
     <g class="s6">
-      <text x="0" y="186" class="green">🍔 Fed Agent-O! Food: 100%</text>
+      <text x="0" y="186" class="green">[+] Fed Agent-O! Food: 100%</text>
     </g>
 
     <!-- Line 7: achievement -->
     <g class="s7">
-      <text x="0" y="210" class="yellow">🏆 ACHIEVEMENT: Caretaker (+30 XP)</text>
+      <text x="0" y="210" class="yellow">[*] ACHIEVEMENT: Caretaker (+30 XP)</text>
     </g>
 
     <!-- Line 8: stats -->
     <g class="s8">
-      <text x="0" y="244" class="green">❯</text>
+      <text x="0" y="244" class="green">&gt;</text>
       <text x="16" y="244" class="white">!stats</text>
     </g>
 
-    <!-- Stats block (appears with line 8) -->
+    <!-- Stats block -->
     <g class="s8">
-      <text x="0" y="270" class="purple">★ Lvl 7 │ XP: 680/1000 │ Epic</text>
+      <text x="0" y="270" class="purple">* Lvl 7 | XP: 680/1000 | Epic</text>
       <text x="0" y="290" class="green">Food: 100%</text>
       <text x="120" y="290" class="pink">Joy: 92%</text>
       <text x="230" y="290" class="yellow">Energy: 78%</text>
@@ -178,17 +171,18 @@
   </g>
 
   <!-- Bottom bar: badges -->
-  <g transform="translate(0, 400)">
-    <rect x="0" y="0" width="800" height="40" fill="#161b22" clip-path="url(#clip)"/>
-    <line x1="0" y1="0" x2="800" y2="0" stroke="#30363d" stroke-width="1"/>
+  <rect x="1" y="400" width="798" height="39" rx="9" fill="#161b22"/>
+  <line x1="0" y1="400" x2="800" y2="400" stroke="#30363d" stroke-width="1"/>
 
-    <text x="30" y="25" font-size="11" class="orange">Swift 5</text>
-    <text x="100" y="25" font-size="11" class="cyan">macOS 12+</text>
-    <text x="200" y="25" font-size="11" class="green">0 dependencies</text>
-    <text x="330" y="25" font-size="11" class="purple">MIT</text>
-    <text x="390" y="25" font-size="11" class="dim">~50KB binary</text>
-    <text x="520" y="25" font-size="11" class="dim">23 achievements · 4 skins · 5 themes · 5 evolutions</text>
-  </g>
+  <text x="30"  y="425" font-size="11" class="orange">Swift 5</text>
+  <text x="100" y="425" font-size="11" class="cyan">macOS 12+</text>
+  <text x="200" y="425" font-size="11" class="green">0 deps</text>
+  <text x="270" y="425" font-size="11" class="purple">MIT</text>
+  <text x="320" y="425" font-size="11" class="dim">~50KB</text>
+  <text x="400" y="425" font-size="11" class="dim">23 achievements</text>
+  <text x="530" y="425" font-size="11" class="dim">4 skins</text>
+  <text x="600" y="425" font-size="11" class="dim">5 themes</text>
+  <text x="680" y="425" font-size="11" class="dim">18 langs</text>
 
   <!-- Blinking cursor at bottom of terminal area -->
   <rect class="cursor" x="296" y="358" width="8" height="15" fill="#00e676"/>
