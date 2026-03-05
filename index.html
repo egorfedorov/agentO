@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent-O — Your ASCII Desktop Companion</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700;800&display=swap');
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg: #0a0a0f;
+            --bg2: #12121a;
+            --cyan: #4dd4e6;
+            --green: #00e676;
+            --purple: #b388ff;
+            --pink: #ff4081;
+            --yellow: #ffd740;
+            --orange: #ff6e40;
+            --gray: #8892b0;
+            --white: #e6f1ff;
+        }
+
+        body {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--bg);
+            color: var(--white);
+            overflow-x: hidden;
+            line-height: 1.6;
+        }
+
+        /* Scanline overlay */
+        body::after {
+            content: '';
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 2px,
+                rgba(0, 0, 0, 0.03) 2px,
+                rgba(0, 0, 0, 0.03) 4px
+            );
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        /* Matrix rain background */
+        .matrix-bg {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            z-index: -1;
+            opacity: 0.06;
+        }
+
+        /* Hero */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            padding: 2rem;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(77, 212, 230, 0.08) 0%, transparent 70%);
+            border-radius: 50%;
+        }
+
+        .agent-ascii {
+            font-size: 1.1rem;
+            line-height: 1.3;
+            color: var(--cyan);
+            text-align: center;
+            white-space: pre;
+            margin-bottom: 2rem;
+            animation: float 3s ease-in-out infinite;
+            text-shadow: 0 0 20px rgba(77, 212, 230, 0.3);
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .title {
+            font-size: 3.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--cyan), var(--purple), var(--pink));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+            letter-spacing: -2px;
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            color: var(--gray);
+            font-weight: 300;
+            margin-bottom: 2rem;
+            text-align: center;
+            max-width: 600px;
+        }
+
+        .subtitle span {
+            color: var(--green);
+            font-weight: 500;
+        }
+
+        .cta-row {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.8rem 1.8rem;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 0.95rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: none;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--cyan), var(--purple));
+            color: var(--bg);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(77, 212, 230, 0.3);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--cyan);
+            border: 1px solid rgba(77, 212, 230, 0.3);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(77, 212, 230, 0.1);
+            border-color: var(--cyan);
+        }
+
+        .scroll-hint {
+            position: absolute;
+            bottom: 2rem;
+            animation: bounce 2s infinite;
+            color: var(--gray);
+            font-size: 0.8rem;
+        }
+
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-10px); }
+            60% { transform: translateY(-5px); }
+        }
+
+        /* Section styles */
+        section {
+            padding: 5rem 2rem;
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        .section-title {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            color: var(--white);
+        }
+
+        .section-title .accent {
+            background: linear-gradient(135deg, var(--cyan), var(--green));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .section-sub {
+            color: var(--gray);
+            margin-bottom: 3rem;
+            font-size: 0.95rem;
+        }
+
+        /* Feature grid */
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .feature-card {
+            background: var(--bg2);
+            border: 1px solid rgba(77, 212, 230, 0.1);
+            border-radius: 12px;
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .feature-card:hover {
+            border-color: rgba(77, 212, 230, 0.3);
+            transform: translateY(-4px);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .feature-card:hover::before { opacity: 1; }
+
+        .feature-icon {
+            font-size: 1.8rem;
+            margin-bottom: 0.8rem;
+            display: block;
+        }
+
+        .feature-card h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--white);
+            margin-bottom: 0.4rem;
+        }
+
+        .feature-card p {
+            font-size: 0.85rem;
+            color: var(--gray);
+            line-height: 1.5;
+        }
+
+        .tag {
+            display: inline-block;
+            padding: 0.15rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            margin-top: 0.5rem;
+        }
+
+        .tag-new { background: rgba(0, 230, 118, 0.15); color: var(--green); }
+        .tag-fun { background: rgba(255, 64, 129, 0.15); color: var(--pink); }
+        .tag-core { background: rgba(77, 212, 230, 0.15); color: var(--cyan); }
+
+        /* Skins showcase */
+        .skins-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+        }
+
+        .skin-card {
+            background: var(--bg2);
+            border: 1px solid rgba(77, 212, 230, 0.1);
+            border-radius: 12px;
+            padding: 1.2rem;
+            text-align: center;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .skin-card:hover {
+            border-color: var(--cyan);
+            transform: scale(1.05);
+        }
+
+        .skin-ascii {
+            white-space: pre;
+            font-size: 0.65rem;
+            line-height: 1.2;
+            color: var(--cyan);
+            margin-bottom: 0.5rem;
+        }
+
+        .skin-name {
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+
+        /* Terminal demo */
+        .terminal {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            overflow: hidden;
+            margin: 2rem 0;
+            font-size: 0.85rem;
+        }
+
+        .terminal-bar {
+            background: #161b22;
+            padding: 0.6rem 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .terminal-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .terminal-dot.red { background: #ff5f57; }
+        .terminal-dot.yellow { background: #febc2e; }
+        .terminal-dot.green { background: #28c840; }
+
+        .terminal-title {
+            color: var(--gray);
+            font-size: 0.8rem;
+            margin-left: 0.5rem;
+        }
+
+        .terminal-body {
+            padding: 1.2rem;
+            white-space: pre;
+            line-height: 1.5;
+            overflow-x: auto;
+        }
+
+        .t-cyan { color: var(--cyan); }
+        .t-green { color: var(--green); }
+        .t-yellow { color: var(--yellow); }
+        .t-purple { color: var(--purple); }
+        .t-pink { color: var(--pink); }
+        .t-gray { color: var(--gray); }
+        .t-orange { color: var(--orange); }
+        .t-white { color: var(--white); }
+        .t-bold { font-weight: 700; }
+
+        /* Roadmap */
+        .roadmap {
+            position: relative;
+        }
+
+        .roadmap::before {
+            content: '';
+            position: absolute;
+            left: 20px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: linear-gradient(to bottom, var(--cyan), var(--purple), var(--pink), transparent);
+        }
+
+        .roadmap-item {
+            position: relative;
+            padding-left: 50px;
+            margin-bottom: 2.5rem;
+        }
+
+        .roadmap-dot {
+            position: absolute;
+            left: 12px;
+            top: 4px;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            border: 2px solid;
+        }
+
+        .roadmap-dot.done { background: var(--green); border-color: var(--green); }
+        .roadmap-dot.current { background: var(--cyan); border-color: var(--cyan); box-shadow: 0 0 15px rgba(77, 212, 230, 0.5); }
+        .roadmap-dot.planned { background: transparent; border-color: var(--gray); }
+
+        .roadmap-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0.3rem;
+        }
+
+        .roadmap-label.done { color: var(--green); }
+        .roadmap-label.current { color: var(--cyan); }
+        .roadmap-label.planned { color: var(--gray); }
+
+        .roadmap-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--white);
+            margin-bottom: 0.3rem;
+        }
+
+        .roadmap-desc {
+            color: var(--gray);
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .roadmap-tags {
+            display: flex;
+            gap: 0.4rem;
+            flex-wrap: wrap;
+            margin-top: 0.5rem;
+        }
+
+        .roadmap-tag {
+            padding: 0.1rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            background: rgba(77, 212, 230, 0.1);
+            color: var(--cyan);
+        }
+
+        /* Install section */
+        .install-box {
+            background: var(--bg2);
+            border: 1px solid rgba(77, 212, 230, 0.2);
+            border-radius: 12px;
+            padding: 2rem;
+            text-align: center;
+        }
+
+        .install-cmd {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 1rem 1.5rem;
+            display: inline-block;
+            margin: 1rem 0;
+            font-size: 0.95rem;
+            color: var(--green);
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .install-cmd:hover {
+            border-color: var(--green);
+            box-shadow: 0 0 20px rgba(0, 230, 118, 0.1);
+        }
+
+        /* Stats bar */
+        .stats-bar {
+            display: flex;
+            justify-content: center;
+            gap: 3rem;
+            padding: 3rem 0;
+            flex-wrap: wrap;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-num {
+            font-size: 2.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--cyan), var(--green));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: var(--gray);
+            margin-top: 0.3rem;
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 3rem 2rem;
+            color: var(--gray);
+            font-size: 0.8rem;
+            border-top: 1px solid rgba(77, 212, 230, 0.1);
+        }
+
+        footer a {
+            color: var(--cyan);
+            text-decoration: none;
+        }
+
+        footer a:hover { text-decoration: underline; }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .title { font-size: 2.2rem; }
+            .skins-grid { grid-template-columns: repeat(2, 1fr); }
+            .features { grid-template-columns: 1fr; }
+            .agent-ascii { font-size: 0.8rem; }
+            .stats-bar { gap: 1.5rem; }
+        }
+
+        /* Typing animation for terminal demo */
+        .typewriter {
+            overflow: hidden;
+            animation: typing 2s steps(30) 1s forwards;
+            width: 0;
+            white-space: nowrap;
+        }
+
+        @keyframes typing {
+            from { width: 0; }
+            to { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+<canvas class="matrix-bg" id="matrix"></canvas>
+
+<!-- Hero -->
+<div class="hero">
+    <div class="agent-ascii" id="agent-anim">
+   ╭─────────╮
+   │  ◉   ◉  │
+   │    ▽    │
+   │  ╰───╯  │
+   ╰────┬────╯
+        │
+   ╭────┴────╮
+   │ AGENT-O │
+   ╰─────────╯
+      │   │
+      ╵   ╵</div>
+
+    <h1 class="title">Agent-O</h1>
+    <p class="subtitle">
+        Your <span>ASCII desktop companion</span> for Claude CLI & Codex CLI.
+        A floating Tamagotchi that helps you code, learns, evolves, and keeps you company.
+    </p>
+
+    <div class="cta-row">
+        <a href="https://github.com/user/agentO" class="btn btn-primary">
+            &#9733; Star on GitHub
+        </a>
+        <a href="#install" class="btn btn-secondary">
+            $ ./run.sh
+        </a>
+    </div>
+
+    <div class="scroll-hint">&#9660; scroll down</div>
+</div>
+
+<!-- Stats -->
+<div class="stats-bar">
+    <div class="stat">
+        <div class="stat-num">23</div>
+        <div class="stat-label">Achievements</div>
+    </div>
+    <div class="stat">
+        <div class="stat-num">4</div>
+        <div class="stat-label">Skins</div>
+    </div>
+    <div class="stat">
+        <div class="stat-num">5</div>
+        <div class="stat-label">Themes</div>
+    </div>
+    <div class="stat">
+        <div class="stat-num">5</div>
+        <div class="stat-label">Evolution Stages</div>
+    </div>
+    <div class="stat">
+        <div class="stat-num">0</div>
+        <div class="stat-label">Dependencies</div>
+    </div>
+</div>
+
+<!-- Features -->
+<section>
+    <h2 class="section-title">What <span class="accent">Agent-O</span> can do</h2>
+    <p class="section-sub">A native macOS floating panel with zero dependencies. Built with Swift + AppKit.</p>
+
+    <div class="features">
+        <div class="feature-card">
+            <span class="feature-icon">&#129302;</span>
+            <h3>Claude & Codex Integration</h3>
+            <p>Send prompts directly to Claude CLI or Codex CLI. Stream responses in real-time with syntax highlighting.</p>
+            <span class="tag tag-core">CORE</span>
+        </div>
+        <div class="feature-card">
+            <span class="feature-icon">&#127925;</span>
+            <h3>Tamagotchi Pet System</h3>
+            <p>Feed, play, and rest your Agent-O. Stats decay over time. Running commands earns XP. Keep your pet happy!</p>
+            <span class="tag tag-fun">FUN</span>
+        </div>
+        <div class="feature-card">
+            <span class="feature-icon">&#128640;</span>
+            <h3>Evolution & Leveling</h3>
+            <p>Baby &rarr; Evolved &rarr; Epic &rarr; Mythic &rarr; Cosmic. Each stage unlocks new visual flair for your agent.</p>
+            <span class="tag tag-new">NEW</span>
+        </div>
+        <div class="feature-card">
+            <span class="feature-icon">&#127942;</span>
+            <h3>23 Achievements</h3>
+            <p>Unlock achievements for milestones: commands run, commits, streaks, mini-games, time-based challenges.</p>
+            <span class="tag tag-new">NEW</span>
+        </div>
+        <div class="feature-card">
+            <span class="feature-icon">&#127918;</span>
+            <h3>Mini-Games</h3>
+            <p>Number guessing and dev trivia. Win games to earn bonus XP and level up faster.</p>
+            <span class="tag tag-fun">FUN</span>
+        </div>
+        <div class="feature-card">
+            <span class="feature-icon">&#127813;</span>
+            <h3>Pomodoro Timer</h3>
+            <p>Built-in focus timer (25 min or 10 min). Break timer included. +40 XP per completed pomodoro.</p>
+            <span class="tag tag-new">NEW</span>
+        </div>
+        <div class="feature-card">
+            <span class="feature-icon">&#127912;</span>
+            <h3>Skins & Themes</h3>
+            <p>4 character skins (Robot, Cat, Skull, Clippy) and 5 color themes (Matrix, Cyberpunk, Sunset, Ocean, Hacker).</p>
+            <span class="tag tag-fun">FUN</span>
+        </div>
+        <div class="feature-card">
+            <span class="feature-icon">&#9000;</span>
+            <h3>Global Hotkey</h3>
+            <p>Cmd+Shift+O to show/hide from anywhere. Minimizes to a tiny floating icon. Menu bar integration.</p>
+            <span class="tag tag-core">CORE</span>
+        </div>
+        <div class="feature-card">
+            <span class="feature-icon">&#128196;</span>
+            <h3>Drag & Drop Files</h3>
+            <p>Drop any file onto the window to analyze it with Claude. Quick action buttons for commit, test, review.</p>
+            <span class="tag tag-core">CORE</span>
+        </div>
+        <div class="feature-card">
+            <span class="feature-icon">&#128200;</span>
+            <h3>Git Integration</h3>
+            <p>Auto-detects git repos. Shows branch and changes count. Quick commit, test, and code review buttons.</p>
+            <span class="tag tag-core">CORE</span>
+        </div>
+        <div class="feature-card">
+            <span class="feature-icon">&#128203;</span>
+            <h3>Clipboard Analysis</h3>
+            <p>Type !paste to analyze clipboard content with Claude. Perfect for quick code explanations.</p>
+            <span class="tag tag-new">NEW</span>
+        </div>
+        <div class="feature-card">
+            <span class="feature-icon">&#128276;</span>
+            <h3>macOS Notifications</h3>
+            <p>Native notifications for achievements, pomodoro completion, and important events.</p>
+            <span class="tag tag-new">NEW</span>
+        </div>
+    </div>
+</section>
+
+<!-- Skins -->
+<section>
+    <h2 class="section-title">Choose your <span class="accent">skin</span></h2>
+    <p class="section-sub">4 unique ASCII characters. Switch anytime with !skin command.</p>
+
+    <div class="skins-grid">
+        <div class="skin-card">
+            <div class="skin-ascii">
+ ╭─────────╮
+ │  ◉   ◉  │
+ │    ▽    │
+ │  ╰───╯  │
+ ╰────┬────╯
+      │
+ ╭────┴────╮
+ │ AGENT-O │
+ ╰─────────╯</div>
+            <div class="skin-name">Robot</div>
+        </div>
+        <div class="skin-card">
+            <div class="skin-ascii">
+  /\_____/\
+ /  ◉   ◉  \
+(     ▼     )
+ \  ╰───╯  /
+  \_______/
+   |     |
+  ╭┴─────┴╮
+  │ MEOW-O│
+  ╰───────╯</div>
+            <div class="skin-name">Cat</div>
+        </div>
+        <div class="skin-card">
+            <div class="skin-ascii">
+   ╭───────╮
+  ╱ ◉     ◉ ╲
+ │    ▼▼    │
+ │  ┬┬┬┬┬┬  │
+  ╲_________╱
+      │
+ ╭────┴────╮
+ │ SKULL-O │
+ ╰─────────╯</div>
+            <div class="skin-name">Skull</div>
+        </div>
+        <div class="skin-card">
+            <div class="skin-ascii">
+  ╭───╮
+  │ ● │
+  ╰─┬─╯
+    │
+  ╭─┴─╮
+  │◉ ◉│
+  │ ▽ │
+  │╰─╯│
+  ╰─┬─╯
+    │
+  ──┴──</div>
+            <div class="skin-name">Clippy</div>
+        </div>
+    </div>
+</section>
+
+<!-- Terminal Demo -->
+<section>
+    <h2 class="section-title">See it in <span class="accent">action</span></h2>
+    <p class="section-sub">A quick demo of Agent-O commands.</p>
+
+    <div class="terminal">
+        <div class="terminal-bar">
+            <div class="terminal-dot red"></div>
+            <div class="terminal-dot yellow"></div>
+            <div class="terminal-dot green"></div>
+            <span class="terminal-title">Agent-O v2</span>
+        </div>
+        <div class="terminal-body"><span class="t-cyan t-bold">&#10095; explain this function</span>
+<span class="t-gray">&#9203; &#8594; claude...</span>
+<span class="t-white">This function takes an array of integers and returns
+the maximum subarray sum using Kadane's algorithm.
+Time complexity: O(n), Space: O(1).</span>
+
+<span class="t-green t-bold">&#127881; Done! +XP! What's next?</span>
+
+<span class="t-cyan t-bold">&#10095; !feed</span>
+<span class="t-green">&#127828; Fed Agent-O! Food: 100%</span>
+<span class="t-yellow t-bold">&#127942; ACHIEVEMENT UNLOCKED: &#127828; Caretaker</span>
+<span class="t-gray">   Feed Agent-O for the first time (+30 XP)</span>
+
+<span class="t-cyan t-bold">&#10095; !game</span>
+<span class="t-purple t-bold">&#127922; NUMBER GAME</span>
+<span class="t-gray">   Guess my number between 1 and 100!</span>
+<span class="t-cyan t-bold">&#10095; 50</span>
+<span class="t-yellow">   &#11014;&#65039; Higher!</span>
+<span class="t-cyan t-bold">&#10095; 75</span>
+<span class="t-green t-bold">&#127881; Correct! 2 guesses! +40 XP</span>
+
+<span class="t-cyan t-bold">&#10095; !theme cyberpunk</span>
+<span class="t-pink t-bold">&#127912; Theme: Cyberpunk</span></div>
+    </div>
+</section>
+
+<!-- Roadmap -->
+<section>
+    <h2 class="section-title">&#128506; <span class="accent">Roadmap</span></h2>
+    <p class="section-sub">Where Agent-O is headed. Community contributions welcome!</p>
+
+    <div class="roadmap">
+        <div class="roadmap-item">
+            <div class="roadmap-dot done"></div>
+            <div class="roadmap-label done">&#10003; v1.0 — Shipped</div>
+            <div class="roadmap-title">Core Agent</div>
+            <div class="roadmap-desc">Floating ASCII panel, Claude/Codex CLI integration, speech bubbles, idle animations, basic commands.</div>
+            <div class="roadmap-tags">
+                <span class="roadmap-tag">Swift/AppKit</span>
+                <span class="roadmap-tag">floating panel</span>
+                <span class="roadmap-tag">CLI pipe</span>
+            </div>
+        </div>
+
+        <div class="roadmap-item">
+            <div class="roadmap-dot done"></div>
+            <div class="roadmap-label done">&#10003; v2.0 — Shipped</div>
+            <div class="roadmap-title">Tamagotchi + Full Features</div>
+            <div class="roadmap-desc">Pet stats system, 4 skins, 5 themes, achievements, evolution, mini-games, pomodoro timer, git integration, drag &amp; drop, clipboard analysis, menu bar, global hotkey, notifications.</div>
+            <div class="roadmap-tags">
+                <span class="roadmap-tag">tamagotchi</span>
+                <span class="roadmap-tag">achievements</span>
+                <span class="roadmap-tag">mini-games</span>
+                <span class="roadmap-tag">pomodoro</span>
+                <span class="roadmap-tag">themes</span>
+            </div>
+        </div>
+
+        <div class="roadmap-item">
+            <div class="roadmap-dot current"></div>
+            <div class="roadmap-label current">&#9679; v2.5 — In Progress</div>
+            <div class="roadmap-title">Social & Multiplayer</div>
+            <div class="roadmap-desc">Pet battles between users, leaderboard, share achievements, export pet card as image, pet trading.</div>
+            <div class="roadmap-tags">
+                <span class="roadmap-tag">multiplayer</span>
+                <span class="roadmap-tag">leaderboard</span>
+                <span class="roadmap-tag">social</span>
+            </div>
+        </div>
+
+        <div class="roadmap-item">
+            <div class="roadmap-dot planned"></div>
+            <div class="roadmap-label planned">&#9675; v3.0 — Planned</div>
+            <div class="roadmap-title">Plugin System</div>
+            <div class="roadmap-desc">Custom skins via JSON. Plugin API for community commands. Custom animations and sound packs. Marketplace.</div>
+            <div class="roadmap-tags">
+                <span class="roadmap-tag">plugins</span>
+                <span class="roadmap-tag">custom skins</span>
+                <span class="roadmap-tag">marketplace</span>
+            </div>
+        </div>
+
+        <div class="roadmap-item">
+            <div class="roadmap-dot planned"></div>
+            <div class="roadmap-label planned">&#9675; v3.5 — Planned</div>
+            <div class="roadmap-title">AI Personality</div>
+            <div class="roadmap-desc">Agent-O develops unique personality based on usage patterns. Remembers your preferences. Proactive suggestions based on project context. Learns your coding style.</div>
+            <div class="roadmap-tags">
+                <span class="roadmap-tag">AI personality</span>
+                <span class="roadmap-tag">memory</span>
+                <span class="roadmap-tag">proactive</span>
+            </div>
+        </div>
+
+        <div class="roadmap-item">
+            <div class="roadmap-dot planned"></div>
+            <div class="roadmap-label planned">&#9675; v4.0 — Dream</div>
+            <div class="roadmap-title">Cross-Platform & Mobile</div>
+            <div class="roadmap-desc">Linux and Windows support. Companion iOS/Android app to check on your pet. Widget support. Watch complication.</div>
+            <div class="roadmap-tags">
+                <span class="roadmap-tag">linux</span>
+                <span class="roadmap-tag">windows</span>
+                <span class="roadmap-tag">mobile</span>
+                <span class="roadmap-tag">widgets</span>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Install -->
+<section id="install">
+    <div class="install-box">
+        <h2 class="section-title" style="margin-bottom: 0.5rem;">Get <span class="accent">Agent-O</span></h2>
+        <p class="section-sub" style="margin-bottom: 1.5rem;">Zero dependencies. Just Swift and a Mac. Takes 3 seconds to build.</p>
+
+        <div class="install-cmd" onclick="navigator.clipboard.writeText('git clone https://github.com/user/agentO && cd agentO && ./run.sh')">
+            $ git clone &amp;&amp; cd agentO &amp;&amp; ./run.sh
+        </div>
+        <p style="color: var(--gray); font-size: 0.8rem; margin-top: 0.5rem;">click to copy</p>
+
+        <div style="margin-top: 2rem; display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+            <div style="text-align: left; color: var(--gray); font-size: 0.85rem;">
+                <strong style="color: var(--white);">Requirements:</strong><br>
+                &#10003; macOS 12+<br>
+                &#10003; Swift (comes with Xcode/CLT)<br>
+                &#10003; Claude CLI or Codex CLI
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Footer -->
+<footer>
+    <p>
+        Built with &#9829; and ASCII art by
+        <a href="https://github.com/user">@user</a>
+        &middot;
+        <a href="https://github.com/user/agentO">GitHub</a>
+        &middot;
+        MIT License
+    </p>
+    <p style="margin-top: 0.5rem; color: #444;">
+        Agent-O was generated entirely by Claude &middot; 0 dependencies &middot; ~50KB binary
+    </p>
+</footer>
+
+<!-- Matrix rain effect -->
+<script>
+const canvas = document.getElementById('matrix');
+const ctx = canvas.getContext('2d');
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+const chars = 'AGENTO01アイウエオカキクケコ><{}[]|/\\';
+const fontSize = 14;
+const columns = canvas.width / fontSize;
+const drops = Array(Math.floor(columns)).fill(1);
+
+function drawMatrix() {
+    ctx.fillStyle = 'rgba(10, 10, 15, 0.05)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#4dd4e6';
+    ctx.font = fontSize + 'px JetBrains Mono';
+
+    for (let i = 0; i < drops.length; i++) {
+        const text = chars[Math.floor(Math.random() * chars.length)];
+        ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+        if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+            drops[i] = 0;
+        }
+        drops[i]++;
+    }
+}
+
+setInterval(drawMatrix, 50);
+
+window.addEventListener('resize', () => {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+});
+
+// Agent animation
+const frames = [
+    `   ╭─────────╮\n   │  ◉   ◉  │\n   │    ▽    │\n   │  ╰───╯  │\n   ╰────┬────╯\n        │\n   ╭────┴────╮\n   │ AGENT-O │\n   ╰─────────╯\n      │   │\n      ╵   ╵`,
+    `   ╭─────────╮\n   │  ◉   ◉  │\n   │    ▽    │\n   │  ╰───╯  │\n   ╰────┬────╯\n        │\n   ╭────┴────╮\n   │ AGENT-O │\n   ╰─────────╯\n      ╵   │\n      │   ╵`
+];
+
+let frame = 0;
+setInterval(() => {
+    frame = (frame + 1) % frames.length;
+    document.getElementById('agent-anim').textContent = frames[frame];
+}, 800);
+</script>
+
+</body>
+</html>

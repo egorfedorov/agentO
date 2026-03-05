@@ -1,0 +1,5 @@
+agento
+*.o
+*.d
+.DS_Store
+.agento_pet.json
