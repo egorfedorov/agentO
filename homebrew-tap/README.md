@@ -1,7 +1,7 @@
 # Homebrew Tap for Agent-O
 
 ```bash
-brew tap egorfedorov/agento https://github.com/egorfedorov/agentO.git --force-auto-update
+brew tap egorfedorov/agento https://github.com/egorfedorov/agentO.git
 brew install agento
 ```
 

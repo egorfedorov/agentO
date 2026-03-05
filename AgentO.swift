@@ -909,7 +909,7 @@ class L10n {
         // Misc
         "analyzing":        [.en: "Analyzing", .ru: "Анализирую"],
         "analyzing_clip":   [.en: "Analyzing clipboard...", .ru: "Анализирую буфер..."],
-        "no_processes":     [.en: "No running claude/codex processes", .ru: "Нет запущенных процессов claude/codex"],
+        "no_processes":     [.en: "No running AI CLI processes", .ru: "Нет запущенных AI CLI процессов"],
         "running_proc":     [.en: "Running processes:", .ru: "Запущенные процессы:"],
         "cmd_history":      [.en: "Command history:", .ru: "История команд:"],
         "skin_changed":     [.en: "Skin changed to", .ru: "Скин изменён на"],
@@ -2025,6 +2025,24 @@ struct BattleDuelContext {
     var moveSubmitted: Bool
 }
 
+enum AIProvider: String, CaseIterable {
+    case claude
+    case codex
+    case gpt
+    case gemini
+    case ollama
+
+    var label: String {
+        switch self {
+        case .claude: return "Claude CLI"
+        case .codex: return "Codex CLI"
+        case .gpt: return "OpenAI GPT"
+        case .gemini: return "Google Gemini"
+        case .ollama: return "Ollama (local)"
+        }
+    }
+}
+
 // MARK: - Main App Delegate
 
 class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
@@ -2103,6 +2121,8 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
     var promptJournal = PromptJournal.load()
     var tokenOptimizer = TokenOptimizer.load()
     var lastTokenOptimization: TokenOptimizationResult?
+    var currentProvider: AIProvider = .claude
+    var providerModelOverrides: [String: String] = [:]
     var decayTimer: Timer?
     var currentTheme = Theme.matrix
     var pomodoro = PomodoroTimer()
@@ -2186,6 +2206,11 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         playerAuthToken = UserDefaults.standard.string(forKey: "agento_player_token") ?? pet.leaderboardToken
         pet.leaderboardUsername = playerUsername
         pet.leaderboardToken = playerAuthToken
+        if let rawProvider = UserDefaults.standard.string(forKey: "agento_provider"),
+           let provider = AIProvider(rawValue: rawProvider.lowercased()) {
+            currentProvider = provider
+        }
+        providerModelOverrides = UserDefaults.standard.dictionary(forKey: "agento_provider_models") as? [String: String] ?? [:]
         pet.save()
         lastLeaderboardSubmittedSignature = ""
         setupMenuBar()
@@ -3016,7 +3041,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         refreshStatsDisplay()
 
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            self?.runCLI(cli: "claude", prompt: prompt, oldLevel: oldLevel)
+            self?.runCLI(cli: self?.currentProvider.rawValue ?? "claude", prompt: prompt, oldLevel: oldLevel)
         }
     }
 
@@ -3176,12 +3201,12 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             "/break", "/calc", "/chat", "/challenges", "/claude", "/clear", "/clipboard",
             "/codex", "/commit", "/compact", "/daily", "/dance", "/decline", "/diff",
             "/en", "/evo", "/feed", "/forget", "/full", "/game", "/git", "/guess",
-            "/help", "/history", "/inventory", "/leaderboard", "/market", "/memory", "/move",
+            "/gemini", "/gpt", "/help", "/history", "/inventory", "/leaderboard", "/market", "/memory", "/model", "/models", "/move",
             "/name", "/paste", "/play", "/pomo", "/pomo10", "/pomodoro", "/promptcoach",
             "/promptstats", "/ps", "/quests", "/regex", "/remind", "/reminders", "/rent", "/rest",
             "/review", "/ru", "/save", "/screenshot", "/search", "/sh", "/share", "/skin",
             "/snippets", "/specialist", "/standup", "/stats", "/stoppomo", "/teach", "/theme", "/tip", "/optimizer",
-            "/train", "/training", "/translate", "/trivia", "/typing", "/unwatch", "/update", "/version", "/watch"
+            "/train", "/training", "/translate", "/trivia", "/typing", "/unwatch", "/update", "/usage", "/version", "/watch", "/ollama"
         ]
     }
 
@@ -3304,10 +3329,10 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
             let prompt = "Analyze this file and give a brief summary of its contents: \(path)"
             setState(.thinking)
-            appendOutput("⏳ Analyzing file via claude...\n")
+            appendOutput("⏳ Analyzing file via \(currentProvider.rawValue)...\n")
 
             DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-                self?.runCLI(cli: "claude", prompt: prompt)
+                self?.runCLI(cli: self?.currentProvider.rawValue ?? "claude", prompt: prompt)
             }
         }
     }
@@ -3316,11 +3341,11 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
     func monitorProcesses() {
         DispatchQueue.global(qos: .utility).async { [weak self] in
-            let result = self?.shell("ps aux | grep -E '(claude|codex)' | grep -v grep | awk '{print $11, $12, $13}' 2>/dev/null") ?? ""
+            let result = self?.shell("ps aux | grep -E '(claude|codex|ollama|gemini)' | grep -v grep | awk '{print $11, $12, $13}' 2>/dev/null") ?? ""
             DispatchQueue.main.async {
                 let lines = result.trimmingCharacters(in: .whitespacesAndNewlines)
                 if lines.isEmpty {
-                    self?.appendColored("📊 No running claude/codex processes\n\n", color: self!.cDimGray)
+                    self?.appendColored("📊 No running AI CLI processes\n\n", color: self!.cDimGray)
                 } else {
                     self?.appendColored("📊 Running processes:\n", color: self!.cCyan, bold: true)
                     for line in lines.components(separatedBy: "\n") {
@@ -3370,14 +3395,23 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             return
         }
 
-        // Determine CLI
-        var cli = "claude"
+        // Determine provider
+        var cli = currentProvider.rawValue
         var actualPrompt = parsedPrompt
 
         if parsedPrompt.hasPrefix("/codex ") {
             cli = "codex"
             actualPrompt = String(parsedPrompt.dropFirst(7))
         } else if parsedPrompt.hasPrefix("/claude ") {
+            actualPrompt = String(parsedPrompt.dropFirst(8))
+        } else if parsedPrompt.hasPrefix("/gpt ") {
+            cli = "gpt"
+            actualPrompt = String(parsedPrompt.dropFirst(5))
+        } else if parsedPrompt.hasPrefix("/gemini ") {
+            cli = "gemini"
+            actualPrompt = String(parsedPrompt.dropFirst(8))
+        } else if parsedPrompt.hasPrefix("/ollama ") {
+            cli = "ollama"
             actualPrompt = String(parsedPrompt.dropFirst(8))
         }
 
@@ -3552,7 +3586,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             return true
 
         case "/help all commands":
-            showHelp()
+            showHelpAll()
             return true
 
         case "/memory":
@@ -3561,6 +3595,18 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
         case "/brain":
             exportBrain()
+            return true
+
+        case "/model":
+            showModelStatus()
+            return true
+
+        case "/models":
+            showModelCatalog()
+            return true
+
+        case "/usage":
+            showProviderUsage(days: 7)
             return true
 
         case "/specialist":
@@ -3697,7 +3743,8 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
         default:
             if cmd.hasPrefix("/help ") {
-                showHelp()
+                let args = String(cmd.dropFirst(6)).trimmingCharacters(in: .whitespacesAndNewlines)
+                handleHelpCommand(args: args)
                 return true
             }
             if cmd.hasPrefix("/quests ") {
@@ -3794,6 +3841,17 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             if cmd.hasPrefix("/specialist ") {
                 let args = String(cmd.dropFirst(12)).trimmingCharacters(in: .whitespacesAndNewlines)
                 handleSpecialistCommand(args: args)
+                return true
+            }
+            if cmd.hasPrefix("/model ") {
+                let args = String(cmd.dropFirst(7)).trimmingCharacters(in: .whitespacesAndNewlines)
+                handleModelCommand(args: args)
+                return true
+            }
+            if cmd.hasPrefix("/usage ") {
+                let raw = String(cmd.dropFirst(7)).trimmingCharacters(in: .whitespacesAndNewlines)
+                let days = max(1, Int(raw) ?? 7)
+                showProviderUsage(days: days)
                 return true
             }
             if cmd.hasPrefix("/optimizer ") {
@@ -4078,19 +4136,12 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         setState(.thinking)
         bubbleLabel.stringValue = speechBubble("Converting to shell...")
         appendColored("🐚 NL → Shell: \(description)\n", color: cCyan, bold: true)
-        appendColored("⏳ → claude...\n", color: cDimGray)
+        appendColored("⏳ → \(currentProvider.rawValue)...\n", color: cDimGray)
 
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
             let prompt = "Convert this to a single shell command for macOS. Output ONLY the command, nothing else: \(description)"
-            let optimization = self.tokenOptimizer.optimize(prompt: prompt, brainContext: nil, cli: "claude")
-            self.lastTokenOptimization = optimization
-            let escapedPrompt = optimization.finalPrompt
-                .replacingOccurrences(of: "\\", with: "\\\\")
-                .replacingOccurrences(of: "\"", with: "\\\"")
-                .replacingOccurrences(of: "$", with: "\\$")
-                .replacingOccurrences(of: "`", with: "\\`")
-            let generated = self.shell("claude -p \"\(escapedPrompt)\"")?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let generated = self.runProviderSync(self.currentProvider, prompt: prompt)
 
             DispatchQueue.main.async {
                 guard !generated.isEmpty else {
@@ -4262,12 +4313,12 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
         if isError {
             appendColored("🔴 Error detected in clipboard!\n", color: cRed, bold: true)
-            appendColored("  Type: fix — to get help from Claude\n\n", color: cGray)
+            appendColored("  Type: fix — to get help from active provider\n\n", color: cGray)
             bubbleLabel.stringValue = speechBubble("Error detected! 🔴")
             setState(.error)
         } else if isCode {
             appendColored("📋 Code detected in clipboard! (\(content.count) chars)\n", color: cCyan, bold: true)
-            appendColored("  Type: explain — to analyze with Claude\n\n", color: cGray)
+            appendColored("  Type: explain — to analyze with active provider\n\n", color: cGray)
             bubbleLabel.stringValue = speechBubble("Code detected! 📋")
         } else {
             appendColored("📋 Clipboard updated (\(content.count) chars)\n\n", color: cGray)
@@ -4395,13 +4446,13 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                 guard let self = self else { return }
                 if FileManager.default.fileExists(atPath: tmpPath) {
                     self.appendColored("📸 Screenshot captured!\n", color: self.cGreen, bold: true)
-                    self.appendColored("⏳ → claude (analyzing image)...\n", color: self.cDimGray)
+                    self.appendColored("⏳ → \(self.currentProvider.rawValue) (analyzing image)...\n", color: self.cDimGray)
                     let oldLevel = self.pet.level
                     self.pet.onCommandRun()
                     self.pet.save()
                     self.refreshStatsDisplay()
                     DispatchQueue.global(qos: .userInitiated).async {
-                        self.runCLI(cli: "claude", prompt: "Analyze this screenshot and describe what you see. If there's code, explain it. If there's an error, suggest a fix. Image: \(tmpPath)", oldLevel: oldLevel)
+                        self.runCLI(cli: self.currentProvider.rawValue, prompt: "Analyze this screenshot and describe what you see. If there's code, explain it. If there's an error, suggest a fix. Image: \(tmpPath)", oldLevel: oldLevel)
                     }
                 } else {
                     self.appendColored("❌ Screenshot cancelled\n\n", color: self.cGray)
@@ -4439,13 +4490,13 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                     return
                 }
                 let truncated = String(diff.prefix(3000))
-                self.appendColored("📝 Sending diff to Claude for review...\n", color: self.cDimGray)
+                self.appendColored("📝 Sending diff to \(self.currentProvider.label) for review...\n", color: self.cDimGray)
                 let oldLevel = self.pet.level
                 self.pet.onCommandRun()
                 self.pet.save()
                 self.refreshStatsDisplay()
                 DispatchQueue.global(qos: .userInitiated).async {
-                    self.runCLI(cli: "claude", prompt: "Review this git diff. Point out potential bugs, suggest improvements, and highlight good changes. Be concise.\n\n\(truncated)", oldLevel: oldLevel)
+                    self.runCLI(cli: self.currentProvider.rawValue, prompt: "Review this git diff. Point out potential bugs, suggest improvements, and highlight good changes. Be concise.\n\n\(truncated)", oldLevel: oldLevel)
                 }
             }
         }
@@ -4480,13 +4531,13 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                     return
                 }
                 let truncated = String(diff.prefix(3000))
-                self.appendColored("⏳ → claude...\n", color: self.cDimGray)
+                self.appendColored("⏳ → \(self.currentProvider.rawValue)...\n", color: self.cDimGray)
                 let oldLevel = self.pet.level
                 self.pet.onCommandRun()
                 self.pet.save()
                 self.refreshStatsDisplay()
                 DispatchQueue.global(qos: .userInitiated).async {
-                    self.runCLI(cli: "claude", prompt: "Generate a concise git commit message (1-2 lines) for these staged changes. Just the message, no explanation.\n\n\(truncated)", oldLevel: oldLevel)
+                    self.runCLI(cli: self.currentProvider.rawValue, prompt: "Generate a concise git commit message (1-2 lines) for these staged changes. Just the message, no explanation.\n\n\(truncated)", oldLevel: oldLevel)
                 }
             }
         }
@@ -4509,7 +4560,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         setState(.thinking)
         appendColored("📄 Reading \(fileName) (\(content.count) chars)...\n", color: cCyan)
         bubbleLabel.stringValue = speechBubble("Analyzing \(fileName)...")
-        appendColored("⏳ → claude...\n", color: cDimGray)
+        appendColored("⏳ → \(currentProvider.rawValue)...\n", color: cDimGray)
 
         let oldLevel = pet.level
         pet.onCommandRun()
@@ -4517,7 +4568,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         refreshStatsDisplay()
 
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            self?.runCLI(cli: "claude", prompt: "Explain this file (\(fileName)). What does it do? Any issues?\n\n```\n\(truncated)\n```", oldLevel: oldLevel)
+            self?.runCLI(cli: self?.currentProvider.rawValue ?? "claude", prompt: "Explain this file (\(fileName)). What does it do? Any issues?\n\n```\n\(truncated)\n```", oldLevel: oldLevel)
         }
     }
 
@@ -4622,7 +4673,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         setState(.thinking)
         bubbleLabel.stringValue = speechBubble(L10n.t("prep_commit"))
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            self?.runCLI(cli: "claude", prompt: L10n.t("prompt_commit"))
+            self?.runCLI(cli: self?.currentProvider.rawValue ?? "claude", prompt: L10n.t("prompt_commit"))
         }
     }
 
@@ -4632,7 +4683,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         setState(.thinking)
         bubbleLabel.stringValue = speechBubble(L10n.t("run_tests"))
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            self?.runCLI(cli: "claude", prompt: L10n.t("prompt_test"))
+            self?.runCLI(cli: self?.currentProvider.rawValue ?? "claude", prompt: L10n.t("prompt_test"))
         }
     }
 
@@ -4642,7 +4693,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         setState(.thinking)
         bubbleLabel.stringValue = speechBubble(L10n.t("find_errors"))
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            self?.runCLI(cli: "claude", prompt: L10n.t("prompt_explain"))
+            self?.runCLI(cli: self?.currentProvider.rawValue ?? "claude", prompt: L10n.t("prompt_explain"))
         }
     }
 
@@ -4652,7 +4703,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         setState(.thinking)
         bubbleLabel.stringValue = speechBubble(L10n.t("code_review"))
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            self?.runCLI(cli: "claude", prompt: L10n.t("prompt_review"))
+            self?.runCLI(cli: self?.currentProvider.rawValue ?? "claude", prompt: L10n.t("prompt_review"))
         }
     }
 
@@ -4683,18 +4734,402 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         }
     }
 
+    // MARK: - AI Provider Routing
+
+    func saveProviderPreferences() {
+        UserDefaults.standard.set(currentProvider.rawValue, forKey: "agento_provider")
+        UserDefaults.standard.set(providerModelOverrides, forKey: "agento_provider_models")
+    }
+
+    func sourceLabel(_ source: String) -> String {
+        if let provider = AIProvider(rawValue: source.lowercased()) {
+            return provider.rawValue
+        }
+        return source.lowercased()
+    }
+
+    func sourceDisplayLabel(_ source: String) -> String {
+        if let provider = AIProvider(rawValue: source.lowercased()) {
+            return provider.label
+        }
+        return source
+    }
+
+    func currentModel(for provider: AIProvider) -> String {
+        if let override = providerModelOverrides[provider.rawValue]?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !override.isEmpty {
+            return override
+        }
+        let env = ProcessInfo.processInfo.environment
+        switch provider {
+        case .claude:
+            return env["AGENTO_CLAUDE_MODEL"] ?? ""
+        case .codex:
+            return env["AGENTO_CODEX_MODEL"] ?? ""
+        case .gpt:
+            return env["AGENTO_OPENAI_MODEL"] ?? "gpt-4.1-mini"
+        case .gemini:
+            return env["AGENTO_GEMINI_MODEL"] ?? "gemini-2.0-flash"
+        case .ollama:
+            return env["AGENTO_OLLAMA_MODEL"] ?? "llama3.1"
+        }
+    }
+
+    func setProvider(_ provider: AIProvider) {
+        currentProvider = provider
+        saveProviderPreferences()
+    }
+
+    func setProviderModel(_ provider: AIProvider, model: String?) {
+        let clean = model?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if clean.isEmpty {
+            providerModelOverrides.removeValue(forKey: provider.rawValue)
+        } else {
+            providerModelOverrides[provider.rawValue] = clean
+        }
+        saveProviderPreferences()
+    }
+
+    func shellQuote(_ value: String) -> String {
+        return "'" + value.replacingOccurrences(of: "'", with: "'\"'\"'") + "'"
+    }
+
+    func applyCommandTemplate(_ template: String, prompt: String, model: String) -> String {
+        var cmd = template
+        let promptArg = shellQuote(prompt)
+        let modelArg = shellQuote(model)
+        if cmd.contains("{prompt}") {
+            cmd = cmd.replacingOccurrences(of: "{prompt}", with: promptArg)
+        } else {
+            cmd += " " + promptArg
+        }
+        if cmd.contains("{model}") {
+            cmd = cmd.replacingOccurrences(of: "{model}", with: modelArg)
+        }
+        return cmd
+    }
+
+    func shellCommandForProvider(_ provider: AIProvider, prompt: String) -> String? {
+        let model = currentModel(for: provider)
+        let env = ProcessInfo.processInfo.environment
+        switch provider {
+        case .claude:
+            return "claude -p \(shellQuote(prompt))"
+        case .codex:
+            if model.isEmpty {
+                return "codex exec \(shellQuote(prompt))"
+            }
+            return "codex exec --model \(shellQuote(model)) \(shellQuote(prompt))"
+        case .ollama:
+            return "ollama run \(shellQuote(model)) \(shellQuote(prompt))"
+        case .gpt:
+            if let custom = env["AGENTO_GPT_COMMAND"], !custom.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return applyCommandTemplate(custom, prompt: prompt, model: model)
+            }
+            return nil
+        case .gemini:
+            if let custom = env["AGENTO_GEMINI_COMMAND"], !custom.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return applyCommandTemplate(custom, prompt: prompt, model: model)
+            }
+            return nil
+        }
+    }
+
+    func runJSONRequest(url: URL, headers: [String: String], body: [String: Any], timeout: TimeInterval = 90) -> (status: Int, data: Data?, errorText: String?) {
+        var request = URLRequest(url: url, timeoutInterval: timeout)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        for (key, value) in headers {
+            request.setValue(value, forHTTPHeaderField: key)
+        }
+        guard let payload = try? JSONSerialization.data(withJSONObject: body) else {
+            return (0, nil, "Failed to serialize request body")
+        }
+        request.httpBody = payload
+
+        var status = 0
+        var dataOut: Data?
+        var errorText: String?
+        let sem = DispatchSemaphore(value: 0)
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let http = response as? HTTPURLResponse {
+                status = http.statusCode
+            }
+            dataOut = data
+            if let error = error {
+                errorText = error.localizedDescription
+            }
+            sem.signal()
+        }.resume()
+        _ = sem.wait(timeout: .now() + timeout + 5)
+        return (status, dataOut, errorText)
+    }
+
+    func parseOpenAIOutput(_ json: [String: Any]) -> String {
+        if let outputText = json["output_text"] as? String, !outputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return outputText
+        }
+        var chunks: [String] = []
+        if let output = json["output"] as? [[String: Any]] {
+            for item in output {
+                if let content = item["content"] as? [[String: Any]] {
+                    for part in content {
+                        if let text = part["text"] as? String, !text.isEmpty {
+                            chunks.append(text)
+                        } else if let text = part["output_text"] as? String, !text.isEmpty {
+                            chunks.append(text)
+                        }
+                    }
+                }
+            }
+        }
+        return chunks.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    func parseGeminiOutput(_ json: [String: Any]) -> String {
+        var chunks: [String] = []
+        if let candidates = json["candidates"] as? [[String: Any]] {
+            for candidate in candidates {
+                if let content = candidate["content"] as? [String: Any],
+                   let parts = content["parts"] as? [[String: Any]] {
+                    for part in parts {
+                        if let text = part["text"] as? String, !text.isEmpty {
+                            chunks.append(text)
+                        }
+                    }
+                }
+            }
+        }
+        return chunks.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    func runGPTViaAPI(prompt: String) -> (text: String?, error: String?) {
+        let env = ProcessInfo.processInfo.environment
+        guard let apiKey = env["OPENAI_API_KEY"], !apiKey.isEmpty else {
+            return (nil, "OPENAI_API_KEY is missing. Set API key or AGENTO_GPT_COMMAND.")
+        }
+        let model = currentModel(for: .gpt)
+        guard let url = URL(string: "https://api.openai.com/v1/responses") else {
+            return (nil, "Failed to build OpenAI URL")
+        }
+        let body: [String: Any] = [
+            "model": model,
+            "input": prompt
+        ]
+        let result = runJSONRequest(
+            url: url,
+            headers: ["Authorization": "Bearer \(apiKey)"],
+            body: body
+        )
+        if let err = result.errorText, !err.isEmpty {
+            return (nil, err)
+        }
+        guard let data = result.data else {
+            return (nil, "OpenAI returned empty response")
+        }
+        guard let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
+            return (nil, "OpenAI returned invalid JSON")
+        }
+        if result.status >= 400 {
+            let apiMessage = ((json["error"] as? [String: Any])?["message"] as? String) ?? "HTTP \(result.status)"
+            return (nil, apiMessage)
+        }
+        let text = parseOpenAIOutput(json)
+        if text.isEmpty {
+            return (nil, "OpenAI returned no text output")
+        }
+        return (text, nil)
+    }
+
+    func runGeminiViaAPI(prompt: String) -> (text: String?, error: String?) {
+        let env = ProcessInfo.processInfo.environment
+        guard let apiKey = env["GEMINI_API_KEY"], !apiKey.isEmpty else {
+            return (nil, "GEMINI_API_KEY is missing. Set API key or AGENTO_GEMINI_COMMAND.")
+        }
+        let model = currentModel(for: .gemini)
+        guard let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(model):generateContent?key=\(apiKey)") else {
+            return (nil, "Failed to build Gemini URL")
+        }
+        let body: [String: Any] = [
+            "contents": [
+                [
+                    "parts": [
+                        ["text": prompt]
+                    ]
+                ]
+            ]
+        ]
+        let result = runJSONRequest(url: url, headers: [:], body: body)
+        if let err = result.errorText, !err.isEmpty {
+            return (nil, err)
+        }
+        guard let data = result.data else {
+            return (nil, "Gemini returned empty response")
+        }
+        guard let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
+            return (nil, "Gemini returned invalid JSON")
+        }
+        if result.status >= 400 {
+            let apiMessage = ((json["error"] as? [String: Any])?["message"] as? String) ?? "HTTP \(result.status)"
+            return (nil, apiMessage)
+        }
+        let text = parseGeminiOutput(json)
+        if text.isEmpty {
+            return (nil, "Gemini returned no text output")
+        }
+        return (text, nil)
+    }
+
+    func runProviderSync(_ provider: AIProvider, prompt: String, includeBrainContext: Bool = false) -> String {
+        let rawContext = includeBrainContext ? brain.buildContext(level: pet.level) : nil
+        let optimization = tokenOptimizer.optimize(prompt: prompt, brainContext: rawContext, cli: provider.rawValue)
+        lastTokenOptimization = optimization
+
+        if let cmd = shellCommandForProvider(provider, prompt: optimization.finalPrompt) {
+            return shell(cmd)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        }
+        switch provider {
+        case .gpt:
+            let result = runGPTViaAPI(prompt: optimization.finalPrompt)
+            if let text = result.text {
+                return text.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+            }
+            return ""
+        case .gemini:
+            let result = runGeminiViaAPI(prompt: optimization.finalPrompt)
+            if let text = result.text {
+                return text.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+            }
+            return ""
+        default:
+            return ""
+        }
+    }
+
+    func showModelStatus() {
+        appendColored("╭── Model Router ─────────────────────╮\n", color: cCyan)
+        appendColored("  Active provider: \(currentProvider.label)\n", color: cGreen, bold: true)
+        let model = currentModel(for: currentProvider)
+        if model.isEmpty {
+            appendColored("  Active model: default\n", color: cDimGray)
+        } else {
+            appendColored("  Active model: \(model)\n", color: cYellow)
+        }
+        appendColored("\n  Quick switch:\n", color: cPurple, bold: true)
+        appendColored("  /model claude | /model codex | /model gpt | /model gemini | /model ollama\n", color: cGray)
+        appendColored("  /models\n", color: cGray)
+        appendColored("  /usage [days]\n", color: cGray)
+        appendColored("╰─────────────────────────────────────╯\n\n", color: cCyan)
+    }
+
+    func showModelCatalog() {
+        appendColored("🤖 Available providers\n", color: cCyan, bold: true)
+        for provider in AIProvider.allCases {
+            let marker = provider == currentProvider ? "◀ active" : ""
+            let model = currentModel(for: provider)
+            let modelText = model.isEmpty ? "default" : model
+            appendColored("  \(provider.rawValue.padding(toLength: 8, withPad: " ", startingAt: 0))", color: cYellow)
+            appendOutput("→ \(provider.label)  model: \(modelText) \(marker)\n")
+        }
+        appendColored("\n  Set provider: /model <provider>\n", color: cGray)
+        appendColored("  Set model:    /model <provider> <model-id>\n", color: cGray)
+        appendColored("  Clear model:  /model clear <provider>\n\n", color: cGray)
+    }
+
+    func showProviderUsage(days: Int) {
+        let safeDays = max(1, days)
+        let rows = promptJournal.entries(forLastDays: safeDays)
+        if rows.isEmpty {
+            appendColored("📊 No prompt usage in last \(safeDays) day(s)\n\n", color: cDimGray)
+            return
+        }
+
+        var totalPrompts = 0
+        var totalChars = 0
+        var stats: [String: (count: Int, chars: Int)] = [:]
+        for row in rows {
+            let source = sourceLabel(row["source"] as? String ?? "unknown")
+            let chars = row["chars"] as? Int ?? 0
+            totalPrompts += 1
+            totalChars += chars
+            let prev = stats[source] ?? (0, 0)
+            stats[source] = (prev.count + 1, prev.chars + chars)
+        }
+
+        appendColored("📊 Provider usage (\(safeDays)d)\n", color: cCyan, bold: true)
+        let sorted = stats.sorted { a, b in
+            if a.value.count == b.value.count { return a.key < b.key }
+            return a.value.count > b.value.count
+        }
+        for (source, row) in sorted {
+            let avg = row.count > 0 ? (row.chars / row.count) : 0
+            appendColored("  \(source.padding(toLength: 8, withPad: " ", startingAt: 0))", color: cYellow)
+            appendOutput("→ \(sourceDisplayLabel(source)) | prompts \(row.count), chars \(row.chars), avg \(avg)\n")
+        }
+        appendColored("  total    ", color: cGreen, bold: true)
+        appendOutput("→ prompts \(totalPrompts), chars \(totalChars)\n\n")
+    }
+
+    func handleModelCommand(args: String) {
+        let value = args.trimmingCharacters(in: .whitespacesAndNewlines)
+        if value.isEmpty || value == "status" {
+            showModelStatus()
+            return
+        }
+        if value == "list" || value == "ls" || value == "models" {
+            showModelCatalog()
+            return
+        }
+
+        if value.hasPrefix("clear ") {
+            let key = String(value.dropFirst(6)).trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            guard let provider = AIProvider(rawValue: key) else {
+                appendColored("❌ Unknown provider: \(key)\n\n", color: cRed)
+                return
+            }
+            setProviderModel(provider, model: nil)
+            appendColored("✅ Cleared model override for \(provider.rawValue)\n\n", color: cGreen)
+            return
+        }
+
+        let parts = value.split(separator: " ", maxSplits: 1, omittingEmptySubsequences: true)
+        guard let providerKey = parts.first else {
+            showModelStatus()
+            return
+        }
+        guard let provider = AIProvider(rawValue: String(providerKey).lowercased()) else {
+            appendColored("❌ Unknown provider: \(providerKey)\n", color: cRed)
+            appendColored("  Use: claude | codex | gpt | gemini | ollama\n\n", color: cGray)
+            return
+        }
+
+        if parts.count == 1 {
+            setProvider(provider)
+            appendColored("✅ Active provider: \(provider.label)\n\n", color: cGreen, bold: true)
+            return
+        }
+
+        let model = String(parts[1]).trimmingCharacters(in: .whitespacesAndNewlines)
+        if model.isEmpty {
+            appendColored("❌ Usage: /model \(provider.rawValue) <model-id>\n\n", color: cRed)
+            return
+        }
+        setProvider(provider)
+        setProviderModel(provider, model: model)
+        appendColored("✅ Active provider: \(provider.label)\n", color: cGreen, bold: true)
+        appendColored("✅ Model for \(provider.rawValue): \(model)\n\n", color: cGreen)
+    }
+
     // MARK: - Run CLI
 
     func runCLI(cli: String, prompt: String, oldLevel: Int = 0) {
-        let process = Process()
-        let pipe = Pipe()
+        let provider = AIProvider(rawValue: cli.lowercased()) ?? .claude
 
-        // Learn from the prompt
         brain.learn(from: prompt)
-        promptJournal.record(source: cli, prompt: prompt)
+        promptJournal.record(source: provider.rawValue, prompt: prompt)
 
         let rawContext = brain.buildContext(level: pet.level)
-        let optimization = tokenOptimizer.optimize(prompt: prompt, brainContext: rawContext, cli: cli)
+        let optimization = tokenOptimizer.optimize(prompt: prompt, brainContext: rawContext, cli: provider.rawValue)
         lastTokenOptimization = optimization
         let enhancedPrompt = optimization.finalPrompt
         if tokenOptimizer.isEnabled && optimization.savedChars > 0 {
@@ -4704,37 +5139,75 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             )
         }
 
-        // Use shell to get proper PATH
-        process.executableURL = URL(fileURLWithPath: "/bin/zsh")
-        let escapedPrompt = enhancedPrompt
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "\"", with: "\\\"")
-            .replacingOccurrences(of: "$", with: "\\$")
-            .replacingOccurrences(of: "`", with: "\\`")
-
-        if cli == "codex" {
-            process.arguments = ["-l", "-c", "codex exec \"\(escapedPrompt)\""]
-        } else {
-            process.arguments = ["-l", "-c", "claude -p \"\(escapedPrompt)\""]
+        let finalize: (_ success: Bool, _ output: String, _ errorMessage: String?) -> Void = { [weak self] success, output, errorMessage in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                self.lastResponse = output
+                if !output.isEmpty {
+                    self.appendOutput(output)
+                }
+                self.appendOutput("\n")
+                if success {
+                    self.pet.onCommandSuccess()
+                    self.pet.save()
+                    self.refreshStatsDisplay()
+                    self.checkLevelUp(oldLevel: oldLevel)
+                    self.setState(.happy, duration: 3)
+                    self.bubbleLabel.stringValue = speechBubble(L10n.t("done_xp"))
+                    self.playSound("Glass")
+                } else {
+                    if let errorMessage = errorMessage, !errorMessage.isEmpty {
+                        self.appendColored("❌ \(errorMessage)\n\n", color: self.cRed)
+                    }
+                    self.setState(.error, duration: 3)
+                    self.bubbleLabel.stringValue = speechBubble(L10n.t("error_exec"))
+                    self.playSound("Basso")
+                }
+                self.refreshGitStatus()
+            }
         }
 
-        process.standardOutput = pipe
-        process.standardError = pipe
-        var env = ProcessInfo.processInfo.environment
-        env.removeValue(forKey: "CLAUDECODE")
-        env.removeValue(forKey: "CODEX_CLI_SESSION")
-        process.environment = env
-        currentProcess = process
+        if let shellCommand = shellCommandForProvider(provider, prompt: enhancedPrompt) {
+            let process = Process()
+            let pipe = Pipe()
+            process.executableURL = URL(fileURLWithPath: "/bin/zsh")
+            process.arguments = ["-l", "-c", shellCommand]
+            process.standardOutput = pipe
+            process.standardError = pipe
+            var env = ProcessInfo.processInfo.environment
+            env.removeValue(forKey: "CLAUDECODE")
+            env.removeValue(forKey: "CODEX_CLI_SESSION")
+            process.environment = env
+            currentProcess = process
 
-        do {
-            try process.run()
-        } catch {
-            DispatchQueue.main.async { [weak self] in
-                self?.appendColored("❌ Error: \(error.localizedDescription)\n\n", color: self!.cRed)
-                self?.setState(.error, duration: 3)
-                self?.bubbleLabel.stringValue = speechBubble("\(L10n.t("error_launch")) \(cli)!")
-                self?.playSound("Basso")
+            do {
+                try process.run()
+            } catch {
+                finalize(false, "", "\(L10n.t("error_launch")) \(provider.rawValue): \(error.localizedDescription)")
+                return
             }
+
+            DispatchQueue.main.async { [weak self] in
+                self?.setState(.typing)
+            }
+
+            var accumulatedOutput = ""
+            let fileHandle = pipe.fileHandleForReading
+            fileHandle.readabilityHandler = { [weak self] handle in
+                let data = handle.availableData
+                if data.isEmpty {
+                    handle.readabilityHandler = nil
+                    return
+                }
+                if let str = String(data: data, encoding: .utf8) {
+                    accumulatedOutput += str
+                    self?.appendOutput(str)
+                }
+            }
+
+            process.waitUntilExit()
+            currentProcess = nil
+            finalize(process.terminationStatus == 0, accumulatedOutput, nil)
             return
         }
 
@@ -4742,41 +5215,23 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             self?.setState(.typing)
         }
 
-        var accumulatedOutput = ""
-        let fileHandle = pipe.fileHandleForReading
-        fileHandle.readabilityHandler = { [weak self] handle in
-            let data = handle.availableData
-            if data.isEmpty {
-                handle.readabilityHandler = nil
-                return
-            }
-            if let str = String(data: data, encoding: .utf8) {
-                accumulatedOutput += str
-                self?.appendOutput(str)
-            }
-        }
-
-        process.waitUntilExit()
-        currentProcess = nil
-
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            self.lastResponse = accumulatedOutput
-            self.appendOutput("\n")
-            if process.terminationStatus == 0 {
-                self.pet.onCommandSuccess()
-                self.pet.save()
-                self.refreshStatsDisplay()
-                self.checkLevelUp(oldLevel: oldLevel)
-                self.setState(.happy, duration: 3)
-                self.bubbleLabel.stringValue = speechBubble(L10n.t("done_xp"))
-                self.playSound("Glass")
+        switch provider {
+        case .gpt:
+            let result = runGPTViaAPI(prompt: enhancedPrompt)
+            if let output = result.text {
+                finalize(true, output, nil)
             } else {
-                self.setState(.error, duration: 3)
-                self.bubbleLabel.stringValue = speechBubble(L10n.t("error_exec"))
-                self.playSound("Basso")
+                finalize(false, "", result.error ?? "GPT request failed")
             }
-            self.refreshGitStatus()
+        case .gemini:
+            let result = runGeminiViaAPI(prompt: enhancedPrompt)
+            if let output = result.text {
+                finalize(true, output, nil)
+            } else {
+                finalize(false, "", result.error ?? "Gemini request failed")
+            }
+        default:
+            finalize(false, "", "Provider \(provider.rawValue) is not configured")
         }
     }
 
@@ -4811,7 +5266,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
         appendColored("╔═══════════════════════════════════════╗\n", color: cCyan)
         appendColored("║         Agent-O  Terminal              ║\n", color: cCyan)
-        appendColored("║  Claude/Codex Assistant + Tamagotchi  ║\n", color: cCyan)
+        appendColored("║   Multi-Model Assistant + Tamagotchi  ║\n", color: cCyan)
         appendColored("╚═══════════════════════════════════════╝\n\n", color: cCyan)
 
         if !pet.hasCompletedOnboarding {
@@ -4829,7 +5284,9 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         appendColored("  D&D   ", color: cYellow, bold: true)
         appendOutput("drag & drop file to analyze\n\n")
         appendColored("  /help ", color: cGreen, bold: true)
-        appendOutput("all commands  ")
+        appendOutput("quick help  ")
+        appendColored("/help all ", color: cGreen, bold: true)
+        appendOutput("full list  ")
         appendColored("/quests ", color: cYellow, bold: true)
         appendOutput("daily quests\n\n")
 
@@ -5095,19 +5552,12 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         setState(.thinking)
         bubbleLabel.stringValue = speechBubble("Building regex...")
         appendColored("🔧 Regex Builder: \(description)\n", color: cCyan, bold: true)
-        appendColored("⏳ → claude...\n", color: cDimGray)
+        appendColored("⏳ → \(currentProvider.rawValue)...\n", color: cDimGray)
 
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
             let prompt = "Generate a regex pattern for: \(description). Output format:\nPattern: <regex>\nExample matches: <3 examples>\nExplanation: <brief>"
-            let optimization = self.tokenOptimizer.optimize(prompt: prompt, brainContext: nil, cli: "claude")
-            self.lastTokenOptimization = optimization
-            let escapedPrompt = optimization.finalPrompt
-                .replacingOccurrences(of: "\\", with: "\\\\")
-                .replacingOccurrences(of: "\"", with: "\\\"")
-                .replacingOccurrences(of: "$", with: "\\$")
-                .replacingOccurrences(of: "`", with: "\\`")
-            let result = self.shell("claude -p \"\(escapedPrompt)\"")?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let result = self.runProviderSync(self.currentProvider, prompt: prompt)
 
             DispatchQueue.main.async {
                 guard !result.isEmpty else {
@@ -5289,14 +5739,13 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         let entries = promptJournal.entries(forLastDays: safeDays)
         if entries.isEmpty {
             appendColored("📭 No prompts logged for last \(safeDays) day(s).\n", color: cDimGray)
-            appendColored("  Use Claude/Codex in Agent-O, then run /promptstats again.\n\n", color: cGray)
+            appendColored("  Use any provider in Agent-O, then run /promptstats again.\n\n", color: cGray)
             return
         }
 
         var totalChars = 0
         var totalWords = 0
-        var claudeCount = 0
-        var codexCount = 0
+        var sourceCounts: [String: Int] = [:]
         var contextCount = 0
         var formatCount = 0
         var intentCounts: [String: Int] = [:]
@@ -5305,12 +5754,12 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         for entry in entries {
             let chars = entry["chars"] as? Int ?? 0
             let words = entry["words"] as? Int ?? 0
-            let source = entry["source"] as? String ?? "claude"
+            let source = sourceLabel(entry["source"] as? String ?? "unknown")
             let text = entry["text"] as? String ?? ""
 
             totalChars += chars
             totalWords += words
-            if source == "codex" { codexCount += 1 } else { claudeCount += 1 }
+            sourceCounts[source, default: 0] += 1
             if promptHasContext(text) { contextCount += 1 }
             if promptHasOutputFormat(text) { formatCount += 1 }
             let intent = promptIntentBucket(text)
@@ -5336,8 +5785,15 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         appendColored("  Window: last \(safeDays) day(s)\n", color: cGray)
         appendColored("  Total prompts: ", color: cGray)
         appendColored("\(count)\n", color: cGreen, bold: true)
-        appendColored("  Claude/Codex: ", color: cGray)
-        appendColored("\(claudeCount)/\(codexCount)\n", color: cYellow, bold: true)
+        let providerBreakdown = sourceCounts
+            .sorted { a, b in
+                if a.value == b.value { return a.key < b.key }
+                return a.value > b.value
+            }
+            .map { "\($0.key):\($0.value)" }
+            .joined(separator: "  ")
+        appendColored("  Providers: ", color: cGray)
+        appendColored("\(providerBreakdown)\n", color: cYellow, bold: true)
         appendColored("  Avg size: ", color: cGray)
         appendColored("\(avgWords) words, \(avgChars) chars\n", color: cYellow)
         appendColored("  With context: ", color: cGray)
@@ -5349,7 +5805,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
         if let longest = longest {
             let preview = String(longest.text.prefix(100)).replacingOccurrences(of: "\n", with: " ")
-            appendColored("  Longest prompt (\(longest.source)): ", color: cGray)
+            appendColored("  Longest prompt (\(sourceDisplayLabel(longest.source))): ", color: cGray)
             appendColored("\(longest.chars) chars\n", color: cYellow)
             appendColored("    \(preview)\(longest.text.count > 100 ? "..." : "")\n", color: cDimGray)
         }
@@ -5361,7 +5817,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         let entries = promptJournal.entries(forLastDays: safeDays)
         if entries.isEmpty {
             appendColored("📭 No prompts to coach yet for last \(safeDays) day(s).\n", color: cDimGray)
-            appendColored("  Run Claude/Codex prompts first, then /promptcoach.\n\n", color: cGray)
+            appendColored("  Run prompts with any provider first, then /promptcoach.\n\n", color: cGray)
             return
         }
 
@@ -5595,6 +6051,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         appendColored("  Runs: \(tokenOptimizer.totalRuns) total", color: cGray)
         appendColored(" | Claude \(tokenOptimizer.claudeRuns)", color: cDimGray)
         appendColored(" | Codex \(tokenOptimizer.codexRuns)\n", color: cDimGray)
+        appendColored("  Provider-level usage: /usage\n", color: cDimGray)
         appendColored("  Saved chars: \(tokenOptimizer.totalSavedChars) (\(tokenOptimizer.totalSavedPercent)%)\n", color: cYellow)
         if let last = lastTokenOptimization {
             appendColored("  Last run: \(last.originalChars) -> \(last.optimizedChars) chars", color: cGray)
@@ -5623,7 +6080,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             tokenOptimizer.mode = .balanced
             tokenOptimizer.save()
             appendColored("✅ Token optimizer mode: BALANCED\n", color: cGreen, bold: true)
-            appendColored("  Applies to Claude + Codex + Brain context.\n\n", color: cGray)
+            appendColored("  Applies to active provider prompt + Brain context.\n\n", color: cGray)
         case "aggressive":
             tokenOptimizer.mode = .aggressive
             tokenOptimizer.save()
@@ -5641,13 +6098,127 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         }
     }
 
+    func printHelpRows(_ rows: [(String, String)]) {
+        for (cmd, desc) in rows {
+            appendColored("  \(cmd.padding(toLength: 16, withPad: " ", startingAt: 0))", color: cYellow)
+            appendOutput("\(desc)\n")
+        }
+    }
+
     func showHelp() {
+        appendColored("╭── Help ─────────────────────────────╮\n", color: cCyan)
+        appendColored("  Active provider: \(currentProvider.rawValue)\n", color: cGreen, bold: true)
+        appendColored("  Quick start:\n", color: cPurple, bold: true)
+        printHelpRows([
+            ("text", "→ send prompt to active provider"),
+            ("/model", "→ provider/model status"),
+            ("/models", "→ list providers + models"),
+            ("/usage 7", "→ provider usage for 7 days"),
+            ("/quests", "→ daily quests"),
+            ("/leaderboard", "→ publish to leaderboard"),
+        ])
+        appendColored("\n  Categories:\n", color: cPurple, bold: true)
+        appendColored("  /help ai      /help tools    /help pet\n", color: cGray)
+        appendColored("  /help social  /help focus    /help all\n", color: cGray)
+        appendColored("╰─────────────────────────────────────╯\n\n", color: cCyan)
+    }
+
+    func handleHelpCommand(args: String) {
+        let key = args.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if key.isEmpty {
+            showHelp()
+            return
+        }
+        if key == "all" || key == "all commands" {
+            showHelpAll()
+            return
+        }
+
+        switch key {
+        case "ai", "models", "model":
+            appendColored("🤖 AI commands\n", color: cCyan, bold: true)
+            printHelpRows([
+                ("text", "→ prompt active provider"),
+                ("/claude <p>", "→ force Claude"),
+                ("/codex <p>", "→ force Codex"),
+                ("/gpt <p>", "→ force OpenAI GPT"),
+                ("/gemini <p>", "→ force Gemini"),
+                ("/ollama <p>", "→ force Ollama"),
+                ("/model", "→ current provider/model"),
+                ("/model <p>", "→ set provider"),
+                ("/model <p> <m>", "→ set model override"),
+                ("/usage [N]", "→ provider usage"),
+            ])
+            appendOutput("\n")
+        case "tools", "dev":
+            appendColored("🛠 Tools\n", color: cCyan, bold: true)
+            printHelpRows([
+                ("/diff", "→ AI review of git diff"),
+                ("/commit", "→ generate commit message"),
+                ("/ask <file>", "→ analyze file"),
+                ("/screenshot", "→ capture + analyze"),
+                ("/regex <desc>", "→ build regex"),
+                ("/sh <desc>", "→ NL → shell command"),
+                ("/watch", "→ clipboard watcher on"),
+                ("/unwatch", "→ clipboard watcher off"),
+            ])
+            appendOutput("\n")
+        case "pet", "brain":
+            appendColored("🐾 Pet + Brain\n", color: cCyan, bold: true)
+            printHelpRows([
+                ("/feed /play /rest", "→ core pet actions"),
+                ("/stats /evo /ach", "→ status/evolution/achievements"),
+                ("/training", "→ training dashboard"),
+                ("/specialist", "→ specialist profile"),
+                ("/train <fact>", "→ train memory"),
+                ("/memory", "→ learned facts/skills"),
+                ("/optimizer", "→ token optimizer"),
+            ])
+            appendOutput("\n")
+        case "social", "pvp":
+            appendColored("🌐 Social + PvP\n", color: cCyan, bold: true)
+            printHelpRows([
+                ("/name <name>", "→ set leaderboard name"),
+                ("/leaderboard", "→ publish stats"),
+                ("/market", "→ rental market snapshot"),
+                ("/rent help", "→ rental commands"),
+                ("/battle <user>", "→ send challenge"),
+                ("/challenges", "→ incoming challenges"),
+                ("/accept <user>", "→ accept challenge"),
+                ("/move <atk> <def>", "→ submit duel move"),
+                ("/battles", "→ battle history"),
+            ])
+            appendOutput("\n")
+        case "focus", "fun":
+            appendColored("🎯 Focus + Fun\n", color: cCyan, bold: true)
+            printHelpRows([
+                ("/quests", "→ daily quests"),
+                ("/inventory", "→ your items"),
+                ("/pomo /pomo10", "→ focus timer"),
+                ("/break /stoppomo", "→ break/timer stop"),
+                ("/game /trivia /typing", "→ mini games"),
+                ("/daily", "→ daily summary"),
+            ])
+            appendOutput("\n")
+        default:
+            appendColored("❌ Unknown help section: \(key)\n", color: cRed)
+            appendColored("  Use: /help ai | /help tools | /help pet | /help social | /help focus | /help all\n\n", color: cGray)
+        }
+    }
+
+    func showHelpAll() {
         appendColored("╭── Commands ─────────────────────────╮\n", color: cCyan)
         appendColored("  CLI\n", color: cPurple, bold: true)
         let cliCmds: [(String, String)] = [
-            ("text", "→ send to Claude"),
+            ("text", "→ send to active provider (\(currentProvider.rawValue))"),
             ("/claude <p>", "→ explicitly to Claude CLI"),
             ("/codex <p>", "→ explicitly to Codex CLI"),
+            ("/gpt <p>", "→ explicitly to OpenAI GPT"),
+            ("/gemini <p>", "→ explicitly to Gemini"),
+            ("/ollama <p>", "→ explicitly to local Ollama"),
+            ("/model", "→ active provider + model status"),
+            ("/models", "→ list all providers/models"),
+            ("/usage [N]", "→ provider usage in last N days"),
             ("/paste", "→ analyze clipboard content"),
         ]
         for (cmd, desc) in cliCmds {
@@ -5712,7 +6283,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             ("/screenshot", "→ capture & analyze screen area"),
             ("/diff", "→ AI code review of git changes"),
             ("/commit", "→ auto-generate commit message"),
-            ("/ask <file>", "→ analyze a file with Claude"),
+            ("/ask <file>", "→ analyze a file with active provider"),
             ("/watch", "→ clipboard watcher on"),
             ("/unwatch", "→ clipboard watcher off"),
             ("/save", "→ save last response"),
@@ -7771,7 +8342,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             if cmd == "/play" {
                 onboardingStep = 3
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                    self.appendColored("  Awesome! Now try asking Claude a question.\n", color: self.cGreen)
+                    self.appendColored("  Awesome! Now try asking your active provider a question.\n", color: self.cGreen)
                     self.appendColored("  Type anything, e.g.: ", color: self.cGray)
                     self.appendColored("what is swift?\n\n", color: self.cYellow, bold: true)
                     self.bubbleLabel.stringValue = speechBubble("Fun! Now ask me anything!")

@@ -1,0 +1,44 @@
+name: Update Homebrew Formula
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  update-formula:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Update formula tag/revision
+        run: |
+          set -euo pipefail
+          git fetch --tags --force
+          TAG="${GITHUB_REF_NAME}"
+          REVISION="$(git rev-list -n 1 "$TAG")"
+
+          for file in Formula/agento.rb homebrew-tap/Formula/agento.rb; do
+            perl -0pi -e "s/tag: \"v[^\"]+\"/tag: \"$TAG\"/g" "$file"
+            perl -0pi -e "s/revision: \"[0-9a-f]{40}\"/revision: \"$REVISION\"/g" "$file"
+          done
+
+      - name: Commit and push
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo "No formula changes."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula/agento.rb homebrew-tap/Formula/agento.rb
+          git commit -m "chore(homebrew): update formula for ${GITHUB_REF_NAME}"
+          git push origin HEAD:main

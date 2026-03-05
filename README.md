@@ -43,9 +43,9 @@ cd agentO
 ./run.sh
 ```
 
-**Option 2: Homebrew** *(coming soon)*
+**Option 2: Homebrew**
 ```bash
-brew tap egorfedorov/agentO
+brew tap egorfedorov/agento https://github.com/egorfedorov/agentO.git
 brew install agento
 agento
 ```
@@ -63,6 +63,7 @@ xattr -cr ~/Downloads/AgentO.app
 - Correct: `/update`, `/battle user`, `/rent publish 50 7 CyberCat`
 - Incorrect: `update`, `!update`
 - Friendly aliases supported: `/help all commands`, `/quests daily quests`
+- Help UX: `/help` shows compact view; `/help ai|tools|pet|social|focus`; `/help all` for full list
 - Input box supports direct paste (Cmd+V / right-click Paste)
 
 ## Project Vision
@@ -175,6 +176,16 @@ This gives users a path to earn from domain expertise by training high-quality p
   - `/train <fact>` — train pet memory (+XP)
   - `/promptcoach [N]` — prompt quality coaching
 
+### Multi-Model Router
+- Agent-O now supports provider routing beyond Claude/Codex.
+- Providers: Claude, Codex, GPT, Gemini, Ollama.
+- Commands:
+  - `/model` — current provider + model status
+  - `/models` — all providers + configured models
+  - `/model <provider>` — set active provider
+  - `/model <provider> <model-id>` — set model override
+  - `/usage [N]` — usage analytics by provider
+
 ### Landing & Docs Refresh
 - Landing page now highlights tactical duels, marketplace rentals, and training.
 - README includes slash-command rule and pre-release checks for `/update`.
@@ -182,12 +193,17 @@ This gives users a path to earn from domain expertise by training high-quality p
 ## Features
 
 ### Guided Onboarding
-- First launch walks you through: Feed → Play → Ask Claude
+- First launch walks you through: Feed → Play → Ask your active provider
 - Teaches core mechanics step by step
 - Unlocks daily quests after completion
 
-### Claude & Codex Integration
-- Send prompts to **Claude CLI** or **Codex CLI** directly
+### Multi-Model Integration
+- Send prompts to **Claude CLI**, **Codex CLI**, **OpenAI GPT**, **Gemini**, or **Ollama**
+- `/model` — active provider and model status
+- `/models` — available providers + configured models
+- `/model <provider>` — switch default provider
+- `/model <provider> <model-id>` — set model override
+- `/usage [N]` — provider usage summary
 - Real-time streaming output with syntax highlighting
 - Clipboard analysis (`/paste`)
 - Drag & drop files for instant analysis
@@ -238,7 +254,7 @@ Unlock badges for milestones — first command, 100 commands, commits, streaks, 
 - `/unwatch` to stop
 
 ### Code Snippets
-- `/save` — save the last Claude response as a snippet
+- `/save` — save the last AI response as a snippet
 - `/snippets` — browse all saved snippets
 - `/search <query>` — fuzzy search through your knowledge base
 
@@ -248,10 +264,10 @@ Unlock badges for milestones — first command, 100 commands, commits, streaks, 
 - Share on Twitter/Discord to flex your Agent-O
 
 ### Smart Dev Tools
-- `/screenshot` — capture screen area and analyze with Claude
-- `/diff` — send git diff to Claude for AI code review
+- `/screenshot` — capture screen area and analyze with active provider
+- `/diff` — send git diff for AI code review
 - `/commit` — auto-generate commit message from staged changes
-- `/ask <file>` — send any file to Claude for analysis
+- `/ask <file>` — send any file to active provider for analysis
 
 ### Multiple Chats
 - `/chat new` — start a fresh conversation
@@ -282,7 +298,7 @@ Unlock badges for milestones — first command, 100 commands, commits, streaks, 
 - `/forget <fact>` — make pet forget
 
 ### Token Optimizer Plugin
-- Built-in pre-send optimizer for both **Claude** and **Codex** calls
+- Built-in pre-send optimizer for active provider calls
 - Compresses prompt and brain context with strict budgets before CLI request
 - Modes:
   - `/optimizer off` — disable optimization
@@ -332,9 +348,17 @@ Unlock badges for milestones — first command, 100 commands, commits, streaks, 
 
 | Command | Description |
 |---------|-------------|
-| `text` | Send to Claude |
+| `text` | Send to active provider |
 | `/claude <p>` | Explicitly to Claude CLI |
 | `/codex <p>` | Explicitly to Codex CLI |
+| `/gpt <p>` | Explicitly to OpenAI GPT |
+| `/gemini <p>` | Explicitly to Gemini |
+| `/ollama <p>` | Explicitly to Ollama |
+| `/model` | Active provider/model status |
+| `/models` | List providers and models |
+| `/model <provider>` | Set active provider |
+| `/model <provider> <model>` | Set provider model override |
+| `/usage [N]` | Provider usage for last N days |
 | `/paste` | Analyze clipboard |
 | `/feed` | Feed Agent-O (+Food) |
 | `/play` | Play with Agent-O (+Joy) |
@@ -363,7 +387,7 @@ Unlock badges for milestones — first command, 100 commands, commits, streaks, 
 | `/screenshot` | Capture & analyze screen area |
 | `/diff` | AI code review of git changes |
 | `/commit` | Auto-generate commit message |
-| `/ask <file>` | Analyze a file with Claude |
+| `/ask <file>` | Analyze a file with active provider |
 | `/chat new` | Start new chat |
 | `/chat list` | List all chats |
 | `/chat <N>` | Switch to chat N |
@@ -416,7 +440,7 @@ Unlock badges for milestones — first command, 100 commands, commits, streaks, 
 
 ## Pre-Release Checklist
 
-- Verify slash commands: `/version`, `/update`, `/leaderboard`, `/battle`, `/market`
+- Verify slash commands: `/version`, `/update`, `/model`, `/leaderboard`, `/battle`, `/market`
 - Run social build: `cd social && npm run build`
 - Verify app command text/docs use `/update` (not `update` or `!update`)
 - Publish social to Vercel and check:
