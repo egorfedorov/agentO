@@ -1490,12 +1490,13 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
     var gitStatusLabel: NSTextField!
     var statusBarItem: NSStatusItem!
 
-    // Quick action buttons
+    // Quick action buttons (hidden — kept for compatibility)
     var commitBtn: NSButton!
     var testBtn: NSButton!
     var explainBtn: NSButton!
     var reviewBtn: NSButton!
     var statsLabel: NSTextField!
+    var sideStatsLabel: NSTextField!
 
     // State
     var animTimer: Timer?
@@ -1666,7 +1667,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
     func setupMainWindow() {
         let screen = NSScreen.main!.visibleFrame
         let w: CGFloat = 440
-        let h: CGFloat = 680
+        let h: CGFloat = 640
         let x = screen.maxX - w - 16
         let y = screen.minY + 16
 
@@ -1705,17 +1706,29 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         bubbleLabel.autoresizingMask = [.width, .minYMargin]
         dropContainer.addSubview(bubbleLabel)
 
-        // ASCII agent
+        // ASCII agent (left) + side stats (right)
         yPos -= 150
+        let agentW: CGFloat = (w - 20) * 0.55
         agentLabel = NSTextField(labelWithString: "")
-        agentLabel.frame = NSRect(x: 10, y: yPos, width: w - 20, height: 150)
-        agentLabel.font = NSFont.monospacedSystemFont(ofSize: 12, weight: .medium)
+        agentLabel.frame = NSRect(x: 10, y: yPos, width: agentW, height: 150)
+        agentLabel.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .medium)
         agentLabel.textColor = cCyan
         agentLabel.alignment = .center
         agentLabel.autoresizingMask = [.width, .minYMargin]
         dropContainer.addSubview(agentLabel)
 
-        // Hidden stats (kept for compatibility but not shown — bottom bar replaces them)
+        // Side stats panel (right of agent)
+        sideStatsLabel = NSTextField(labelWithString: "")
+        sideStatsLabel.frame = NSRect(x: 10 + agentW + 4, y: yPos, width: w - agentW - 24, height: 150)
+        sideStatsLabel.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .medium)
+        sideStatsLabel.textColor = cGreen
+        sideStatsLabel.alignment = .left
+        sideStatsLabel.maximumNumberOfLines = 10
+        sideStatsLabel.lineBreakMode = .byClipping
+        sideStatsLabel.autoresizingMask = [.minXMargin, .minYMargin]
+        dropContainer.addSubview(sideStatsLabel)
+
+        // Hidden stats (kept for compatibility)
         statsLabel = NSTextField(labelWithString: "")
         statsLabel.frame = NSRect(x: 0, y: 0, width: 0, height: 0)
         statsLabel.isHidden = true
@@ -1730,29 +1743,21 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         dividerView.isHidden = true
         dropContainer.addSubview(dividerView)
 
-        refreshStatsDisplay()
-
-        // Quick action buttons — compact icon style
-        yPos -= 4
-        let btnW: CGFloat = (w - 30) / 4 - 3
-        let btnGap: CGFloat = 4
-        let btnY = yPos - 24
-
-        commitBtn = makeQuickButton("⬆ Commit", x: 10, y: btnY, w: btnW, action: #selector(quickCommit))
-        testBtn = makeQuickButton("⚡ Test", x: 10 + (btnW + btnGap), y: btnY, w: btnW, action: #selector(quickTest))
-        explainBtn = makeQuickButton("💡 Explain", x: 10 + (btnW + btnGap)*2, y: btnY, w: btnW, action: #selector(quickExplain))
-        reviewBtn = makeQuickButton("🔍 Review", x: 10 + (btnW + btnGap)*3, y: btnY, w: btnW, action: #selector(quickReview))
-
+        // Hidden buttons (kept for compatibility — actions via commands)
+        commitBtn = makeQuickButton("Commit", x: 0, y: 0, w: 0, action: #selector(quickCommit))
+        testBtn = makeQuickButton("Test", x: 0, y: 0, w: 0, action: #selector(quickTest))
+        explainBtn = makeQuickButton("Explain", x: 0, y: 0, w: 0, action: #selector(quickExplain))
+        reviewBtn = makeQuickButton("Review", x: 0, y: 0, w: 0, action: #selector(quickReview))
         for btn in [commitBtn!, testBtn!, explainBtn!, reviewBtn!] {
-            btn.autoresizingMask = [.minYMargin]
+            btn.isHidden = true
             dropContainer.addSubview(btn)
         }
-        yPos = btnY
 
-        // Output scroll view
-        yPos -= 6
-        let outputH = yPos - 58
-        outputScroll = NSScrollView(frame: NSRect(x: 10, y: 58, width: w - 20, height: outputH))
+        refreshStatsDisplay()
+
+        // Output scroll view (right after agent/stats area)
+        let outputH = yPos - 44
+        outputScroll = NSScrollView(frame: NSRect(x: 10, y: 44, width: w - 20, height: outputH))
         outputScroll.hasVerticalScroller = true
         outputScroll.autohidesScrollers = true
         outputScroll.borderType = .noBorder
@@ -1781,14 +1786,11 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         pomoLabel.autoresizingMask = [.width, .maxYMargin]
         dropContainer.addSubview(pomoLabel)
 
-        // Bottom stats bar (always visible)
+        // Bottom stats bar (hidden — stats now shown next to agent)
         bottomStatsLabel = NSTextField(labelWithString: "")
-        bottomStatsLabel.frame = NSRect(x: 10, y: 42, width: w - 20, height: 14)
-        bottomStatsLabel.font = NSFont.monospacedSystemFont(ofSize: 10, weight: .medium)
-        bottomStatsLabel.textColor = cDimGray
-        bottomStatsLabel.autoresizingMask = [.width, .maxYMargin]
+        bottomStatsLabel.frame = NSRect(x: 0, y: 0, width: 0, height: 0)
+        bottomStatsLabel.isHidden = true
         dropContainer.addSubview(bottomStatsLabel)
-        refreshBottomStats()
 
         // Input field
         inputField = NSTextField(frame: NSRect(x: 10, y: 12, width: w - 80, height: 28))
@@ -1910,15 +1912,9 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
         // Hide elements
         bubbleLabel.isHidden = true
-        statsLabel.isHidden = true
-        gitStatusLabel.isHidden = true
-        dividerView.isHidden = true
-        commitBtn.isHidden = true
-        testBtn.isHidden = true
-        explainBtn.isHidden = true
-        reviewBtn.isHidden = true
+        sideStatsLabel.isHidden = true
 
-        // Resize: ASCII (120) + output (flexible) + input (40) + padding
+        // Resize: ASCII (100) + output (flexible) + input (40) + padding
         let w: CGFloat = 380
         let h: CGFloat = 420
         let screen = NSScreen.main!.visibleFrame
@@ -1928,16 +1924,14 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         window.setFrame(NSRect(x: x, y: y, width: w, height: h), display: true, animate: true)
         window.minSize = NSSize(width: 300, height: 300)
 
-        // Reposition: agent label at top
+        // Reposition: agent label at top, full width
         agentLabel.frame = NSRect(x: 10, y: h - 30 - 100, width: w - 20, height: 100)
         agentLabel.font = NSFont.monospacedSystemFont(ofSize: 10, weight: .medium)
 
         // Output takes the middle
         let outputTop = h - 30 - 105
-        outputScroll.frame = NSRect(x: 10, y: 58, width: w - 20, height: outputTop - 62)
+        outputScroll.frame = NSRect(x: 10, y: 44, width: w - 20, height: outputTop - 48)
 
-        // Bottom stats + input at bottom
-        bottomStatsLabel.frame = NSRect(x: 10, y: 42, width: w - 20, height: 14)
         inputField.frame = NSRect(x: 10, y: 12, width: w - 80, height: 28)
         sendBtn.frame = NSRect(x: w - 65, y: 10, width: 55, height: 30)
 
@@ -1952,14 +1946,11 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
         // Show elements
         bubbleLabel.isHidden = false
-        commitBtn.isHidden = false
-        testBtn.isHidden = false
-        explainBtn.isHidden = false
-        reviewBtn.isHidden = false
+        sideStatsLabel.isHidden = false
 
         // Resize back
         let w: CGFloat = 440
-        let h: CGFloat = 680
+        let h: CGFloat = 640
         let screen = NSScreen.main!.visibleFrame
         let x = screen.maxX - w - 16
         let y = screen.minY + 16
@@ -1967,29 +1958,23 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         window.setFrame(NSRect(x: x, y: y, width: w, height: h), display: true, animate: true)
         window.minSize = NSSize(width: 360, height: 400)
 
-        // Restore layout
+        // Restore layout: bubble → agent(left)+stats(right) → output → input
         var yPos = h - 30
-        yPos -= 50
-        bubbleLabel.frame = NSRect(x: 10, y: yPos, width: w - 20, height: 50)
+        yPos -= 75
+        bubbleLabel.frame = NSRect(x: 10, y: yPos, width: w - 20, height: 75)
         yPos -= 150
-        agentLabel.frame = NSRect(x: 10, y: yPos, width: w - 20, height: 150)
-        agentLabel.font = NSFont.monospacedSystemFont(ofSize: 12, weight: .medium)
-        yPos -= 4
-        let btnW: CGFloat = (w - 30) / 4 - 3
-        let btnGap: CGFloat = 4
-        let btnY = yPos - 24
-        commitBtn.frame = NSRect(x: 10, y: btnY, width: btnW, height: 22)
-        testBtn.frame = NSRect(x: 10 + (btnW + btnGap), y: btnY, width: btnW, height: 22)
-        explainBtn.frame = NSRect(x: 10 + (btnW + btnGap)*2, y: btnY, width: btnW, height: 22)
-        reviewBtn.frame = NSRect(x: 10 + (btnW + btnGap)*3, y: btnY, width: btnW, height: 22)
-        yPos = btnY - 6
-        let outputH = yPos - 58
-        outputScroll.frame = NSRect(x: 10, y: 58, width: w - 20, height: outputH)
-        bottomStatsLabel.frame = NSRect(x: 10, y: 42, width: w - 20, height: 14)
+        let agentW: CGFloat = (w - 20) * 0.55
+        agentLabel.frame = NSRect(x: 10, y: yPos, width: agentW, height: 150)
+        agentLabel.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .medium)
+        sideStatsLabel.frame = NSRect(x: 10 + agentW + 4, y: yPos, width: w - agentW - 24, height: 150)
+
+        let outputH = yPos - 44
+        outputScroll.frame = NSRect(x: 10, y: 44, width: w - 20, height: outputH)
         inputField.frame = NSRect(x: 10, y: 12, width: w - 80, height: 28)
         sendBtn.frame = NSRect(x: w - 65, y: 10, width: 55, height: 30)
 
         window.title = "Agent-O"
+        refreshSideStats()
         appendColored("📐 Full mode restored\n\n", color: cGray)
         playSound("Pop")
     }
@@ -2077,23 +2062,30 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         let eBar = "\(L10n.t("s_nrg")) \(p.statsBar(p.energy)) \(p.energy)%"
         statsLabel.stringValue = "\(lvlBar)  XP:\(p.xp)/\(p.xpForNextLevel)  Streak:\(p.streak)d\n\(hBar)  \(jBar)  \(eBar)"
         statusBarItem.button?.title = "\(currentSkin.mini) Lv.\(p.level) \(p.moodEmoji)"
+        refreshSideStats()
         refreshBottomStats()
+    }
+
+    func refreshSideStats() {
+        guard sideStatsLabel != nil else { return }
+        let p = pet
+        let evo = Evolution.stage(for: p.level)
+        var lines: [String] = []
+        lines.append("Lv.\(p.level) \(p.moodEmoji)")
+        lines.append(evo)
+        lines.append("")
+        lines.append("Food  \(p.hunger)%")
+        lines.append("Joy   \(p.happiness)%")
+        lines.append("Nrg   \(p.energy)%")
+        lines.append("")
+        lines.append("XP \(p.xp)/\(p.xpForNextLevel)")
+        lines.append("Streak \(p.streak)d")
+        sideStatsLabel.stringValue = lines.joined(separator: "\n")
     }
 
     func refreshBottomStats() {
         guard bottomStatsLabel != nil else { return }
-        let p = pet
-        var stats = "Lv.\(p.level) \(p.moodEmoji)  │  Food:\(p.hunger)%  │  Joy:\(p.happiness)%  │  Nrg:\(p.energy)%  │  XP:\(p.xp)/\(p.xpForNextLevel)"
-        if p.level >= 20 {
-            stats += " │ IQ:MAX"
-        } else if p.level >= 15 {
-            stats += " │ IQ:+++"
-        } else if p.level >= 10 {
-            stats += " │ IQ:++"
-        } else if p.level >= 5 {
-            stats += " │ IQ:+"
-        }
-        bottomStatsLabel.stringValue = stats
+        bottomStatsLabel.isHidden = true
     }
 
     func localizedMood() -> String {
