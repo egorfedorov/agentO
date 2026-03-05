@@ -168,6 +168,8 @@ This gives users a path to earn from domain expertise by training high-quality p
 - New training dashboard and memory-training command for your pet.
 - Commands:
   - `/training` — training quality dashboard
+  - `/specialist` — active specialist profile + signals
+  - `/specialist set <key|auto>` — manual lock or auto-learning
   - `/train <fact>` — train pet memory (+XP)
   - `/promptcoach [N]` — prompt quality coaching
 
@@ -265,9 +267,14 @@ Unlock badges for milestones — first command, 100 commands, commits, streaks, 
 - **Lv.10+** — remembers your preferences (`/teach I prefer tabs`)
 - **Lv.15+** — tracks recent topics for continuity
 - **Lv.20+** — full prompt engineering, expert-level assistance
+- Specialty engine learns from your daily prompts and ranks domain skills
 - `/teach <fact>` — teach your pet something
 - `/train <fact>` — training alias (+XP)
 - `/training` — learning quality dashboard
+- `/specialist` — show current specialist + confidence signals
+- `/specialist list` — list specialist keys
+- `/specialist set <key>` — lock specialist manually
+- `/specialist auto` — go back to auto-learning
 - `/memory` — see what your pet knows
 - `/brain` — export brain as JSON (share/sell/trade!)
 - `/forget <fact>` — make pet forget
@@ -357,6 +364,10 @@ Unlock badges for milestones — first command, 100 commands, commits, streaks, 
 | `/regex <desc>` | AI regex builder |
 | `/daily` | Daily activity summary |
 | `/training` | Pet training dashboard |
+| `/specialist` | Active specialist profile |
+| `/specialist list` | Show specialist keys |
+| `/specialist set <key>` | Lock specialist manually |
+| `/specialist auto` | Return to auto-learning |
 | `/train <fact>` | Train pet memory (+XP) |
 | `/teach <fact>` | Teach your pet |
 | `/memory` | What your pet knows |

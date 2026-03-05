@@ -1422,12 +1422,96 @@ class DropView: NSView {
 
 class PetBrain {
     static let savePath = NSHomeDirectory() + "/.agento_brain.json"
+    static let specialtyDefinitions: [(key: String, label: String, keywords: [String])] = [
+        (
+            key: "stake_game_dev",
+            label: "Game Dev (Stake/RGS)",
+            keywords: ["stake", "rgs", "slot", "rtp", "reel", "freespin", "bonus game", "game math", "paytable"]
+        ),
+        (
+            key: "prompt_art",
+            label: "Image & Prompt Art",
+            keywords: ["image", "art", "render", "midjourney", "stable diffusion", "illustration", "concept art", "style"]
+        ),
+        (
+            key: "frontend_ui",
+            label: "Frontend & UX",
+            keywords: ["frontend", "react", "next.js", "tailwind", "css", "ui", "ux", "svelte", "vite"]
+        ),
+        (
+            key: "backend_systems",
+            label: "Backend & APIs",
+            keywords: ["backend", "api", "server", "database", "postgres", "redis", "microservice", "node", "typescript"]
+        ),
+        (
+            key: "automation_ops",
+            label: "Automation & Ops",
+            keywords: ["automation", "script", "ci", "cd", "deploy", "pipeline", "bash", "terminal", "docker", "kubernetes"]
+        ),
+        (
+            key: "generalist",
+            label: "Generalist",
+            keywords: []
+        ),
+    ]
 
     var facts: [String] = []
     var languages: [String] = []
     var frameworks: [String] = []
     var patterns: [String: Int] = [:]
     var lastTopics: [String] = []
+    var specialtyScores: [String: Int] = ["generalist": 1]
+    var manualSpecialtyKey: String? = nil
+
+    static func specialtyLabel(for key: String) -> String {
+        return specialtyDefinitions.first(where: { $0.key == key })?.label ?? key
+    }
+
+    static func isValidSpecialtyKey(_ key: String) -> Bool {
+        return specialtyDefinitions.contains(where: { $0.key == key })
+    }
+
+    static func specialtyList() -> [(key: String, label: String)] {
+        return specialtyDefinitions.map { ($0.key, $0.label) }
+    }
+
+    func topSpecialties(limit: Int = 3) -> [(key: String, label: String, score: Int)] {
+        var rows: [(key: String, label: String, score: Int)] = []
+        for spec in PetBrain.specialtyDefinitions {
+            let score = specialtyScores[spec.key] ?? 0
+            if score > 0 {
+                rows.append((key: spec.key, label: spec.label, score: score))
+            }
+        }
+        if rows.isEmpty {
+            rows = [(key: "generalist", label: PetBrain.specialtyLabel(for: "generalist"), score: 1)]
+        }
+        rows.sort { a, b in
+            if a.score == b.score { return a.label < b.label }
+            return a.score > b.score
+        }
+        return Array(rows.prefix(max(1, limit)))
+    }
+
+    func currentSpecialtyKey() -> String {
+        if let manual = manualSpecialtyKey, PetBrain.isValidSpecialtyKey(manual) {
+            return manual
+        }
+        return topSpecialties(limit: 1).first?.key ?? "generalist"
+    }
+
+    func currentSpecialtyLabel() -> String {
+        return PetBrain.specialtyLabel(for: currentSpecialtyKey())
+    }
+
+    func setManualSpecialty(_ key: String?) {
+        if let key = key, !key.isEmpty, PetBrain.isValidSpecialtyKey(key) {
+            manualSpecialtyKey = key
+        } else {
+            manualSpecialtyKey = nil
+        }
+        save()
+    }
 
     func learn(from prompt: String) {
         let langMap: [(String, [String])] = [
@@ -1443,6 +1527,22 @@ class PetBrain {
             ("Kotlin", ["kotlin", ".kt", "android"]),
         ]
         let lower = prompt.lowercased()
+
+        var matchedSpecialty = false
+        for spec in PetBrain.specialtyDefinitions where spec.key != "generalist" {
+            var hits = 0
+            for keyword in spec.keywords where lower.contains(keyword) {
+                hits += 1
+            }
+            if hits > 0 {
+                specialtyScores[spec.key, default: 0] += hits
+                matchedSpecialty = true
+            }
+        }
+        if !matchedSpecialty {
+            specialtyScores["generalist", default: 0] += 1
+        }
+
         for (lang, keywords) in langMap {
             if keywords.contains(where: { lower.contains($0) }) && !languages.contains(lang) {
                 languages.append(lang)
@@ -1480,6 +1580,15 @@ class PetBrain {
 
         var context: [String] = []
 
+        if level >= 8 {
+            context.append("Specialization focus: \(currentSpecialtyLabel())")
+        }
+
+        if level >= 12 {
+            let top = topSpecialties(limit: 3).map { "\($0.label)(\($0.score))" }.joined(separator: ", ")
+            context.append("Specialty signals: \(top)")
+        }
+
         if !languages.isEmpty {
             context.append("User's languages: \(languages.joined(separator: ", "))")
         }
@@ -1511,6 +1620,8 @@ class PetBrain {
             "frameworks": frameworks,
             "patterns": patterns,
             "lastTopics": lastTopics,
+            "specialtyScores": specialtyScores,
+            "manualSpecialtyKey": manualSpecialtyKey as Any,
         ]
         if let jsonData = try? JSONSerialization.data(withJSONObject: data),
            let json = String(data: jsonData, encoding: .utf8) {
@@ -1529,6 +1640,9 @@ class PetBrain {
         brain.frameworks = dict["frameworks"] as? [String] ?? []
         brain.patterns = dict["patterns"] as? [String: Int] ?? [:]
         brain.lastTopics = dict["lastTopics"] as? [String] ?? []
+        let loadedScores = dict["specialtyScores"] as? [String: Int] ?? [:]
+        brain.specialtyScores = loadedScores.isEmpty ? ["generalist": 1] : loadedScores
+        brain.manualSpecialtyKey = dict["manualSpecialtyKey"] as? String
         return brain
     }
 }
@@ -2764,7 +2878,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             "/name", "/paste", "/play", "/pomo", "/pomo10", "/pomodoro", "/promptcoach",
             "/promptstats", "/ps", "/quests", "/regex", "/remind", "/reminders", "/rent", "/rest",
             "/review", "/ru", "/save", "/screenshot", "/search", "/sh", "/share", "/skin",
-            "/snippets", "/standup", "/stats", "/stoppomo", "/teach", "/theme", "/tip",
+            "/snippets", "/specialist", "/standup", "/stats", "/stoppomo", "/teach", "/theme", "/tip",
             "/train", "/training", "/translate", "/trivia", "/typing", "/unwatch", "/update", "/version", "/watch"
         ]
     }
@@ -3147,6 +3261,14 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             exportBrain()
             return true
 
+        case "/specialist":
+            showSpecialistStatus()
+            return true
+
+        case "/specialist list":
+            showSpecialistCatalog()
+            return true
+
         case "/update":
             checkForUpdate()
             return true
@@ -3361,6 +3483,11 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                 let raw = String(cmd.dropFirst(13)).trimmingCharacters(in: .whitespaces)
                 let days = Int(raw) ?? 1
                 showPromptCoach(days: days)
+                return true
+            }
+            if cmd.hasPrefix("/specialist ") {
+                let args = String(cmd.dropFirst(12)).trimmingCharacters(in: .whitespacesAndNewlines)
+                handleSpecialistCommand(args: args)
                 return true
             }
             if cmd.hasPrefix("/rent ") {
@@ -5010,6 +5137,9 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         let memoryScore = min(35, brain.facts.count * 5 + brain.languages.count * 3 + brain.frameworks.count * 3)
         let qualityScore = min(25, (contextPct + formatPct) / 8)
         let trainScore = min(100, activityScore + memoryScore + qualityScore)
+        let topSpecialties = brain.topSpecialties(limit: 3)
+        let topLine = topSpecialties.map { "\($0.label)(\($0.score))" }.joined(separator: ", ")
+        let modeText = brain.manualSpecialtyKey == nil ? "Auto" : "Manual"
 
         appendColored("╭── Pet Training ─────────────────────╮\n", color: cCyan)
         appendColored("  Level: ", color: cGray)
@@ -5023,6 +5153,9 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         appendColored("  Known languages: \(brain.languages.count)\n", color: cGray)
         appendColored("  Known frameworks: \(brain.frameworks.count)\n", color: cGray)
         appendColored("  Learned facts: \(brain.facts.count)\n", color: cGray)
+        appendColored("  Specialist mode: \(modeText)\n", color: cGray)
+        appendColored("  Active specialist: \(brain.currentSpecialtyLabel())\n", color: cYellow)
+        appendColored("  Top specialties: \(topLine)\n", color: cDimGray)
 
         if topPatterns.isEmpty {
             appendColored("  Top prompt patterns: (not enough data yet)\n", color: cDimGray)
@@ -5038,6 +5171,93 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         appendColored("    2) Use /train <fact> for persistent preferences\n", color: cDimGray)
         appendColored("    3) Add file/error context in each complex prompt\n", color: cDimGray)
         appendColored("╰────────────────────────────────────╯\n\n", color: cCyan)
+    }
+
+    func showSpecialistCatalog() {
+        appendColored("╭── Specialist Catalog ───────────────╮\n", color: cPurple)
+        for row in PetBrain.specialtyList() {
+            appendColored("  \(row.key.padding(toLength: 18, withPad: " ", startingAt: 0))", color: cYellow)
+            appendOutput("→ \(row.label)\n")
+        }
+        appendColored("\n  Commands:\n", color: cCyan, bold: true)
+        appendColored("  /specialist\n", color: cYellow)
+        appendColored("    show current specialist + signals\n", color: cGray)
+        appendColored("  /specialist set <key>\n", color: cYellow)
+        appendColored("    force manual specialist by key\n", color: cGray)
+        appendColored("  /specialist auto\n", color: cYellow)
+        appendColored("    return to auto mode from learned prompts\n", color: cGray)
+        appendColored("╰────────────────────────────────────╯\n\n", color: cPurple)
+    }
+
+    func showSpecialistStatus() {
+        let top = brain.topSpecialties(limit: 5)
+        let modeLabel = brain.manualSpecialtyKey == nil ? "Auto" : "Manual"
+
+        appendColored("╭── Pet Specialist ───────────────────╮\n", color: cCyan)
+        appendColored("  Mode: \(modeLabel)\n", color: cGray)
+        appendColored("  Active: \(brain.currentSpecialtyLabel())\n", color: cGreen, bold: true)
+        if let manualKey = brain.manualSpecialtyKey {
+            appendColored("  Manual key: \(manualKey)\n", color: cDimGray)
+        } else {
+            appendColored("  Manual key: (none)\n", color: cDimGray)
+        }
+        appendColored("\n  Signals:\n", color: cPurple, bold: true)
+        for row in top {
+            appendColored("    \(row.label.padding(toLength: 24, withPad: " ", startingAt: 0))", color: cGray)
+            appendColored("\(row.score)\n", color: cYellow)
+        }
+        appendColored("\n  Use /specialist list for all keys\n", color: cDimGray)
+        appendColored("  Use /specialist set <key> to lock specialist\n", color: cDimGray)
+        appendColored("  Use /specialist auto to unlock auto-learning\n", color: cDimGray)
+        appendColored("╰────────────────────────────────────╯\n\n", color: cCyan)
+    }
+
+    func handleSpecialistCommand(args: String) {
+        let trimmed = args.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty || trimmed.lowercased() == "status" {
+            showSpecialistStatus()
+            return
+        }
+
+        let lower = trimmed.lowercased()
+        if lower == "help" || lower == "list" {
+            showSpecialistCatalog()
+            return
+        }
+        if lower == "auto" || lower == "reset" || lower == "set auto" {
+            brain.setManualSpecialty(nil)
+            appendColored("✅ Specialist mode set to auto-learning\n", color: cGreen, bold: true)
+            appendColored("  Active now: \(brain.currentSpecialtyLabel())\n\n", color: cGray)
+            return
+        }
+        if lower.hasPrefix("set ") {
+            let rawKey = String(trimmed.dropFirst(4))
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .lowercased()
+                .replacingOccurrences(of: "-", with: "_")
+                .replacingOccurrences(of: " ", with: "_")
+            if PetBrain.isValidSpecialtyKey(rawKey) {
+                brain.setManualSpecialty(rawKey)
+                appendColored("✅ Specialist locked: \(PetBrain.specialtyLabel(for: rawKey))\n", color: cGreen, bold: true)
+                appendColored("  Key: \(rawKey)\n\n", color: cGray)
+            } else {
+                appendColored("❌ Unknown specialist key: \(rawKey)\n", color: cRed)
+                showSpecialistCatalog()
+            }
+            return
+        }
+
+        let fallbackKey = lower
+            .replacingOccurrences(of: "-", with: "_")
+            .replacingOccurrences(of: " ", with: "_")
+        if PetBrain.isValidSpecialtyKey(fallbackKey) {
+            brain.setManualSpecialty(fallbackKey)
+            appendColored("✅ Specialist locked: \(PetBrain.specialtyLabel(for: fallbackKey))\n\n", color: cGreen, bold: true)
+            return
+        }
+
+        appendColored("❌ Usage: /specialist [status|list|auto|set <key>]\n", color: cRed)
+        appendColored("  Example: /specialist set stake_game_dev\n\n", color: cGray)
     }
 
     func showHelp() {
@@ -5132,6 +5352,9 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             ("/promptstats [N]", "→ prompt stats for N days"),
             ("/promptcoach [N]", "→ prompt quality feedback"),
             ("/training", "→ pet training dashboard"),
+            ("/specialist", "→ active specialist profile"),
+            ("/specialist list", "→ specialist keys"),
+            ("/specialist set ...", "→ lock specialist manually"),
             ("/train <fact>", "→ train pet memory (+5 XP)"),
             ("/teach <fact>", "→ teach your pet something"),
             ("/memory", "→ what your pet knows"),
@@ -5195,6 +5418,11 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
         appendColored("╭── Pet Brain ────────────────────────╮\n", color: cPurple)
         appendColored("  Intelligence: \(iqLabel) (Lv.\(pet.level))\n", color: cCyan, bold: true)
+        let specialistMode = brain.manualSpecialtyKey == nil ? "Auto" : "Manual"
+        appendColored("  Specialist mode: \(specialistMode)\n", color: cGray)
+        appendColored("  Active specialist: \(brain.currentSpecialtyLabel())\n", color: cYellow)
+        let topSpecialties = brain.topSpecialties(limit: 3).map { "\($0.label)(\($0.score))" }.joined(separator: ", ")
+        appendColored("  Top specialties: \(topSpecialties)\n", color: cDimGray)
 
         if brain.languages.isEmpty {
             appendColored("  Languages: (none detected yet)\n", color: cGray)
@@ -5247,6 +5475,10 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             "frameworks": brain.frameworks,
             "patterns": brain.patterns,
             "lastTopics": brain.lastTopics,
+            "specialtyScores": brain.specialtyScores,
+            "manualSpecialtyKey": brain.manualSpecialtyKey as Any,
+            "activeSpecialtyKey": brain.currentSpecialtyKey(),
+            "activeSpecialtyLabel": brain.currentSpecialtyLabel(),
             "petLevel": pet.level,
         ]
         if let jsonData = try? JSONSerialization.data(withJSONObject: data, options: .prettyPrinted),
@@ -5644,12 +5876,15 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         let titleRaw = parts.count > 2 ? parts[2] : "\(playerUsername)'s Pet"
         let title = titleRaw.trimmingCharacters(in: .whitespacesAndNewlines)
         let finalTitle = title.isEmpty ? "\(playerUsername)'s Pet" : title
+        let specialty = brain.currentSpecialtyLabel()
+        let topSpecialties = brain.topSpecialties(limit: 2).map { $0.label }.joined(separator: ", ")
+        let listingDescription = "Lv.\(pet.level) \(currentSkin.rawValue) companion | Specialist: \(specialty) | Signals: \(topSpecialties)"
 
         let payload: [String: Any] = [
             "username": playerUsername,
             "token": playerAuthToken,
             "title": finalTitle,
-            "description": "Lv.\(pet.level) \(currentSkin.rawValue) companion from Agent-O",
+            "description": listingDescription,
             "pricePerDay": pricePerDay,
             "minDays": 1,
             "maxDays": maxDays,
