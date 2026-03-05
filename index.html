@@ -787,7 +787,7 @@
             &#129504; Learning Architecture
         </a>
     </div>
-    <p class="hero-note">Use slash commands only: <code>/update</code> <code>/battle</code> <code>/market</code> <code>/training</code></p>
+    <p class="hero-note">Use slash commands only: <code>/update</code> <code>/battle</code> <code>/market</code> <code>/training</code> <code>/optimizer</code></p>
 
     <div class="hero-scroll">&#9660; scroll to explore</div>
 </div>
@@ -853,6 +853,48 @@
                 <code>/training | /train "I prefer concise patch plans"</code>
             </div>
         </div>
+    </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ========== TOKEN OPTIMIZER ========== -->
+<section>
+    <div class="container">
+        <span class="section-label">Token Optimizer Plugin</span>
+        <h2 class="section-heading">Same workflow, <span class="gradient-text">fewer tokens</span></h2>
+        <p class="section-desc">
+            Agent-O now includes a built-in Token Optimizer that compacts prompts before sending them to Claude or Codex.
+            It also compresses pet brain context with strict budgets, so prompts stay focused and cheaper.
+        </p>
+
+        <div class="release-grid">
+            <div class="release-card">
+                <h3>&#9997; Prompt Compaction</h3>
+                <p>Trims noisy prompt parts, keeps key lines (errors, stack traces, critical tail), and clips to a target budget.</p>
+                <code>input -> compact -> send</code>
+            </div>
+            <div class="release-card">
+                <h3>&#129504; Brain Context Budget</h3>
+                <p>Brain context is compressed separately and merged only within mode limits, so context helps but doesn't bloat input.</p>
+                <code>context chars + prompt chars <= total budget</code>
+            </div>
+            <div class="release-card">
+                <h3>&#8646; Claude + Codex Adapters</h3>
+                <p>One optimizer pipeline with separate limits per provider. Both Claude and Codex runs get optimized automatically.</p>
+                <code>dual adapter: claude / codex</code>
+            </div>
+            <div class="release-card">
+                <h3>&#9881; Runtime Modes</h3>
+                <p>Switch optimization intensity live: off, balanced, aggressive. Track savings stats directly from Agent-O UI.</p>
+                <code>/optimizer on | /optimizer aggressive | /optimizer off</code>
+            </div>
+        </div>
+
+        <p class="vision-note">
+            <strong>How it works:</strong> PET preprocesses prompt + brain context locally (deterministic), then sends a compact payload to CLI.
+            Result quality stays high while average token spend drops across long sessions.
+        </p>
     </div>
 </section>
 

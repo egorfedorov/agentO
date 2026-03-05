@@ -168,6 +168,8 @@ This gives users a path to earn from domain expertise by training high-quality p
 - New training dashboard and memory-training command for your pet.
 - Commands:
   - `/training` — training quality dashboard
+  - `/optimizer` — token optimizer status
+  - `/optimizer aggressive` — stronger compression, lower token spend
   - `/specialist` — active specialist profile + signals
   - `/specialist set <key|auto>` — manual lock or auto-learning
   - `/train <fact>` — train pet memory (+XP)
@@ -279,6 +281,16 @@ Unlock badges for milestones — first command, 100 commands, commits, streaks, 
 - `/brain` — export brain as JSON (share/sell/trade!)
 - `/forget <fact>` — make pet forget
 
+### Token Optimizer Plugin
+- Built-in pre-send optimizer for both **Claude** and **Codex** calls
+- Compresses prompt and brain context with strict budgets before CLI request
+- Modes:
+  - `/optimizer off` — disable optimization
+  - `/optimizer on` or `/optimizer balanced` — default balance
+  - `/optimizer aggressive` — maximum token savings
+- `/optimizer reset` — reset optimizer stats
+- `/optimizer` — show current mode and lifetime savings
+
 ### Pet Marketplace (Rentals)
 - `/market` — view pet rental market snapshot
 - `/rent publish <pricePerDay> <maxDays> <title>` — list your pet
@@ -364,6 +376,9 @@ Unlock badges for milestones — first command, 100 commands, commits, streaks, 
 | `/regex <desc>` | AI regex builder |
 | `/daily` | Daily activity summary |
 | `/training` | Pet training dashboard |
+| `/optimizer` | Token optimizer status |
+| `/optimizer aggressive` | Strong token compression mode |
+| `/optimizer off` | Disable optimizer |
 | `/specialist` | Active specialist profile |
 | `/specialist list` | Show specialist keys |
 | `/specialist set <key>` | Lock specialist manually |

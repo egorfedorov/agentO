@@ -1718,6 +1718,306 @@ class PromptJournal {
     }
 }
 
+enum TokenOptimizerMode: String {
+    case off
+    case balanced
+    case aggressive
+}
+
+struct TokenOptimizationResult {
+    var finalPrompt: String
+    var originalChars: Int
+    var optimizedChars: Int
+    var savedChars: Int
+    var mode: TokenOptimizerMode
+    var usedBrainContext: Bool
+
+    var savedPercent: Int {
+        guard originalChars > 0 else { return 0 }
+        return Int((Double(savedChars) / Double(originalChars)) * 100.0)
+    }
+}
+
+class TokenOptimizer {
+    static let savePath = NSHomeDirectory() + "/.agento_optimizer.json"
+
+    struct Limits {
+        let promptChars: Int
+        let promptLines: Int
+        let contextChars: Int
+        let contextLines: Int
+        let totalChars: Int
+        let includeBrainForCodex: Bool
+    }
+
+    var mode: TokenOptimizerMode = .balanced
+    var totalRuns: Int = 0
+    var claudeRuns: Int = 0
+    var codexRuns: Int = 0
+    var totalOriginalChars: Int = 0
+    var totalOptimizedChars: Int = 0
+
+    var isEnabled: Bool {
+        return mode != .off
+    }
+
+    var totalSavedChars: Int {
+        return max(0, totalOriginalChars - totalOptimizedChars)
+    }
+
+    var totalSavedPercent: Int {
+        guard totalOriginalChars > 0 else { return 0 }
+        return Int((Double(totalSavedChars) / Double(totalOriginalChars)) * 100.0)
+    }
+
+    func limits(for cli: String) -> Limits {
+        let isCodex = cli.lowercased() == "codex"
+        switch mode {
+        case .off:
+            return Limits(
+                promptChars: 100000,
+                promptLines: 2000,
+                contextChars: 100000,
+                contextLines: 2000,
+                totalChars: 200000,
+                includeBrainForCodex: false
+            )
+        case .balanced:
+            if isCodex {
+                return Limits(
+                    promptChars: 2600,
+                    promptLines: 70,
+                    contextChars: 360,
+                    contextLines: 14,
+                    totalChars: 3000,
+                    includeBrainForCodex: true
+                )
+            }
+            return Limits(
+                promptChars: 3200,
+                promptLines: 85,
+                contextChars: 650,
+                contextLines: 18,
+                totalChars: 3900,
+                includeBrainForCodex: true
+            )
+        case .aggressive:
+            if isCodex {
+                return Limits(
+                    promptChars: 1550,
+                    promptLines: 42,
+                    contextChars: 240,
+                    contextLines: 9,
+                    totalChars: 1800,
+                    includeBrainForCodex: true
+                )
+            }
+            return Limits(
+                promptChars: 1900,
+                promptLines: 50,
+                contextChars: 320,
+                contextLines: 10,
+                totalChars: 2200,
+                includeBrainForCodex: true
+            )
+        }
+    }
+
+    func optimize(prompt: String, brainContext: String?, cli: String) -> TokenOptimizationResult {
+        let safePrompt = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        let safeContext = (brainContext ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+
+        var composedOriginal = safePrompt
+        if !safeContext.isEmpty && cli.lowercased() != "codex" {
+            composedOriginal = "\(safeContext)\n\n\(safePrompt)"
+        }
+
+        if mode == .off {
+            let unchanged = TokenOptimizationResult(
+                finalPrompt: composedOriginal,
+                originalChars: composedOriginal.count,
+                optimizedChars: composedOriginal.count,
+                savedChars: 0,
+                mode: .off,
+                usedBrainContext: !safeContext.isEmpty && cli.lowercased() != "codex"
+            )
+            record(result: unchanged, cli: cli)
+            return unchanged
+        }
+
+        let limits = limits(for: cli)
+        let normalizedPrompt = normalizeText(safePrompt)
+        let compressedPrompt = compressText(
+            normalizedPrompt,
+            maxChars: limits.promptChars,
+            maxLines: limits.promptLines
+        )
+
+        var compressedContext = ""
+        var useContext = false
+        if !safeContext.isEmpty {
+            if cli.lowercased() != "codex" || limits.includeBrainForCodex {
+                compressedContext = compressText(
+                    normalizeText(safeContext),
+                    maxChars: limits.contextChars,
+                    maxLines: limits.contextLines
+                )
+                useContext = !compressedContext.isEmpty
+            }
+        }
+
+        var finalPrompt = compressedPrompt
+        if useContext {
+            finalPrompt = "\(compressedContext)\n\n\(compressedPrompt)"
+        }
+        finalPrompt = clipToTotal(finalPrompt, maxChars: limits.totalChars)
+
+        if useContext {
+            composedOriginal = "\(safeContext)\n\n\(safePrompt)"
+        } else {
+            composedOriginal = safePrompt
+        }
+
+        let optimized = TokenOptimizationResult(
+            finalPrompt: finalPrompt,
+            originalChars: composedOriginal.count,
+            optimizedChars: finalPrompt.count,
+            savedChars: max(0, composedOriginal.count - finalPrompt.count),
+            mode: mode,
+            usedBrainContext: useContext
+        )
+        record(result: optimized, cli: cli)
+        return optimized
+    }
+
+    func resetStats() {
+        totalRuns = 0
+        claudeRuns = 0
+        codexRuns = 0
+        totalOriginalChars = 0
+        totalOptimizedChars = 0
+        save()
+    }
+
+    func normalizeText(_ text: String) -> String {
+        let lf = text.replacingOccurrences(of: "\r\n", with: "\n")
+        let lines = lf.components(separatedBy: "\n")
+        var compact: [String] = []
+        var blankRun = 0
+        for raw in lines {
+            let line = raw.replacingOccurrences(of: "\t", with: "    ")
+            let isBlank = line.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            if isBlank {
+                blankRun += 1
+                if blankRun > 1 { continue }
+                compact.append("")
+            } else {
+                blankRun = 0
+                compact.append(line)
+            }
+        }
+        return compact.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    func compressText(_ text: String, maxChars: Int, maxLines: Int) -> String {
+        guard !text.isEmpty else { return "" }
+        let lines = text.components(separatedBy: "\n")
+        var reduced = text
+
+        if lines.count > maxLines {
+            let importantTokens = [
+                "error", "failed", "exception", "trace", "stack", "fatal",
+                "warning", "undefined", "cannot", "invalid", "timeout"
+            ]
+            let headCount = max(1, Int(Double(maxLines) * 0.5))
+            let tailCount = max(1, Int(Double(maxLines) * 0.25))
+            let middleStart = min(lines.count, headCount)
+            let middleEnd = max(middleStart, lines.count - tailCount)
+
+            var selected = Array(lines.prefix(headCount))
+            let middleSlice = lines[middleStart..<middleEnd]
+            let middleBudget = max(1, maxLines - headCount - tailCount - 1)
+            let important = middleSlice.filter { line in
+                let lower = line.lowercased()
+                return importantTokens.contains(where: { lower.contains($0) })
+            }
+
+            for line in important.prefix(middleBudget) where !selected.contains(line) {
+                selected.append(line)
+            }
+            selected.append("...[trimmed \(max(0, lines.count - maxLines)) lines]...")
+            for line in lines.suffix(tailCount) where !selected.contains(line) {
+                selected.append(line)
+            }
+            reduced = selected.joined(separator: "\n")
+        }
+
+        if reduced.count <= maxChars {
+            return reduced
+        }
+
+        let headSize = max(40, Int(Double(maxChars) * 0.68))
+        let tailSize = max(20, maxChars - headSize - 28)
+        let head = String(reduced.prefix(headSize))
+        let tail = String(reduced.suffix(tailSize))
+        return "\(head)\n...[trimmed]...\n\(tail)"
+    }
+
+    func clipToTotal(_ text: String, maxChars: Int) -> String {
+        guard text.count > maxChars else { return text }
+        let headSize = max(40, Int(Double(maxChars) * 0.7))
+        let tailSize = max(20, maxChars - headSize - 26)
+        let head = String(text.prefix(headSize))
+        let tail = String(text.suffix(tailSize))
+        return "\(head)\n...[snip]...\n\(tail)"
+    }
+
+    func record(result: TokenOptimizationResult, cli: String) {
+        totalRuns += 1
+        totalOriginalChars += result.originalChars
+        totalOptimizedChars += result.optimizedChars
+        if cli.lowercased() == "codex" {
+            codexRuns += 1
+        } else {
+            claudeRuns += 1
+        }
+        save()
+    }
+
+    func save() {
+        let data: [String: Any] = [
+            "mode": mode.rawValue,
+            "totalRuns": totalRuns,
+            "claudeRuns": claudeRuns,
+            "codexRuns": codexRuns,
+            "totalOriginalChars": totalOriginalChars,
+            "totalOptimizedChars": totalOptimizedChars,
+        ]
+        if let jsonData = try? JSONSerialization.data(withJSONObject: data),
+           let json = String(data: jsonData, encoding: .utf8) {
+            try? json.write(toFile: TokenOptimizer.savePath, atomically: true, encoding: .utf8)
+        }
+    }
+
+    static func load() -> TokenOptimizer {
+        let optimizer = TokenOptimizer()
+        guard let data = try? Data(contentsOf: URL(fileURLWithPath: savePath)),
+              let raw = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return optimizer
+        }
+        if let modeRaw = raw["mode"] as? String,
+           let mode = TokenOptimizerMode(rawValue: modeRaw) {
+            optimizer.mode = mode
+        }
+        optimizer.totalRuns = raw["totalRuns"] as? Int ?? 0
+        optimizer.claudeRuns = raw["claudeRuns"] as? Int ?? 0
+        optimizer.codexRuns = raw["codexRuns"] as? Int ?? 0
+        optimizer.totalOriginalChars = raw["totalOriginalChars"] as? Int ?? 0
+        optimizer.totalOptimizedChars = raw["totalOptimizedChars"] as? Int ?? 0
+        return optimizer
+    }
+}
+
 struct BattleDuelContext {
     var challenger: String
     var opponent: String
@@ -1801,6 +2101,8 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
     var pet = PetStats.load()
     var brain = PetBrain.load()
     var promptJournal = PromptJournal.load()
+    var tokenOptimizer = TokenOptimizer.load()
+    var lastTokenOptimization: TokenOptimizationResult?
     var decayTimer: Timer?
     var currentTheme = Theme.matrix
     var pomodoro = PomodoroTimer()
@@ -2878,7 +3180,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             "/name", "/paste", "/play", "/pomo", "/pomo10", "/pomodoro", "/promptcoach",
             "/promptstats", "/ps", "/quests", "/regex", "/remind", "/reminders", "/rent", "/rest",
             "/review", "/ru", "/save", "/screenshot", "/search", "/sh", "/share", "/skin",
-            "/snippets", "/specialist", "/standup", "/stats", "/stoppomo", "/teach", "/theme", "/tip",
+            "/snippets", "/specialist", "/standup", "/stats", "/stoppomo", "/teach", "/theme", "/tip", "/optimizer",
             "/train", "/training", "/translate", "/trivia", "/typing", "/unwatch", "/update", "/version", "/watch"
         ]
     }
@@ -3269,6 +3571,10 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             showSpecialistCatalog()
             return true
 
+        case "/optimizer":
+            showTokenOptimizerStatus()
+            return true
+
         case "/update":
             checkForUpdate()
             return true
@@ -3488,6 +3794,11 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             if cmd.hasPrefix("/specialist ") {
                 let args = String(cmd.dropFirst(12)).trimmingCharacters(in: .whitespacesAndNewlines)
                 handleSpecialistCommand(args: args)
+                return true
+            }
+            if cmd.hasPrefix("/optimizer ") {
+                let args = String(cmd.dropFirst(11)).trimmingCharacters(in: .whitespacesAndNewlines)
+                handleTokenOptimizerCommand(args: args)
                 return true
             }
             if cmd.hasPrefix("/rent ") {
@@ -3772,7 +4083,9 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
             let prompt = "Convert this to a single shell command for macOS. Output ONLY the command, nothing else: \(description)"
-            let escapedPrompt = prompt
+            let optimization = self.tokenOptimizer.optimize(prompt: prompt, brainContext: nil, cli: "claude")
+            self.lastTokenOptimization = optimization
+            let escapedPrompt = optimization.finalPrompt
                 .replacingOccurrences(of: "\\", with: "\\\\")
                 .replacingOccurrences(of: "\"", with: "\\\"")
                 .replacingOccurrences(of: "$", with: "\\$")
@@ -4380,10 +4693,15 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         brain.learn(from: prompt)
         promptJournal.record(source: cli, prompt: prompt)
 
-        // Enhance prompt with brain context for Claude (not Codex)
-        var enhancedPrompt = prompt
-        if cli != "codex", let context = brain.buildContext(level: pet.level) {
-            enhancedPrompt = "\(context)\n\n\(prompt)"
+        let rawContext = brain.buildContext(level: pet.level)
+        let optimization = tokenOptimizer.optimize(prompt: prompt, brainContext: rawContext, cli: cli)
+        lastTokenOptimization = optimization
+        let enhancedPrompt = optimization.finalPrompt
+        if tokenOptimizer.isEnabled && optimization.savedChars > 0 {
+            appendColored(
+                "🧮 Optimizer \(optimization.mode.rawValue): \(optimization.originalChars) -> \(optimization.optimizedChars) chars (\(optimization.savedPercent)% saved)\n",
+                color: cDimGray
+            )
         }
 
         // Use shell to get proper PATH
@@ -4782,7 +5100,9 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
             let prompt = "Generate a regex pattern for: \(description). Output format:\nPattern: <regex>\nExample matches: <3 examples>\nExplanation: <brief>"
-            let escapedPrompt = prompt
+            let optimization = self.tokenOptimizer.optimize(prompt: prompt, brainContext: nil, cli: "claude")
+            self.lastTokenOptimization = optimization
+            let escapedPrompt = optimization.finalPrompt
                 .replacingOccurrences(of: "\\", with: "\\\\")
                 .replacingOccurrences(of: "\"", with: "\\\"")
                 .replacingOccurrences(of: "$", with: "\\$")
@@ -5156,6 +5476,8 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         appendColored("  Specialist mode: \(modeText)\n", color: cGray)
         appendColored("  Active specialist: \(brain.currentSpecialtyLabel())\n", color: cYellow)
         appendColored("  Top specialties: \(topLine)\n", color: cDimGray)
+        appendColored("  Token optimizer: \(tokenOptimizer.mode.rawValue.uppercased())\n", color: cGray)
+        appendColored("  Token savings: \(tokenOptimizer.totalSavedPercent)% (\(tokenOptimizer.totalSavedChars) chars)\n", color: cDimGray)
 
         if topPatterns.isEmpty {
             appendColored("  Top prompt patterns: (not enough data yet)\n", color: cDimGray)
@@ -5260,6 +5582,65 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         appendColored("  Example: /specialist set stake_game_dev\n\n", color: cGray)
     }
 
+    func showTokenOptimizerStatus() {
+        let modeLabel: String
+        switch tokenOptimizer.mode {
+        case .off: modeLabel = "OFF"
+        case .balanced: modeLabel = "BALANCED"
+        case .aggressive: modeLabel = "AGGRESSIVE"
+        }
+
+        appendColored("╭── Token Optimizer ──────────────────╮\n", color: cCyan)
+        appendColored("  Mode: \(modeLabel)\n", color: cGreen, bold: true)
+        appendColored("  Runs: \(tokenOptimizer.totalRuns) total", color: cGray)
+        appendColored(" | Claude \(tokenOptimizer.claudeRuns)", color: cDimGray)
+        appendColored(" | Codex \(tokenOptimizer.codexRuns)\n", color: cDimGray)
+        appendColored("  Saved chars: \(tokenOptimizer.totalSavedChars) (\(tokenOptimizer.totalSavedPercent)%)\n", color: cYellow)
+        if let last = lastTokenOptimization {
+            appendColored("  Last run: \(last.originalChars) -> \(last.optimizedChars) chars", color: cGray)
+            appendColored(" (\(last.savedPercent)% saved)\n", color: cDimGray)
+        } else {
+            appendColored("  Last run: (no data yet)\n", color: cDimGray)
+        }
+        appendColored("\n  Commands:\n", color: cPurple, bold: true)
+        appendColored("  /optimizer on\n", color: cYellow)
+        appendColored("  /optimizer off\n", color: cYellow)
+        appendColored("  /optimizer balanced\n", color: cYellow)
+        appendColored("  /optimizer aggressive\n", color: cYellow)
+        appendColored("  /optimizer reset\n", color: cYellow)
+        appendColored("╰────────────────────────────────────╯\n\n", color: cCyan)
+    }
+
+    func handleTokenOptimizerCommand(args: String) {
+        let value = args.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if value.isEmpty || value == "status" || value == "stats" {
+            showTokenOptimizerStatus()
+            return
+        }
+
+        switch value {
+        case "on", "auto", "balanced":
+            tokenOptimizer.mode = .balanced
+            tokenOptimizer.save()
+            appendColored("✅ Token optimizer mode: BALANCED\n", color: cGreen, bold: true)
+            appendColored("  Applies to Claude + Codex + Brain context.\n\n", color: cGray)
+        case "aggressive":
+            tokenOptimizer.mode = .aggressive
+            tokenOptimizer.save()
+            appendColored("✅ Token optimizer mode: AGGRESSIVE\n", color: cGreen, bold: true)
+            appendColored("  Maximum token savings, strongest compression.\n\n", color: cGray)
+        case "off", "disable":
+            tokenOptimizer.mode = .off
+            tokenOptimizer.save()
+            appendColored("✅ Token optimizer disabled\n\n", color: cYellow, bold: true)
+        case "reset", "stats reset":
+            tokenOptimizer.resetStats()
+            appendColored("✅ Token optimizer stats reset\n\n", color: cGreen, bold: true)
+        default:
+            appendColored("❌ Usage: /optimizer [status|on|off|balanced|aggressive|reset]\n\n", color: cRed)
+        }
+    }
+
     func showHelp() {
         appendColored("╭── Commands ─────────────────────────╮\n", color: cCyan)
         appendColored("  CLI\n", color: cPurple, bold: true)
@@ -5351,6 +5732,9 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             ("/daily", "→ daily activity summary"),
             ("/promptstats [N]", "→ prompt stats for N days"),
             ("/promptcoach [N]", "→ prompt quality feedback"),
+            ("/optimizer", "→ token optimizer status"),
+            ("/optimizer aggressive", "→ max token savings"),
+            ("/optimizer off", "→ disable optimizer"),
             ("/training", "→ pet training dashboard"),
             ("/specialist", "→ active specialist profile"),
             ("/specialist list", "→ specialist keys"),
