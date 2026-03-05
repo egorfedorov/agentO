@@ -15,6 +15,19 @@ interface Player {
   updatedAt: string
 }
 
+interface BattleEntry {
+  id: string
+  playerA: string
+  playerB: string
+  winner: string
+  result: string
+  playerALevel: number
+  playerBLevel: number
+  playerAPower: number
+  playerBPower: number
+  createdAt: string
+}
+
 function getEvolution(level: number): string {
   if (level >= 20) return 'Cosmic'
   if (level >= 15) return 'Mythic'
@@ -41,11 +54,15 @@ function getSkinEmoji(skin: string): string {
   }
 }
 
+function getBaseUrl(): string {
+  const host = headers().get('host') || 'localhost:3000'
+  const protocol = host.includes('localhost') ? 'http' : 'https'
+  return `${protocol}://${host}`
+}
+
 async function getLeaderboard(): Promise<Player[]> {
   try {
-    const host = headers().get('host') || 'localhost:3000'
-    const protocol = host.includes('localhost') ? 'http' : 'https'
-    const res = await fetch(`${protocol}://${host}/api/leaderboard`, {
+    const res = await fetch(`${getBaseUrl()}/api/leaderboard`, {
       cache: 'no-store',
     })
     if (!res.ok) return []
@@ -56,8 +73,21 @@ async function getLeaderboard(): Promise<Player[]> {
   }
 }
 
+async function getBattles(): Promise<BattleEntry[]> {
+  try {
+    const res = await fetch(`${getBaseUrl()}/api/battles?limit=20`, {
+      cache: 'no-store',
+    })
+    if (!res.ok) return []
+    const data = await res.json()
+    return data.battles || []
+  } catch {
+    return []
+  }
+}
+
 export default async function Home() {
-  const players = await getLeaderboard()
+  const [players, battles] = await Promise.all([getLeaderboard(), getBattles()])
   const totalXP = players.reduce((sum, p) => sum + p.xp, 0)
   const totalCommands = players.reduce((sum, p) => sum + p.totalCommands, 0)
   const topStreak = players.reduce((max, p) => Math.max(max, p.streak), 0)
@@ -104,7 +134,7 @@ export default async function Home() {
             <div className="robot">[◉‿◉]</div>
             <p>No players yet. Be the first!</p>
             <p style={{ marginTop: 8, fontSize: '0.8rem' }}>
-              Run <code style={{ color: '#00e676' }}>!leaderboard</code> in Agent-O to submit your pet
+              Run <code style={{ color: '#00e676' }}>/leaderboard</code> in Agent-O to submit your pet
             </p>
           </div>
         ) : (
@@ -132,14 +162,48 @@ export default async function Home() {
         )}
       </div>
 
+      <div className="battle-feed">
+        <div className="battle-feed-head">
+          <h2>Recent Battles</h2>
+          <p>Who fought, who won, and when.</p>
+        </div>
+        {battles.length === 0 ? (
+          <p className="battle-empty">No battles logged yet. Challenge someone with <code>/battle username</code>.</p>
+        ) : (
+          <div className="battle-list">
+            {battles.map((battle) => {
+              const isDraw = battle.winner === 'draw'
+              const winnerLabel = isDraw ? 'Draw' : `${battle.winner} won`
+              return (
+                <div className="battle-row" key={battle.id}>
+                  <div className="battle-main">
+                    <span className="battle-pair">
+                      <a href={`/player/${battle.playerA}`}>{battle.playerA}</a> vs{' '}
+                      <a href={`/player/${battle.playerB}`}>{battle.playerB}</a>
+                    </span>
+                    <span className={`battle-winner ${isDraw ? 'draw' : ''}`}>{winnerLabel}</span>
+                  </div>
+                  <div className="battle-sub">
+                    Lv.{battle.playerALevel} ({battle.playerAPower}) · Lv.{battle.playerBLevel} ({battle.playerBPower})
+                  </div>
+                  <div className="battle-time">
+                    {battle.createdAt ? new Date(battle.createdAt).toLocaleString() : 'Unknown time'}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
       <div className="join-section">
         <h2>Join the Leaderboard</h2>
         <p>1. Install Agent-O</p>
         <code>git clone https://github.com/egorfedorov/agentO.git && cd agentO && ./run.sh</code>
         <p>2. Set your username and publish</p>
-        <code>!name YourName</code>
+        <code>/name YourName</code>
         <br />
-        <code>!leaderboard</code>
+        <code>/leaderboard</code>
         <p style={{ marginTop: 16, color: '#484f58' }}>
           Your pet stats, level, achievements, and streak will appear here.
           <br />

@@ -18,6 +18,19 @@ interface PlayerData {
   updatedAt: string
 }
 
+interface BattleEntry {
+  id: string
+  playerA: string
+  playerB: string
+  winner: string
+  result: string
+  playerALevel: number
+  playerBLevel: number
+  playerAPower: number
+  playerBPower: number
+  createdAt: string
+}
+
 function getEvolution(level: number): string {
   if (level >= 20) return 'Cosmic'
   if (level >= 15) return 'Mythic'
@@ -65,11 +78,15 @@ function getStatBar(value: number, width: number = 10): string {
   return '[' + '█'.repeat(filled) + '░'.repeat(empty) + ']'
 }
 
+function getBaseUrl(): string {
+  const host = headers().get('host') || 'localhost:3000'
+  const protocol = host.includes('localhost') ? 'http' : 'https'
+  return `${protocol}://${host}`
+}
+
 async function getPlayer(username: string): Promise<PlayerData | null> {
   try {
-    const host = headers().get('host') || 'localhost:3000'
-    const protocol = host.includes('localhost') ? 'http' : 'https'
-    const res = await fetch(`${protocol}://${host}/api/player/${username}`, {
+    const res = await fetch(`${getBaseUrl()}/api/player/${username}`, {
       cache: 'no-store',
     })
     if (!res.ok) return null
@@ -79,12 +96,25 @@ async function getPlayer(username: string): Promise<PlayerData | null> {
   }
 }
 
+async function getPlayerBattles(username: string): Promise<BattleEntry[]> {
+  try {
+    const res = await fetch(`${getBaseUrl()}/api/battles?player=${encodeURIComponent(username)}&limit=20`, {
+      cache: 'no-store',
+    })
+    if (!res.ok) return []
+    const data = await res.json()
+    return data.battles || []
+  } catch {
+    return []
+  }
+}
+
 export default async function PlayerPage({
   params,
 }: {
   params: { username: string }
 }) {
-  const player = await getPlayer(params.username)
+  const [player, battles] = await Promise.all([getPlayer(params.username), getPlayerBattles(params.username)])
 
   if (!player) {
     notFound()
@@ -148,10 +178,43 @@ export default async function PlayerPage({
 
       <div className="battle-cta">
         <h2>Challenge {player.username}</h2>
-        <code>!battle {player.username}</code>
+        <code>/battle {player.username}</code>
         <p style={{ marginTop: 8, color: '#484f58', fontSize: '0.85rem' }}>
-          Run this command in Agent-O to battle this pet
+          Run this command in Agent-O, then the opponent accepts with <code>/accept your_name</code>
         </p>
+      </div>
+
+      <div className="battle-feed">
+        <div className="battle-feed-head">
+          <h2>{player.username}'s Battle History</h2>
+          <p>Latest fights, winners, and timestamps.</p>
+        </div>
+        {battles.length === 0 ? (
+          <p className="battle-empty">No logged battles yet.</p>
+        ) : (
+          <div className="battle-list">
+            {battles.map((battle) => {
+              const isDraw = battle.winner === 'draw'
+              const winnerLabel = isDraw ? 'Draw' : `${battle.winner} won`
+              return (
+                <div className="battle-row" key={battle.id}>
+                  <div className="battle-main">
+                    <span className="battle-pair">
+                      {battle.playerA} vs {battle.playerB}
+                    </span>
+                    <span className={`battle-winner ${isDraw ? 'draw' : ''}`}>{winnerLabel}</span>
+                  </div>
+                  <div className="battle-sub">
+                    Lv.{battle.playerALevel} ({battle.playerAPower}) · Lv.{battle.playerBLevel} ({battle.playerBPower})
+                  </div>
+                  <div className="battle-time">
+                    {battle.createdAt ? new Date(battle.createdAt).toLocaleString() : 'Unknown time'}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       {player.updatedAt && (

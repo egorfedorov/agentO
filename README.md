@@ -68,7 +68,7 @@ xattr -cr ~/Downloads/AgentO.app
 ### Claude & Codex Integration
 - Send prompts to **Claude CLI** or **Codex CLI** directly
 - Real-time streaming output with syntax highlighting
-- Clipboard analysis (`!paste`)
+- Clipboard analysis (`/paste`)
 - Drag & drop files for instant analysis
 
 ### Tamagotchi Pet
@@ -85,22 +85,22 @@ Unlock badges for milestones — first command, 100 commands, commits, streaks, 
 ### Daily Quests
 - 3 random quests each day (e.g., "Run 3 commands", "Win a battle", "Feed your pet")
 - Bonus XP for completing all 3
-- `!quests` to check progress
+- `/quests` to check progress
 
 ### Inventory
 - Unlock items for milestones: crowns, halos, frames, badges, wings
 - 10 collectible items tied to achievements and stats
-- `!inventory` to browse your collection
+- `/inventory` to browse your collection
 
 ### Mini-Games
-- `!game` — Number guessing (1-100)
-- `!trivia` — Dev trivia questions
-- `!typing` — Typing speed test (WPM + accuracy)
+- `/game` — Number guessing (1-100)
+- `/trivia` — Dev trivia questions
+- `/typing` — Typing speed test (WPM + accuracy)
 
 ### Pomodoro Timer
-- `!pomo` — 25 min focus timer
-- `!pomo10` — 10 min quick session
-- `!break` — 5 min break
+- `/pomo` — 25 min focus timer
+- `/pomo10` — 10 min quick session
+- `/break` — 5 min break
 - +40 XP per completed pomodoro
 
 ### Instant Translation
@@ -111,58 +111,60 @@ Unlock badges for milestones — first command, 100 commands, commits, streaks, 
 - Powered by Google Translate (no API key needed)
 
 ### Clipboard Watcher
-- `!watch` — Agent-O monitors your clipboard every 2 seconds
+- `/watch` — Agent-O monitors your clipboard every 2 seconds
 - Auto-detects **code** and **errors/stack traces**
 - Suggests `explain` for code, `fix` for errors
-- `!unwatch` to stop
+- `/unwatch` to stop
 
 ### Code Snippets
-- `!save` — save the last Claude response as a snippet
-- `!snippets` — browse all saved snippets
-- `!search <query>` — fuzzy search through your knowledge base
+- `/save` — save the last Claude response as a snippet
+- `/snippets` — browse all saved snippets
+- `/search <query>` — fuzzy search through your knowledge base
 
 ### Share Card
-- `!share` — export a beautiful SVG pet card to your Desktop
+- `/share` — export a beautiful SVG pet card to your Desktop
 - Shows level, evolution stage, stats, achievements, streak
 - Share on Twitter/Discord to flex your Agent-O
 
 ### Smart Dev Tools
-- `!screenshot` — capture screen area and analyze with Claude
-- `!diff` — send git diff to Claude for AI code review
-- `!commit` — auto-generate commit message from staged changes
-- `!ask <file>` — send any file to Claude for analysis
+- `/screenshot` — capture screen area and analyze with Claude
+- `/diff` — send git diff to Claude for AI code review
+- `/commit` — auto-generate commit message from staged changes
+- `/ask <file>` — send any file to Claude for analysis
 
 ### Multiple Chats
-- `!chat new` — start a fresh conversation
-- `!chat list` — see all your chat sessions
-- `!chat <N>` — switch between chats
+- `/chat new` — start a fresh conversation
+- `/chat list` — see all your chat sessions
+- `/chat <N>` — switch between chats
 
 ### Auto-Commit Detection
 - Agent-O monitors your git repo in the background
 - Nudges you when you have 10+ uncommitted changes
-- Suggests `!commit` to auto-generate a message
+- Suggests `/commit` to auto-generate a message
 
 ### Pet Brain (AI Intelligence)
 - Pet gets **smarter as it levels up**
 - **Lv.5+** — detects your languages & frameworks, adds context to prompts
-- **Lv.10+** — remembers your preferences (`!teach I prefer tabs`)
+- **Lv.10+** — remembers your preferences (`/teach I prefer tabs`)
 - **Lv.15+** — tracks recent topics for continuity
 - **Lv.20+** — full prompt engineering, expert-level assistance
-- `!teach <fact>` — teach your pet something
-- `!memory` — see what your pet knows
-- `!brain` — export brain as JSON (share/sell/trade!)
-- `!forget <fact>` — make pet forget
+- `/teach <fact>` — teach your pet something
+- `/memory` — see what your pet knows
+- `/brain` — export brain as JSON (share/sell/trade!)
+- `/forget <fact>` — make pet forget
 
 ### Pet Battles
-- `!battle <username>` — challenge any player on the leaderboard
+- `/battle <username>` — send challenge (battle starts only after accept)
+- `/challenges` — show incoming challenges
+- `/accept <username>` / `/decline <username>` — respond to challenge
 - Stats comparison: Level, Food, Joy, Energy, Streak, Badges
 - Power score with weighted randomness (skill + luck)
 - Winner gets bonus XP, loser gets consolation XP
 - Animated round-by-round battle sequence
 
 ### Leaderboard & Social
-- `!name <username>` — set your display name
-- `!leaderboard` — publish stats to [global leaderboard](https://social-coral-five.vercel.app/)
+- `/name <username>` — set your display name
+- `/leaderboard` — publish stats to [global leaderboard](https://social-coral-five.vercel.app/)
 - Rankings by level, XP, streak, achievements
 - Compete with other Agent-O users worldwide
 
@@ -185,69 +187,72 @@ Unlock badges for milestones — first command, 100 commands, commits, streaks, 
 | Command | Description |
 |---------|-------------|
 | `text` | Send to Claude |
-| `!claude <p>` | Explicitly to Claude CLI |
-| `!codex <p>` | Explicitly to Codex CLI |
-| `!paste` | Analyze clipboard |
-| `!feed` | Feed Agent-O (+Food) |
-| `!play` | Play with Agent-O (+Joy) |
-| `!rest` | Let Agent-O rest (+Energy) |
-| `!stats` | Full pet stats |
-| `!evo` | Evolution info |
-| `!ach` | Achievements list |
-| `!game` | Number guessing game |
-| `!trivia` | Dev trivia quiz |
-| `!dance` | Dance! |
-| `!pomo` | 25 min pomodoro |
-| `!pomo10` | 10 min pomodoro |
-| `!break` | 5 min break |
-| `!stoppomo` | Stop timer |
-| `!skin <name>` | robot/cat/skull/clippy |
-| `!theme <name>` | matrix/cyberpunk/sunset/ocean/hacker |
+| `/claude <p>` | Explicitly to Claude CLI |
+| `/codex <p>` | Explicitly to Codex CLI |
+| `/paste` | Analyze clipboard |
+| `/feed` | Feed Agent-O (+Food) |
+| `/play` | Play with Agent-O (+Joy) |
+| `/rest` | Let Agent-O rest (+Energy) |
+| `/stats` | Full pet stats |
+| `/evo` | Evolution info |
+| `/ach` | Achievements list |
+| `/game` | Number guessing game |
+| `/trivia` | Dev trivia quiz |
+| `/dance` | Dance! |
+| `/pomo` | 25 min pomodoro |
+| `/pomo10` | 10 min pomodoro |
+| `/break` | 5 min break |
+| `/stoppomo` | Stop timer |
+| `/skin <name>` | robot/cat/skull/clippy |
+| `/theme <name>` | matrix/cyberpunk/sunset/ocean/hacker |
 | `EN <text>` | Translate to English |
 | `RU <text>` | Translate to Russian |
 | `XX <text>` | Translate to any of 18 languages |
-| `!watch` | Clipboard watcher on |
-| `!unwatch` | Clipboard watcher off |
-| `!save` | Save last response as snippet |
-| `!snippets` | List saved snippets |
-| `!search <q>` | Search snippets |
-| `!share` | Export pet share card (SVG) |
-| `!screenshot` | Capture & analyze screen area |
-| `!diff` | AI code review of git changes |
-| `!commit` | Auto-generate commit message |
-| `!ask <file>` | Analyze a file with Claude |
-| `!chat new` | Start new chat |
-| `!chat list` | List all chats |
-| `!chat <N>` | Switch to chat N |
-| `!remind <t> <text>` | Set reminder (30m/2h) |
-| `!reminders` | List active reminders |
-| `!standup` | Daily standup from git |
-| `!sh <desc>` | Natural language → shell |
-| `!clipboard` | Clipboard history |
-| `!calc <expr>` | Currency/unit/timezone calc |
-| `!regex <desc>` | AI regex builder |
-| `!daily` | Daily activity summary |
-| `!teach <fact>` | Teach your pet |
-| `!memory` | What your pet knows |
-| `!brain` | Export pet brain JSON |
-| `!forget <fact>` | Make pet forget |
-| `!name <name>` | Set leaderboard name |
-| `!leaderboard` | Publish to leaderboard |
-| `!battle <user>` | Battle another pet! |
-| `!battles` | Battle history |
-| `!quests` | Daily quests |
-| `!inventory` | Your items |
-| `!typing` | Typing speed test |
-| `!compact` | Minimal UI mode |
-| `!full` | Full UI mode |
-| `!update` | Check for updates |
-| `!version` | Current version |
-| `!git` | Git project status |
-| `!ps` | Monitor processes |
-| `!tip` | Random tip |
-| `!history` | Command history |
-| `!clear` | Clear output |
-| `!help` | Help |
+| `/watch` | Clipboard watcher on |
+| `/unwatch` | Clipboard watcher off |
+| `/save` | Save last response as snippet |
+| `/snippets` | List saved snippets |
+| `/search <q>` | Search snippets |
+| `/share` | Export pet share card (SVG) |
+| `/screenshot` | Capture & analyze screen area |
+| `/diff` | AI code review of git changes |
+| `/commit` | Auto-generate commit message |
+| `/ask <file>` | Analyze a file with Claude |
+| `/chat new` | Start new chat |
+| `/chat list` | List all chats |
+| `/chat <N>` | Switch to chat N |
+| `/remind <t> <text>` | Set reminder (30m/2h) |
+| `/reminders` | List active reminders |
+| `/standup` | Daily standup from git |
+| `/sh <desc>` | Natural language → shell |
+| `/clipboard` | Clipboard history |
+| `/calc <expr>` | Currency/unit/timezone calc |
+| `/regex <desc>` | AI regex builder |
+| `/daily` | Daily activity summary |
+| `/teach <fact>` | Teach your pet |
+| `/memory` | What your pet knows |
+| `/brain` | Export pet brain JSON |
+| `/forget <fact>` | Make pet forget |
+| `/name <name>` | Set leaderboard name |
+| `/leaderboard` | Publish to leaderboard |
+| `/battle <user>` | Battle another pet! |
+| `/challenges` | Incoming battle challenges |
+| `/accept <user>` | Accept battle challenge |
+| `/decline <user>` | Decline battle challenge |
+| `/battles` | Battle history |
+| `/quests` | Daily quests |
+| `/inventory` | Your items |
+| `/typing` | Typing speed test |
+| `/compact` | Minimal UI mode |
+| `/full` | Full UI mode |
+| `/update` | Check for updates |
+| `/version` | Current version |
+| `/git` | Git project status |
+| `/ps` | Monitor processes |
+| `/tip` | Random tip |
+| `/history` | Command history |
+| `/clear` | Clear output |
+| `/help` | Help |
 
 ## Tech
 

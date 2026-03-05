@@ -772,10 +772,10 @@ struct AgentArt {
         "Try: Cmd+Shift+O to show/hide window",
         "Hint: drag & drop a file for analysis!",
         "Tip: up/down arrows for command history",
-        "Try: !dance to see a dance!",
-        "Hint: !skin cat to change skin",
-        "Tip: !git to show project status",
-        "Try: !ps to monitor processes",
+        "Try: /dance to see a dance!",
+        "Hint: /skin cat to change skin",
+        "Tip: /git to show project status",
+        "Try: /ps to monitor processes",
     ]
 }
 
@@ -836,9 +836,9 @@ class L10n {
         "played":           [.en: "Played with Agent-O! Joy:", .ru: "Поиграли с Agent-O! Радость:"],
         "rest_msg":         [.en: "Zzz... recharging... +30 Energy", .ru: "Zzz... заряжаюсь... +30 Энергия"],
         "resting":          [.en: "Agent-O is resting! Energy:", .ru: "Agent-O отдыхает! Энергия:"],
-        "hungry":           [.en: "I'm hungry! Type !feed to feed me!", .ru: "Я голоден! Напиши !feed чтобы покормить!"],
-        "sad":              [.en: "I'm sad... Type !play to cheer me up!", .ru: "Мне грустно... Напиши !play!"],
-        "tired":            [.en: "So tired... Type !rest to let me rest!", .ru: "Устал... Напиши !rest чтобы отдохнуть!"],
+        "hungry":           [.en: "I'm hungry! Type /feed to feed me!", .ru: "Я голоден! Напиши /feed чтобы покормить!"],
+        "sad":              [.en: "I'm sad... Type /play to cheer me up!", .ru: "Мне грустно... Напиши /play!"],
+        "tired":            [.en: "So tired... Type /rest to let me rest!", .ru: "Устал... Напиши /rest чтобы отдохнуть!"],
         "sleep":            [.en: "Zzz... wake me up with a task...", .ru: "Zzz... разбуди меня задачей..."],
 
         // Quick actions
@@ -1099,7 +1099,7 @@ class PomodoroTimer {
 struct MiniGame {
     static func generateNumberGame() -> (answer: Int, hint: String) {
         let answer = Int.random(in: 1...100)
-        return (answer, "I'm thinking of a number between 1 and 100. Type !guess <number>")
+        return (answer, "I'm thinking of a number between 1 and 100. Type /guess <number>")
     }
 
     static func generateTrivia() -> (question: String, answer: String, choices: [String]) {
@@ -1157,6 +1157,8 @@ class PetStats {
     var dailyQuestsProgress: [String: Int] = [:]  // quest_id -> progress
     var dailyQuestsCompleted: [String] = []
     var hasCompletedOnboarding: Bool = false
+    var leaderboardUsername: String = ""
+    var leaderboardToken: String = ""
 
     var xpForNextLevel: Int { level * 100 }
 
@@ -1306,7 +1308,9 @@ class PetStats {
             "dailyQuestsDate": dailyQuestsDate,
             "dailyQuestsProgress": dailyQuestsProgress,
             "dailyQuestsCompleted": dailyQuestsCompleted,
-            "hasCompletedOnboarding": hasCompletedOnboarding
+            "hasCompletedOnboarding": hasCompletedOnboarding,
+            "leaderboardUsername": leaderboardUsername,
+            "leaderboardToken": leaderboardToken
         ]
         if let jsonData = try? JSONSerialization.data(withJSONObject: data),
            let json = String(data: jsonData, encoding: .utf8) {
@@ -1344,6 +1348,8 @@ class PetStats {
         stats.dailyQuestsProgress = dict["dailyQuestsProgress"] as? [String: Int] ?? [:]
         stats.dailyQuestsCompleted = dict["dailyQuestsCompleted"] as? [String] ?? []
         stats.hasCompletedOnboarding = dict["hasCompletedOnboarding"] as? Bool ?? false
+        stats.leaderboardUsername = dict["leaderboardUsername"] as? String ?? ""
+        stats.leaderboardToken = dict["leaderboardToken"] as? String ?? ""
 
         // Apply time-based decay (1 point per 30 min away)
         let minutesAway = Date().timeIntervalSince(stats.lastFed) / 60
@@ -1554,6 +1560,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
     var triviaAnswer = ""
     var triviaActive = false
     var battleActive = false
+    var pendingBattlePollToken: UUID?
 
     // Clipboard watcher state
     var lastClipboard: String = ""
@@ -1575,6 +1582,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
     // Leaderboard
     var playerUsername: String = ""
+    var playerAuthToken: String = ""
     static let leaderboardURL = "https://social-coral-five.vercel.app"
 
     // Reminders
@@ -1610,7 +1618,11 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         NSApp.setActivationPolicy(.accessory)
         L10n.lang = Lang(rawValue: pet.language) ?? .en
         pet.updateStreak()
-        playerUsername = UserDefaults.standard.string(forKey: "agento_username") ?? ""
+        playerUsername = UserDefaults.standard.string(forKey: "agento_username") ?? pet.leaderboardUsername
+        playerAuthToken = UserDefaults.standard.string(forKey: "agento_player_token") ?? pet.leaderboardToken
+        pet.leaderboardUsername = playerUsername
+        pet.leaderboardToken = playerAuthToken
+        pet.save()
         setupMenuBar()
         setupMainWindow()
         setupMiniWindow()
@@ -1960,7 +1972,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         sendBtn.frame = NSRect(x: w - 65, y: 10, width: 55, height: 30)
 
         window.title = "Agent-O"
-        appendColored("📐 Compact mode — type !full to expand\n\n", color: cGray)
+        appendColored("📐 Compact mode — type /full to expand\n\n", color: cGray)
         playSound("Pop")
     }
 
@@ -2299,12 +2311,12 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                 self.processAchievements()
 
                 self.appendColored("🍅 Pomodoro complete! +40 XP\n", color: self.cRed, bold: true)
-                self.appendColored("   Take a break! Type !break for 5 min break\n\n", color: self.cGray)
+                self.appendColored("   Take a break! Type /break for 5 min break\n\n", color: self.cGray)
                 self.bubbleLabel.stringValue = speechBubble("Pomodoro done! Great focus! +40 XP")
                 self.sendNotification(title: "Pomodoro Complete!", body: "Time for a break! +40 XP")
                 self.playSound("Glass")
                 self.setState(.happy, duration: 3)
-                self.pomoLabel.stringValue = "🍅 DONE! Type !break for 5 min break"
+                self.pomoLabel.stringValue = "🍅 DONE! Type /break for 5 min break"
                 DispatchQueue.main.asyncAfter(deadline: .now() + 10) {
                     self.pomoLabel.isHidden = true
                 }
@@ -2342,7 +2354,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         for (i, choice) in trivia.choices.enumerated() {
             appendColored("   \(i+1). \(choice)\n", color: cYellow)
         }
-        appendColored("   Type !answer <number or text>\n\n", color: cDimGray)
+        appendColored("   Type /answer <number or text>\n\n", color: cDimGray)
         bubbleLabel.stringValue = speechBubble("Trivia time! Pick the right answer!")
     }
 
@@ -2570,9 +2582,24 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
     // MARK: - Command History & Input Handling
 
+    func normalizeCommandPrefix(_ input: String) -> String {
+        if input.hasPrefix("!") {
+            return "/" + String(input.dropFirst())
+        }
+        return input
+    }
+
+    func commandText(_ command: String) -> String {
+        return normalizeCommandPrefix(command)
+    }
+
     func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
         if commandSelector == #selector(NSResponder.insertNewline(_:)) {
             sendPrompt()
+            return true
+        }
+        if commandSelector == #selector(NSResponder.selectAll(_:)) {
+            textView.selectAll(nil)
             return true
         }
         if commandSelector == #selector(NSResponder.moveUp(_:)) {
@@ -2675,6 +2702,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
     @objc func sendPrompt() {
         let prompt = inputField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !prompt.isEmpty else { return }
+        let parsedPrompt = normalizeCommandPrefix(prompt)
         inputField.stringValue = ""
         lastInteraction = Date()
         if state == .sleeping { state = .idle }
@@ -2693,14 +2721,14 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
         // Onboarding step tracking
         if onboardingStep > 0 {
-            _ = handleOnboardingStep(prompt)
+            _ = handleOnboardingStep(parsedPrompt)
         }
 
         // Built-in commands
-        if handleBuiltinCommand(prompt) { return }
+        if handleBuiltinCommand(parsedPrompt) { return }
 
         // Translation: EN <text>, RU <text>, etc.
-        if let (targetLang, textToTranslate) = parseTranslateCommand(prompt) {
+        if let (targetLang, textToTranslate) = parseTranslateCommand(parsedPrompt) {
             translateText(textToTranslate, to: targetLang)
             updateDailyQuest("translate_1", by: 1)
             return
@@ -2708,13 +2736,13 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
         // Determine CLI
         var cli = "claude"
-        var actualPrompt = prompt
+        var actualPrompt = parsedPrompt
 
-        if prompt.hasPrefix("!codex ") {
+        if parsedPrompt.hasPrefix("/codex ") {
             cli = "codex"
-            actualPrompt = String(prompt.dropFirst(7))
-        } else if prompt.hasPrefix("!claude ") {
-            actualPrompt = String(prompt.dropFirst(8))
+            actualPrompt = String(parsedPrompt.dropFirst(7))
+        } else if parsedPrompt.hasPrefix("/claude ") {
+            actualPrompt = String(parsedPrompt.dropFirst(8))
         }
 
         let oldLevel = pet.level
@@ -2736,45 +2764,46 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         }
     }
 
-    func handleBuiltinCommand(_ cmd: String) -> Bool {
+    func handleBuiltinCommand(_ cmdInput: String) -> Bool {
+        let cmd = normalizeCommandPrefix(cmdInput)
         switch cmd {
-        case "!clear":
+        case "/clear":
             outputText.textStorage?.setAttributedString(NSAttributedString(string: ""))
             bubbleLabel.stringValue = speechBubble(L10n.t("cleared"))
             playSound("Pop")
             return true
 
-        case "!compact":
+        case "/compact":
             switchToCompactMode()
             return true
 
-        case "!full":
+        case "/full":
             switchToFullMode()
             return true
 
-        case "!tip":
+        case "/tip":
             let tip = AgentArt.tips.randomElement()!
             bubbleLabel.stringValue = speechBubble(tip)
             appendColored("💡 \(tip)\n\n", color: cYellow)
             return true
 
-        case "!feed":
+        case "/feed":
             feedPet()
             return true
 
-        case "!play":
+        case "/play":
             playPet()
             return true
 
-        case "!rest":
+        case "/rest":
             restPet()
             return true
 
-        case "!stats":
+        case "/stats":
             showPetStats()
             return true
 
-        case "!ru":
+        case "/ru":
             L10n.lang = .ru
             pet.language = "ru"
             pet.save()
@@ -2784,7 +2813,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             bubbleLabel.stringValue = speechBubble(L10n.t("lang_switched"))
             return true
 
-        case "!en":
+        case "/en":
             L10n.lang = .en
             pet.language = "en"
             pet.save()
@@ -2794,26 +2823,26 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             bubbleLabel.stringValue = speechBubble(L10n.t("lang_switched"))
             return true
 
-        case "!dance":
+        case "/dance":
             doDance()
             if let a = pet.unlock("dance") {
                 appendColored("🏆 ACHIEVEMENT: \(a.icon) \(a.name)\n\n", color: cYellow, bold: true)
             }
             return true
 
-        case "!achievements", "!ach":
+        case "/achievements", "/ach":
             showAchievements()
             return true
 
-        case "!pomo", "!pomodoro":
+        case "/pomo", "/pomodoro":
             pomoStartWith(minutes: 25)
             return true
 
-        case "!pomo10":
+        case "/pomo10":
             pomoStartWith(minutes: 10)
             return true
 
-        case "!break":
+        case "/break":
             pomodoro.startBreak(minutes: 5)
             pomoLabel.isHidden = false
             pomoLabel.stringValue = pomodoro.displayString
@@ -2835,25 +2864,25 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             bubbleLabel.stringValue = speechBubble("Break time! You earned it!")
             return true
 
-        case "!stoptime", "!stoppomo":
+        case "/stoptime", "/stoppomo":
             pomodoro.stop()
             pomoLabel.isHidden = true
             appendColored("🍅 Pomodoro stopped\n\n", color: cDimGray)
             return true
 
-        case "!game":
+        case "/game":
             startNumberGame()
             return true
 
-        case "!trivia":
+        case "/trivia":
             startTriviaGame()
             return true
 
-        case "!paste":
+        case "/paste":
             analyzeClipboard()
             return true
 
-        case "!evo", "!evolution":
+        case "/evo", "/evolution":
             let stage = Evolution.stage(for: pet.level)
             let title = Evolution.title(for: pet.level)
             appendColored("╭── Evolution ────────────────────────╮\n", color: cPurple)
@@ -2874,95 +2903,99 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             appendColored("╰────────────────────────────────────╯\n\n", color: cPurple)
             return true
 
-        case "!git":
+        case "/git":
             quickGit()
             return true
 
-        case "!ps":
+        case "/ps":
             monitorProcesses()
             return true
 
-        case "!help":
+        case "/help":
             showHelp()
             return true
 
-        case "!memory":
+        case "/memory":
             showBrainMemory()
             return true
 
-        case "!brain":
+        case "/brain":
             exportBrain()
             return true
 
-        case "!update":
+        case "/update":
             checkForUpdate()
             return true
 
-        case "!version":
+        case "/version":
             appendColored("Agent-O v\(AgentODelegate.currentVersion)\n\n", color: cCyan, bold: true)
             return true
 
-        case "!battles":
+        case "/battles":
             showBattleHistory()
             return true
 
-        case "!quests":
+        case "/challenges":
+            listPendingBattleChallenges()
+            return true
+
+        case "/quests":
             showDailyQuests()
             return true
 
-        case "!inventory":
+        case "/inventory":
             showInventory()
             return true
 
-        case "!typing":
+        case "/typing":
             startTypingGame()
             return true
 
-        case "!leaderboard":
+        case "/leaderboard":
             submitToLeaderboard()
             return true
 
-        case "!watch":
+        case "/watch":
             startClipboardWatch()
             return true
 
-        case "!unwatch":
+        case "/unwatch":
             stopClipboardWatch()
             return true
 
-        case "!save":
+        case "/save":
             saveSnippet()
             return true
 
-        case "!snippets":
+        case "/snippets":
             listSnippets()
             return true
 
-        case "!share":
+        case "/share":
             generateShareCard()
             return true
 
-        case "!screenshot":
+        case "/screenshot":
             captureScreenshot()
             return true
 
-        case "!diff":
+        case "/diff":
             reviewDiff()
             return true
 
-        case "!commit":
+        case "/commit":
             autoCommitMessage()
             return true
 
-        case "!chat new":
+        case "/chat new":
             newChat()
             return true
 
-        case "!chat list":
+        case "/chat list":
             listChats()
             return true
 
-        case "!history":
+        case "/history":
             appendColored("📜 Command history:\n", color: cCyan, bold: true)
             for (i, cmd) in commandHistory.dropLast().enumerated() {
                 appendColored("  \(i+1). \(cmd)\n", color: cGray)
@@ -2970,28 +3003,28 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             appendOutput("\n")
             return true
 
-        case "!reminders":
+        case "/reminders":
             listReminders()
             return true
 
-        case "!standup":
+        case "/standup":
             generateStandup()
             return true
 
-        case "!daily":
+        case "/daily":
             showDailySummary()
             return true
 
-        case "!clipboard":
+        case "/clipboard":
             showClipboardHistory("")
             return true
 
         default:
             // Teach the pet brain
-            if cmd.hasPrefix("!teach ") {
+            if cmd.hasPrefix("/teach ") {
                 let fact = String(cmd.dropFirst(7)).trimmingCharacters(in: .whitespaces)
                 if fact.isEmpty {
-                    appendColored("Usage: !teach <fact>\n\n", color: cRed)
+                    appendColored("Usage: /teach <fact>\n\n", color: cRed)
                 } else {
                     brain.facts.append(fact)
                     brain.save()
@@ -3003,7 +3036,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                 return true
             }
             // Forget a fact
-            if cmd.hasPrefix("!forget ") {
+            if cmd.hasPrefix("/forget ") {
                 let fact = String(cmd.dropFirst(8)).trimmingCharacters(in: .whitespaces)
                 if let idx = brain.facts.firstIndex(of: fact) {
                     brain.facts.remove(at: idx)
@@ -3022,62 +3055,81 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                 return true
             }
             // Reminder
-            if cmd.hasPrefix("!remind ") {
+            if cmd.hasPrefix("/remind ") {
                 let args = String(cmd.dropFirst(8))
                 scheduleReminder(args)
                 return true
             }
             // Natural language shell
-            if cmd.hasPrefix("!sh ") {
+            if cmd.hasPrefix("/sh ") {
                 let desc = String(cmd.dropFirst(4)).trimmingCharacters(in: .whitespaces)
                 naturalShell(desc)
                 return true
             }
             // Clipboard history with args
-            if cmd.hasPrefix("!clipboard ") {
+            if cmd.hasPrefix("/clipboard ") {
                 let args = String(cmd.dropFirst(11))
                 showClipboardHistory(args)
                 return true
             }
             // Ask about file
-            if cmd.hasPrefix("!ask ") {
+            if cmd.hasPrefix("/ask ") {
                 let path = String(cmd.dropFirst(5)).trimmingCharacters(in: .whitespaces)
                 askAboutFile(path)
                 return true
             }
             // Switch chat
-            if cmd.hasPrefix("!chat "), let num = Int(String(cmd.dropFirst(6))) {
+            if cmd.hasPrefix("/chat "), let num = Int(String(cmd.dropFirst(6))) {
                 switchChat(to: num)
                 return true
             }
             // Snippet search
-            if cmd.hasPrefix("!search ") {
+            if cmd.hasPrefix("/search ") {
                 let query = String(cmd.dropFirst(8)).trimmingCharacters(in: .whitespaces)
                 searchSnippets(query)
                 return true
             }
             // Pet battle
-            if cmd.hasPrefix("!battle ") {
+            if cmd.hasPrefix("/battle ") {
                 let opponent = String(cmd.dropFirst(8)).trimmingCharacters(in: .whitespaces)
                 startBattle(opponent: opponent)
                 return true
             }
+            if cmd.hasPrefix("/accept ") {
+                let challenger = String(cmd.dropFirst(8)).trimmingCharacters(in: .whitespaces)
+                respondToBattleChallenge(challenger: challenger, accept: true)
+                return true
+            }
+            if cmd.hasPrefix("/decline ") {
+                let challenger = String(cmd.dropFirst(9)).trimmingCharacters(in: .whitespaces)
+                respondToBattleChallenge(challenger: challenger, accept: false)
+                return true
+            }
             // Set username for leaderboard
-            if cmd.hasPrefix("!name ") {
+            if cmd.hasPrefix("/name ") {
                 let name = String(cmd.dropFirst(6)).trimmingCharacters(in: .whitespaces)
                 if name.isEmpty || name.count > 20 {
                     appendColored("❌ Name must be 1-20 characters\n\n", color: cRed)
                 } else {
+                    let oldName = playerUsername
                     playerUsername = name
                     UserDefaults.standard.set(name, forKey: "agento_username")
+                    pet.leaderboardUsername = name
+                    if !oldName.isEmpty && oldName.lowercased() != name.lowercased() {
+                        playerAuthToken = ""
+                        UserDefaults.standard.removeObject(forKey: "agento_player_token")
+                        pet.leaderboardToken = ""
+                        appendColored("🔐 Username changed: auth token reset for new owner binding\n", color: cDimGray)
+                    }
+                    pet.save()
                     appendColored("✅ Username set: \(name)\n", color: cGreen, bold: true)
-                    appendColored("  Type !leaderboard to publish your stats\n\n", color: cGray)
+                    appendColored("  Type /leaderboard to publish your stats\n\n", color: cGray)
                     bubbleLabel.stringValue = speechBubble("I'm \(name)!")
                 }
                 return true
             }
-            // Auto-translate toggle: !translate ru, !translate en, !translate off
-            if cmd.hasPrefix("!translate ") {
+            // Auto-translate toggle: /translate ru, /translate en, /translate off
+            if cmd.hasPrefix("/translate ") {
                 let arg = String(cmd.dropFirst(11)).trimmingCharacters(in: .whitespaces).lowercased()
                 if arg == "off" || arg == "stop" {
                     clearAutoTranslate()
@@ -3090,7 +3142,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                 return true
             }
             // Skin change
-            if cmd.hasPrefix("!skin ") {
+            if cmd.hasPrefix("/skin ") {
                 let skinName = String(cmd.dropFirst(6)).lowercased()
                 if let skin = AgentSkin.allCases.first(where: { $0.rawValue.lowercased() == skinName }) {
                     currentSkin = skin
@@ -3109,7 +3161,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                 return true
             }
             // Theme change
-            if cmd.hasPrefix("!theme ") {
+            if cmd.hasPrefix("/theme ") {
                 let themeName = String(cmd.dropFirst(7)).lowercased()
                 if let theme = Theme.all.first(where: { $0.name.lowercased() == themeName }) {
                     currentTheme = theme
@@ -3122,24 +3174,24 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                 return true
             }
             // Quick calc & conversions
-            if cmd.hasPrefix("!calc ") {
+            if cmd.hasPrefix("/calc ") {
                 let args = String(cmd.dropFirst(6)).trimmingCharacters(in: .whitespaces)
                 quickCalc(args)
                 return true
             }
             // Regex builder
-            if cmd.hasPrefix("!regex ") {
+            if cmd.hasPrefix("/regex ") {
                 let desc = String(cmd.dropFirst(7)).trimmingCharacters(in: .whitespaces)
                 regexBuilder(desc)
                 return true
             }
             // Number game guess
-            if cmd.hasPrefix("!guess ") {
+            if cmd.hasPrefix("/guess ") {
                 let num = String(cmd.dropFirst(7)).trimmingCharacters(in: .whitespaces)
                 if handleGuess(num) { return true }
             }
             // Trivia answer
-            if cmd.hasPrefix("!answer ") {
+            if cmd.hasPrefix("/answer ") {
                 let ans = String(cmd.dropFirst(8)).trimmingCharacters(in: .whitespaces)
                 if handleTriviaAnswer(ans) { return true }
             }
@@ -3156,9 +3208,9 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
     func scheduleReminder(_ args: String) {
         let parts = args.trimmingCharacters(in: .whitespaces).split(separator: " ", maxSplits: 1)
         guard parts.count >= 2 else {
-            appendColored("❌ Usage: !remind <time> <text>\n", color: cRed)
-            appendColored("  Example: !remind 30m check deploy\n", color: cGray)
-            appendColored("  Example: !remind 2h call meeting\n\n", color: cGray)
+            appendColored("❌ Usage: /remind <time> <text>\n", color: cRed)
+            appendColored("  Example: /remind 30m check deploy\n", color: cGray)
+            appendColored("  Example: /remind 2h call meeting\n\n", color: cGray)
             return
         }
 
@@ -3378,7 +3430,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             return
         }
 
-        // Copy back mode: !clipboard N
+        // Copy back mode: /clipboard N
         if let num = Int(arg) {
             guard num >= 1 && num <= clipboardHistory.count else {
                 appendColored("❌ Invalid entry number. Range: 1-\(clipboardHistory.count)\n\n", color: cRed)
@@ -3408,7 +3460,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             appendColored("[\(formatter.string(from: entry.date))] ", color: cDimGray)
             appendOutput("\(preview)\(entry.content.count > 60 ? "..." : "")\n")
         }
-        appendColored("  Use !clipboard <N> to re-copy, !clipboard search <query> to search\n\n", color: cGray)
+        appendColored("  Use /clipboard <N> to re-copy, /clipboard search <query> to search\n\n", color: cGray)
     }
 
     // MARK: - Clipboard Watcher
@@ -3422,7 +3474,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         }
         appendColored("👁 Clipboard watcher ON\n", color: cGreen, bold: true)
         appendColored("  Agent-O will detect code & errors in your clipboard\n", color: cGray)
-        appendColored("  Type !unwatch to stop\n\n", color: cGray)
+        appendColored("  Type /unwatch to stop\n\n", color: cGray)
         bubbleLabel.stringValue = speechBubble("Watching clipboard...")
     }
 
@@ -3442,7 +3494,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         }
         appendColored("🌐 Auto-translate → \(langName)\n", color: cPurple, bold: true)
         appendColored("  Copy any text — it will be translated to \(langName) automatically\n", color: cGray)
-        appendColored("  Type !notranslate to stop auto-translating\n\n", color: cGray)
+        appendColored("  Type /translate off to stop auto-translating\n\n", color: cGray)
         bubbleLabel.stringValue = speechBubble("Auto-translate → \(langName)")
     }
 
@@ -3514,7 +3566,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
     func listSnippets() {
         guard !savedSnippets.isEmpty else {
-            appendColored("📝 No saved snippets yet. Use !save after a command.\n\n", color: cGray)
+            appendColored("📝 No saved snippets yet. Use /save after a command.\n\n", color: cGray)
             return
         }
         appendColored("📝 Saved Snippets (\(savedSnippets.count)):\n", color: cCyan, bold: true)
@@ -3765,7 +3817,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             appendOutput("\(shortPreview)\(marker)\n")
         }
         appendOutput("\n")
-        appendColored("  !chat <N> to switch, !chat new for new\n\n", color: cGray)
+        appendColored("  /chat <N> to switch, /chat new for new\n\n", color: cGray)
     }
 
     func switchChat(to num: Int) {
@@ -3802,7 +3854,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                 guard let self = self else { return }
                 if changeCount >= 10 && self.lastGitChangeCount < 10 {
                     self.appendColored("💡 You have \(changeCount) uncommitted changes.\n", color: self.cYellow, bold: true)
-                    self.appendColored("   Type !commit to auto-generate a commit message\n\n", color: self.cGray)
+                    self.appendColored("   Type /commit to auto-generate a commit message\n\n", color: self.cGray)
                     self.bubbleLabel.stringValue = speechBubble("Time to commit? 💡")
                 }
                 self.lastGitChangeCount = changeCount
@@ -3841,7 +3893,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         pet.save()
         refreshStatsDisplay()
         updateDailyQuest("commit_1", by: 1)
-        appendColored("❯ !commit\n", color: cCyan, bold: true)
+        appendColored("❯ /commit\n", color: cCyan, bold: true)
         setState(.thinking)
         bubbleLabel.stringValue = speechBubble(L10n.t("prep_commit"))
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
@@ -3851,7 +3903,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
     @objc func quickTest() {
         lastInteraction = Date()
-        appendColored("❯ !test\n", color: cCyan, bold: true)
+        appendColored("❯ /test\n", color: cCyan, bold: true)
         setState(.thinking)
         bubbleLabel.stringValue = speechBubble(L10n.t("run_tests"))
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
@@ -3861,7 +3913,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
     @objc func quickExplain() {
         lastInteraction = Date()
-        appendColored("❯ !explain\n", color: cCyan, bold: true)
+        appendColored("❯ /explain\n", color: cCyan, bold: true)
         setState(.thinking)
         bubbleLabel.stringValue = speechBubble(L10n.t("find_errors"))
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
@@ -3871,7 +3923,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
     @objc func quickReview() {
         lastInteraction = Date()
-        appendColored("❯ !review\n", color: cCyan, bold: true)
+        appendColored("❯ /review\n", color: cCyan, bold: true)
         setState(.thinking)
         bubbleLabel.stringValue = speechBubble(L10n.t("code_review"))
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
@@ -4045,16 +4097,16 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         appendOutput("command history\n")
         appendColored("  D&D   ", color: cYellow, bold: true)
         appendOutput("drag & drop file to analyze\n\n")
-        appendColored("  !help ", color: cGreen, bold: true)
+        appendColored("  /help ", color: cGreen, bold: true)
         appendOutput("all commands  ")
-        appendColored("!quests ", color: cYellow, bold: true)
+        appendColored("/quests ", color: cYellow, bold: true)
         appendOutput("daily quests\n\n")
 
         // Show daily quests reminder
         _ = getTodayQuests()
         let done = pet.dailyQuestsCompleted.count
         if done < 3 {
-            appendColored("📋 Daily quests: \(done)/3 — type !quests\n\n", color: cDimGray)
+            appendColored("📋 Daily quests: \(done)/3 — type /quests\n\n", color: cDimGray)
         }
     }
 
@@ -4158,11 +4210,11 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         guard parts.count >= 4,
               let amount = Double(parts[0]),
               parts[parts.count - 2] == "to" else {
-            appendColored("❌ Usage: !calc <amount> <from> to <to>\n", color: cRed)
+            appendColored("❌ Usage: /calc <amount> <from> to <to>\n", color: cRed)
             appendColored("  Examples:\n", color: cGray)
-            appendColored("  !calc 150 usd to rub\n", color: cDimGray)
-            appendColored("  !calc 100 km to miles\n", color: cDimGray)
-            appendColored("  !calc 2pm est to msk\n\n", color: cDimGray)
+            appendColored("  /calc 150 usd to rub\n", color: cDimGray)
+            appendColored("  /calc 100 km to miles\n", color: cDimGray)
+            appendColored("  /calc 2pm est to msk\n\n", color: cDimGray)
             setState(.idle)
             return
         }
@@ -4302,9 +4354,9 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
     func regexBuilder(_ description: String) {
         guard !description.isEmpty else {
-            appendColored("❌ Usage: !regex <description>\n", color: cRed)
-            appendColored("  Example: !regex email validation\n", color: cDimGray)
-            appendColored("  Example: !regex match dates like 2024-01-15\n\n", color: cDimGray)
+            appendColored("❌ Usage: /regex <description>\n", color: cRed)
+            appendColored("  Example: /regex email validation\n", color: cDimGray)
+            appendColored("  Example: /regex match dates like 2024-01-15\n\n", color: cDimGray)
             setState(.idle)
             return
         }
@@ -4463,9 +4515,9 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         appendColored("  CLI\n", color: cPurple, bold: true)
         let cliCmds: [(String, String)] = [
             ("text", "→ send to Claude"),
-            ("!claude <p>", "→ explicitly to Claude CLI"),
-            ("!codex <p>", "→ explicitly to Codex CLI"),
-            ("!paste", "→ analyze clipboard content"),
+            ("/claude <p>", "→ explicitly to Claude CLI"),
+            ("/codex <p>", "→ explicitly to Codex CLI"),
+            ("/paste", "→ analyze clipboard content"),
         ]
         for (cmd, desc) in cliCmds {
             appendColored("  \(cmd.padding(toLength: 16, withPad: " ", startingAt: 0))", color: cYellow)
@@ -4473,12 +4525,12 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         }
         appendColored("  Tamagotchi\n", color: cPurple, bold: true)
         let petCmds: [(String, String)] = [
-            ("!feed", "→ feed Agent-O (+Food)"),
-            ("!play", "→ play with Agent-O (+Joy)"),
-            ("!rest", "→ let Agent-O rest (+Energy)"),
-            ("!stats", "→ full pet stats"),
-            ("!evo", "→ evolution stage info"),
-            ("!ach", "→ achievements list"),
+            ("/feed", "→ feed Agent-O (+Food)"),
+            ("/play", "→ play with Agent-O (+Joy)"),
+            ("/rest", "→ let Agent-O rest (+Energy)"),
+            ("/stats", "→ full pet stats"),
+            ("/evo", "→ evolution stage info"),
+            ("/ach", "→ achievements list"),
         ]
         for (cmd, desc) in petCmds {
             appendColored("  \(cmd.padding(toLength: 16, withPad: " ", startingAt: 0))", color: cYellow)
@@ -4486,16 +4538,16 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         }
         appendColored("  Fun & Focus\n", color: cPurple, bold: true)
         let funCmds: [(String, String)] = [
-            ("!game", "→ number guessing game"),
-            ("!trivia", "→ dev trivia quiz"),
-            ("!typing", "→ typing speed test"),
-            ("!dance", "→ let's dance!"),
-            ("!quests", "→ daily quests"),
-            ("!inventory", "→ your items"),
-            ("!pomo", "→ 25 min pomodoro timer"),
-            ("!pomo10", "→ 10 min pomodoro"),
-            ("!break", "→ 5 min break timer"),
-            ("!stoppomo", "→ stop timer"),
+            ("/game", "→ number guessing game"),
+            ("/trivia", "→ dev trivia quiz"),
+            ("/typing", "→ typing speed test"),
+            ("/dance", "→ let's dance!"),
+            ("/quests", "→ daily quests"),
+            ("/inventory", "→ your items"),
+            ("/pomo", "→ 25 min pomodoro timer"),
+            ("/pomo10", "→ 10 min pomodoro"),
+            ("/break", "→ 5 min break timer"),
+            ("/stoppomo", "→ stop timer"),
         ]
         for (cmd, desc) in funCmds {
             appendColored("  \(cmd.padding(toLength: 16, withPad: " ", startingAt: 0))", color: cYellow)
@@ -4503,8 +4555,8 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         }
         appendColored("  Customization\n", color: cPurple, bold: true)
         let custCmds: [(String, String)] = [
-            ("!skin <name>", "→ robot/cat/skull/clippy"),
-            ("!theme <name>", "→ matrix/cyberpunk/sunset/ocean/hacker"),
+            ("/skin <name>", "→ robot/cat/skull/clippy"),
+            ("/theme <name>", "→ matrix/cyberpunk/sunset/ocean/hacker"),
         ]
         for (cmd, desc) in custCmds {
             appendColored("  \(cmd.padding(toLength: 16, withPad: " ", startingAt: 0))", color: cYellow)
@@ -4515,9 +4567,9 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             ("EN <text>", "→ translate to English"),
             ("RU <text>", "→ translate to Russian"),
             ("ES/FR/DE...", "→ any language (18 supported)"),
-            ("!translate ru", "→ auto-translate clipboard → RU"),
-            ("!translate en", "→ auto-translate clipboard → EN"),
-            ("!translate off", "→ stop auto-translate"),
+            ("/translate ru", "→ auto-translate clipboard → RU"),
+            ("/translate en", "→ auto-translate clipboard → EN"),
+            ("/translate off", "→ stop auto-translate"),
         ]
         for (cmd, desc) in transCmds {
             appendColored("  \(cmd.padding(toLength: 16, withPad: " ", startingAt: 0))", color: cYellow)
@@ -4526,31 +4578,31 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         appendColored("  Tools\n", color: cPurple, bold: true)
         appendColored("  Smart Tools\n", color: cPurple, bold: true)
         let smartCmds: [(String, String)] = [
-            ("!screenshot", "→ capture & analyze screen area"),
-            ("!diff", "→ AI code review of git changes"),
-            ("!commit", "→ auto-generate commit message"),
-            ("!ask <file>", "→ analyze a file with Claude"),
-            ("!watch", "→ clipboard watcher on"),
-            ("!unwatch", "→ clipboard watcher off"),
-            ("!save", "→ save last response"),
-            ("!snippets", "→ list saved snippets"),
-            ("!search <q>", "→ search snippets"),
-            ("!share", "→ export pet share card"),
-            ("!chat new", "→ start new chat"),
-            ("!chat list", "→ list all chats"),
-            ("!chat <N>", "→ switch to chat N"),
-            ("!remind <t> ..", "→ set reminder (30m/2h)"),
-            ("!reminders", "→ list active reminders"),
-            ("!standup", "→ daily standup report"),
-            ("!sh <desc>", "→ NL → shell command"),
-            ("!clipboard", "→ clipboard history"),
-            ("!calc <expr>", "→ calc/convert/currency"),
-            ("!regex <desc>", "→ build regex pattern"),
-            ("!daily", "→ daily activity summary"),
-            ("!teach <fact>", "→ teach your pet something"),
-            ("!memory", "→ what your pet knows"),
-            ("!brain", "→ export pet brain (JSON)"),
-            ("!forget <fact>", "→ make pet forget"),
+            ("/screenshot", "→ capture & analyze screen area"),
+            ("/diff", "→ AI code review of git changes"),
+            ("/commit", "→ auto-generate commit message"),
+            ("/ask <file>", "→ analyze a file with Claude"),
+            ("/watch", "→ clipboard watcher on"),
+            ("/unwatch", "→ clipboard watcher off"),
+            ("/save", "→ save last response"),
+            ("/snippets", "→ list saved snippets"),
+            ("/search <q>", "→ search snippets"),
+            ("/share", "→ export pet share card"),
+            ("/chat new", "→ start new chat"),
+            ("/chat list", "→ list all chats"),
+            ("/chat <N>", "→ switch to chat N"),
+            ("/remind <t> ..", "→ set reminder (30m/2h)"),
+            ("/reminders", "→ list active reminders"),
+            ("/standup", "→ daily standup report"),
+            ("/sh <desc>", "→ NL → shell command"),
+            ("/clipboard", "→ clipboard history"),
+            ("/calc <expr>", "→ calc/convert/currency"),
+            ("/regex <desc>", "→ build regex pattern"),
+            ("/daily", "→ daily activity summary"),
+            ("/teach <fact>", "→ teach your pet something"),
+            ("/memory", "→ what your pet knows"),
+            ("/brain", "→ export pet brain (JSON)"),
+            ("/forget <fact>", "→ make pet forget"),
         ]
         for (cmd, desc) in smartCmds {
             appendColored("  \(cmd.padding(toLength: 16, withPad: " ", startingAt: 0))", color: cYellow)
@@ -4558,23 +4610,26 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         }
         appendColored("  Social\n", color: cPurple, bold: true)
         let socialCmds: [(String, String)] = [
-            ("!name <name>", "→ set leaderboard name"),
-            ("!leaderboard", "→ publish to leaderboard"),
-            ("!battle <user>", "→ battle another pet!"),
-            ("!battles", "→ battle history"),
+            ("/name <name>", "→ set leaderboard name"),
+            ("/leaderboard", "→ publish to leaderboard"),
+            ("/battle <user>", "→ send battle challenge"),
+            ("/challenges", "→ incoming battle challenges"),
+            ("/accept <user>", "→ accept battle challenge"),
+            ("/decline <user>", "→ decline battle challenge"),
+            ("/battles", "→ battle history"),
         ]
         for (cmd, desc) in socialCmds {
             appendColored("  \(cmd.padding(toLength: 16, withPad: " ", startingAt: 0))", color: cYellow)
             appendOutput("\(desc)\n")
         }
         let toolCmds: [(String, String)] = [
-            ("!git", "→ git project status"),
-            ("!ps", "→ monitor processes"),
-            ("!tip", "→ random tip"),
-            ("!history", "→ command history"),
-            ("!update", "→ check & install updates"),
-            ("!version", "→ current version"),
-            ("!clear", "→ clear output"),
+            ("/git", "→ git project status"),
+            ("/ps", "→ monitor processes"),
+            ("/tip", "→ random tip"),
+            ("/history", "→ command history"),
+            ("/update", "→ check & install updates"),
+            ("/version", "→ current version"),
+            ("/clear", "→ clear output"),
         ]
         for (cmd, desc) in toolCmds {
             appendColored("  \(cmd.padding(toLength: 16, withPad: " ", startingAt: 0))", color: cYellow)
@@ -4613,7 +4668,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         }
 
         if brain.facts.isEmpty {
-            appendColored("  Facts: (none taught yet, use !teach)\n", color: cGray)
+            appendColored("  Facts: (none taught yet, use /teach)\n", color: cGray)
         } else {
             appendColored("  Facts: \(brain.facts.joined(separator: "; "))\n", color: cGreen)
         }
@@ -4674,7 +4729,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
     func submitToLeaderboard() {
         if playerUsername.isEmpty {
-            appendColored("❌ Set your name first: !name YourName\n\n", color: cRed)
+            appendColored("❌ Set your name first: /name YourName\n\n", color: cRed)
             return
         }
 
@@ -4682,8 +4737,17 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         bubbleLabel.stringValue = speechBubble("Publishing to leaderboard...")
         appendColored("🏆 Submitting to leaderboard...\n", color: cYellow)
 
+        if playerAuthToken.isEmpty {
+            playerAuthToken = UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
+            UserDefaults.standard.set(playerAuthToken, forKey: "agento_player_token")
+            pet.leaderboardToken = playerAuthToken
+            pet.leaderboardUsername = playerUsername
+            pet.save()
+        }
+
         let payload: [String: Any] = [
             "username": playerUsername,
+            "token": playerAuthToken,
             "level": pet.level,
             "xp": pet.xp,
             "totalCommands": pet.totalCommands,
@@ -4716,18 +4780,43 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                     return
                 }
 
+                let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
                 if let data = data,
-                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                   let rank = json["rank"] as? Int {
-                    self.appendColored("✅ Published! ", color: self.cGreen, bold: true)
-                    self.appendColored("Rank: #\(rank)\n", color: self.cYellow, bold: true)
-                    self.appendColored("  View: \(AgentODelegate.leaderboardURL)\n\n", color: self.cCyan)
-                    self.setState(.happy)
-                    self.bubbleLabel.stringValue = speechBubble("Rank #\(rank)! 🏆")
-                    self.playSound("Glass")
+                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                    if statusCode >= 400 {
+                        let errorText = json["error"] as? String ?? "Submit failed (HTTP \(statusCode))"
+                        self.appendColored("❌ \(errorText)\n\n", color: self.cRed)
+                        self.setState(.error)
+                        return
+                    }
+
+                    if let token = json["token"] as? String, !token.isEmpty {
+                        self.playerAuthToken = token
+                        UserDefaults.standard.set(token, forKey: "agento_player_token")
+                        self.pet.leaderboardToken = token
+                        self.pet.leaderboardUsername = self.playerUsername
+                        self.pet.save()
+                    }
+
+                    if let rank = json["rank"] as? Int {
+                        self.appendColored("✅ Published! ", color: self.cGreen, bold: true)
+                        self.appendColored("Rank: #\(rank)\n", color: self.cYellow, bold: true)
+                        self.appendColored("  Protected profile: enabled\n", color: self.cDimGray)
+                        self.appendColored("  View: \(AgentODelegate.leaderboardURL)\n\n", color: self.cCyan)
+                        self.setState(.happy)
+                        self.bubbleLabel.stringValue = speechBubble("Rank #\(rank)! 🏆")
+                        self.playSound("Glass")
+                    } else {
+                        self.appendColored("✅ Submitted!\n", color: self.cGreen, bold: true)
+                        self.appendColored("  Protected profile: enabled\n", color: self.cDimGray)
+                        self.appendColored("  View: \(AgentODelegate.leaderboardURL)\n\n", color: self.cCyan)
+                        self.setState(.happy)
+                    }
+                } else if statusCode >= 400 {
+                    self.appendColored("❌ Submit failed (HTTP \(statusCode))\n\n", color: self.cRed)
+                    self.setState(.error)
                 } else {
-                    self.appendColored("✅ Submitted!\n", color: self.cGreen, bold: true)
-                    self.appendColored("  View: \(AgentODelegate.leaderboardURL)\n\n", color: self.cCyan)
+                    self.appendColored("✅ Submitted!\n\n", color: self.cGreen, bold: true)
                     self.setState(.happy)
                 }
             }
@@ -4739,20 +4828,309 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
     func startBattle(opponent: String) {
         if playerUsername.isEmpty {
-            appendColored("❌ Set your name first: !name YourName\n", color: cRed)
-            appendColored("  Then !leaderboard to publish stats\n\n", color: cGray)
+            appendColored("❌ Set your name first: /name YourName\n", color: cRed)
+            appendColored("  Then /leaderboard to publish stats\n\n", color: cGray)
             return
         }
-        if opponent.lowercased() == playerUsername.lowercased() {
+        let cleanOpponent = opponent.trimmingCharacters(in: .whitespacesAndNewlines)
+        if cleanOpponent.isEmpty {
+            appendColored("❌ Usage: /battle <username>\n\n", color: cRed)
+            return
+        }
+        if battleActive {
+            appendColored("⚠️  Battle already in progress. Wait for it to finish.\n\n", color: cYellow)
+            return
+        }
+        if cleanOpponent.lowercased() == playerUsername.lowercased() {
             appendColored("❌ You can't battle yourself!\n\n", color: cRed)
             return
         }
 
         battleActive = true
+        let pollToken = UUID()
+        pendingBattlePollToken = pollToken
         setState(.thinking)
-        bubbleLabel.stringValue = speechBubble("Finding \(opponent)...")
-        appendColored("⚔️  Searching for \(opponent)...\n", color: cYellow, bold: true)
+        bubbleLabel.stringValue = speechBubble("Challenge sent to \(cleanOpponent)")
+        appendColored("⚔️  Challenge sent to \(cleanOpponent)\n", color: cYellow, bold: true)
+        appendColored("  They need to run: /accept \(playerUsername)\n", color: cGray)
+        appendColored("  Waiting for confirmation...\n\n", color: cGray)
 
+        guard let url = URL(string: "\(AgentODelegate.leaderboardURL)/api/battles/challenge") else {
+            appendColored("❌ Failed to create challenge request\n\n", color: cRed)
+            battleActive = false
+            pendingBattlePollToken = nil
+            setState(.error)
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let payload: [String: Any] = [
+            "challenger": playerUsername,
+            "opponent": cleanOpponent,
+            "token": playerAuthToken
+        ]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: payload)
+
+        let task = URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                if let error = error {
+                    self.appendColored("❌ \(error.localizedDescription)\n\n", color: self.cRed)
+                    self.battleActive = false
+                    self.pendingBattlePollToken = nil
+                    self.setState(.error)
+                    return
+                }
+
+                if let http = response as? HTTPURLResponse, http.statusCode >= 400 {
+                    if let data = data,
+                       let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                       let serverError = json["error"] as? String {
+                        self.appendColored("❌ \(serverError)\n\n", color: self.cRed)
+                        self.battleActive = false
+                        self.pendingBattlePollToken = nil
+                        self.setState(.error)
+                        return
+                    }
+                    if http.statusCode == 404 {
+                        self.appendColored("⚠️  Challenge API not deployed yet, starting direct battle.\n\n", color: self.cYellow)
+                        self.pendingBattlePollToken = nil
+                        self.fetchOpponentAndRunBattle(opponent: cleanOpponent)
+                        return
+                    }
+                    self.appendColored("❌ Challenge request failed (HTTP \(http.statusCode))\n\n", color: self.cRed)
+                    self.battleActive = false
+                    self.pendingBattlePollToken = nil
+                    self.setState(.error)
+                    return
+                }
+
+                guard let data = data,
+                      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                    self.appendColored("❌ Invalid challenge response\n\n", color: self.cRed)
+                    self.battleActive = false
+                    self.pendingBattlePollToken = nil
+                    self.setState(.error)
+                    return
+                }
+
+                let status = (json["status"] as? String ?? "pending").lowercased()
+                if status == "accepted" {
+                    self.pendingBattlePollToken = nil
+                    self.appendColored("✅ Challenge accepted by \(cleanOpponent)!\n\n", color: self.cGreen, bold: true)
+                    self.fetchOpponentAndRunBattle(opponent: cleanOpponent)
+                    return
+                }
+
+                if status == "declined" {
+                    self.appendColored("❌ \(cleanOpponent) declined your challenge.\n\n", color: self.cRed)
+                    self.battleActive = false
+                    self.pendingBattlePollToken = nil
+                    self.setState(.error)
+                    return
+                }
+
+                self.pollBattleChallengeStatus(opponent: cleanOpponent, pollToken: pollToken, attemptsLeft: 30)
+            }
+        }
+        task.resume()
+    }
+
+    func pollBattleChallengeStatus(opponent: String, pollToken: UUID, attemptsLeft: Int) {
+        guard battleActive, pendingBattlePollToken == pollToken else { return }
+        guard attemptsLeft > 0 else {
+            appendColored("⌛ No response from \(opponent). Challenge expired.\n\n", color: cDimGray)
+            battleActive = false
+            pendingBattlePollToken = nil
+            setState(.idle)
+            bubbleLabel.stringValue = speechBubble("No accept yet.")
+            return
+        }
+
+        let safeChallenger = playerUsername.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? playerUsername
+        let safeOpponent = opponent.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? opponent
+        guard let url = URL(string: "\(AgentODelegate.leaderboardURL)/api/battles/challenge/status?challenger=\(safeChallenger)&opponent=\(safeOpponent)") else {
+            appendColored("❌ Failed to check challenge status\n\n", color: cRed)
+            battleActive = false
+            pendingBattlePollToken = nil
+            setState(.error)
+            return
+        }
+
+        URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                guard self.battleActive, self.pendingBattlePollToken == pollToken else { return }
+
+                if let error = error {
+                    self.appendColored("❌ \(error.localizedDescription)\n\n", color: self.cRed)
+                    self.battleActive = false
+                    self.pendingBattlePollToken = nil
+                    self.setState(.error)
+                    return
+                }
+
+                if let http = response as? HTTPURLResponse, http.statusCode == 404 {
+                    self.appendColored("⚠️  Challenge status API missing, starting direct battle.\n\n", color: self.cYellow)
+                    self.pendingBattlePollToken = nil
+                    self.fetchOpponentAndRunBattle(opponent: opponent)
+                    return
+                }
+
+                let status: String
+                if let data = data,
+                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                    status = (json["status"] as? String ?? "pending").lowercased()
+                } else {
+                    status = "pending"
+                }
+
+                switch status {
+                case "accepted":
+                    self.pendingBattlePollToken = nil
+                    self.appendColored("✅ Challenge accepted by \(opponent)!\n\n", color: self.cGreen, bold: true)
+                    self.fetchOpponentAndRunBattle(opponent: opponent)
+                case "declined":
+                    self.appendColored("❌ \(opponent) declined your challenge.\n\n", color: self.cRed)
+                    self.battleActive = false
+                    self.pendingBattlePollToken = nil
+                    self.setState(.error)
+                case "expired":
+                    self.appendColored("⌛ Challenge to \(opponent) expired.\n\n", color: self.cDimGray)
+                    self.battleActive = false
+                    self.pendingBattlePollToken = nil
+                    self.setState(.idle)
+                default:
+                    if attemptsLeft == 30 || attemptsLeft % 5 == 0 {
+                        self.appendColored("  Waiting for \(opponent) to accept...\n", color: self.cDimGray)
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                        self.pollBattleChallengeStatus(opponent: opponent, pollToken: pollToken, attemptsLeft: attemptsLeft - 1)
+                    }
+                }
+            }
+        }.resume()
+    }
+
+    func respondToBattleChallenge(challenger: String, accept: Bool) {
+        if playerUsername.isEmpty {
+            appendColored("❌ Set your name first: /name YourName\n\n", color: cRed)
+            return
+        }
+        let cleanChallenger = challenger.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanChallenger.isEmpty else {
+            appendColored("❌ Usage: /\(accept ? "accept" : "decline") <username>\n\n", color: cRed)
+            return
+        }
+
+        guard let url = URL(string: "\(AgentODelegate.leaderboardURL)/api/battles/challenge/respond") else {
+            appendColored("❌ Failed to create response request\n\n", color: cRed)
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let payload: [String: Any] = [
+            "challenger": cleanChallenger,
+            "opponent": playerUsername,
+            "accepted": accept,
+            "token": playerAuthToken
+        ]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: payload)
+
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                if let error = error {
+                    self.appendColored("❌ \(error.localizedDescription)\n\n", color: self.cRed)
+                    return
+                }
+
+                if let http = response as? HTTPURLResponse, http.statusCode == 404 {
+                    self.appendColored("⚠️  Challenge API not deployed on server yet.\n\n", color: self.cYellow)
+                    return
+                }
+
+                guard let data = data,
+                      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                    self.appendColored("❌ Invalid response from server\n\n", color: self.cRed)
+                    return
+                }
+
+                let status = (json["status"] as? String ?? "unknown").lowercased()
+                switch status {
+                case "accepted":
+                    self.appendColored("✅ Challenge from \(cleanChallenger) accepted!\n", color: self.cGreen, bold: true)
+                    self.appendColored("  They can now start the battle sequence.\n\n", color: self.cGray)
+                    self.bubbleLabel.stringValue = speechBubble("Challenge accepted!")
+                case "declined":
+                    self.appendColored("❌ Challenge from \(cleanChallenger) declined.\n\n", color: self.cYellow)
+                    self.bubbleLabel.stringValue = speechBubble("Challenge declined.")
+                case "not_found", "expired":
+                    self.appendColored("⚠️  No active challenge from \(cleanChallenger).\n\n", color: self.cDimGray)
+                default:
+                    self.appendColored("⚠️  Unexpected status: \(status)\n\n", color: self.cDimGray)
+                }
+            }
+        }.resume()
+    }
+
+    func listPendingBattleChallenges() {
+        if playerUsername.isEmpty {
+            appendColored("❌ Set your name first: /name YourName\n\n", color: cRed)
+            return
+        }
+
+        let safeUser = playerUsername.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? playerUsername
+        let safeToken = playerAuthToken.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? playerAuthToken
+        guard let url = URL(string: "\(AgentODelegate.leaderboardURL)/api/battles/challenge/inbox?username=\(safeUser)&token=\(safeToken)") else {
+            appendColored("❌ Failed to create inbox request\n\n", color: cRed)
+            return
+        }
+
+        URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                if let error = error {
+                    self.appendColored("❌ \(error.localizedDescription)\n\n", color: self.cRed)
+                    return
+                }
+                if let http = response as? HTTPURLResponse, http.statusCode == 404 {
+                    self.appendColored("⚠️  Challenge API not deployed on server yet.\n\n", color: self.cYellow)
+                    return
+                }
+                guard let data = data,
+                      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                    self.appendColored("❌ Invalid response from server\n\n", color: self.cRed)
+                    return
+                }
+
+                let challenges = json["challenges"] as? [[String: Any]] ?? []
+                if challenges.isEmpty {
+                    self.appendColored("📭 No pending battle challenges.\n\n", color: self.cDimGray)
+                    return
+                }
+
+                self.appendColored("📨 Pending challenges:\n", color: self.cCyan, bold: true)
+                for item in challenges.prefix(10) {
+                    let challenger = item["challenger"] as? String ?? "?"
+                    let createdAt = item["createdAt"] as? String ?? ""
+                    self.appendColored("  • \(challenger)", color: self.cYellow, bold: true)
+                    if !createdAt.isEmpty {
+                        self.appendColored("  (\(createdAt))", color: self.cDimGray)
+                    }
+                    self.appendOutput("\n")
+                    self.appendColored("    /accept \(challenger)  |  /decline \(challenger)\n", color: self.cGray)
+                }
+                self.appendOutput("\n")
+            }
+        }.resume()
+    }
+
+    func fetchOpponentAndRunBattle(opponent: String) {
         guard let url = URL(string: "\(AgentODelegate.leaderboardURL)/api/player/\(opponent.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? opponent)") else {
             appendColored("❌ Invalid username\n\n", color: cRed)
             battleActive = false
@@ -4760,7 +5138,10 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             return
         }
 
-        let task = URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
+        bubbleLabel.stringValue = speechBubble("Finding \(opponent)...")
+        appendColored("⚔️  Preparing battle with \(opponent)...\n", color: cYellow, bold: true)
+
+        let task = URLSession.shared.dataTask(with: url) { [weak self] data, _, error in
             DispatchQueue.main.async {
                 guard let self = self else { return }
                 if let error = error {
@@ -4773,7 +5154,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                       let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                       let oppLevel = json["level"] as? Int else {
                     self.appendColored("❌ Player \"\(opponent)\" not found on leaderboard\n", color: self.cRed)
-                    self.appendColored("  They need to !leaderboard first\n\n", color: self.cGray)
+                    self.appendColored("  They need to /leaderboard first\n\n", color: self.cGray)
                     self.battleActive = false
                     self.setState(.error)
                     return
@@ -4839,7 +5220,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         func showRound() {
             guard step < rounds.count else {
                 // All rounds shown, determine winner
-                self.finishBattle(myPower: myPower, oppPower: oppPower, oppName: oppName)
+                self.finishBattle(myPower: myPower, oppPower: oppPower, oppName: oppName, oppLevel: oppLevel)
                 return
             }
             let (name, myVal, oppVal) = rounds[step]
@@ -4872,7 +5253,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         return (base + streakBonus + achBonus) * luck
     }
 
-    func finishBattle(myPower: Double, oppPower: Double, oppName: String) {
+    func finishBattle(myPower: Double, oppPower: Double, oppName: String, oppLevel: Int) {
         appendColored("\n  ──────────────────────────────────────\n", color: cGray)
 
         let myPwr = Int(myPower)
@@ -4928,15 +5309,47 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         if pet.battleHistory.count > 20 { pet.battleHistory = Array(pet.battleHistory.prefix(20)) }
         pet.save()
         refreshStatsDisplay()
+        publishBattleResult(opponent: oppName, opponentLevel: oppLevel, result: result, myPower: myPwr, oppPower: oppPwr)
 
-        appendColored("  Battle another: !battle <username>\n\n", color: cGray)
+        appendColored("  Battle another: /battle <username>\n\n", color: cGray)
         battleActive = false
+        pendingBattlePollToken = nil
         processAchievements()
+    }
+
+    func publishBattleResult(opponent: String, opponentLevel: Int, result: String, myPower: Int, oppPower: Int) {
+        guard !playerUsername.isEmpty else { return }
+        guard let url = URL(string: "\(AgentODelegate.leaderboardURL)/api/battles/log") else { return }
+
+        let winner: String
+        if result == "win" { winner = playerUsername }
+        else if result == "loss" { winner = opponent }
+        else { winner = "draw" }
+
+        let payload: [String: Any] = [
+            "playerA": playerUsername,
+            "playerB": opponent,
+            "token": playerAuthToken,
+            "winner": winner,
+            "result": result,
+            "playerALevel": pet.level,
+            "playerBLevel": opponentLevel,
+            "playerAPower": myPower,
+            "playerBPower": oppPower,
+            "createdAt": ISO8601DateFormatter().string(from: Date())
+        ]
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONSerialization.data(withJSONObject: payload)
+
+        URLSession.shared.dataTask(with: request) { _, _, _ in }.resume()
     }
 
     func showBattleHistory() {
         if pet.battleHistory.isEmpty {
-            appendColored("No battles yet. Try !battle <username>\n\n", color: cGray)
+            appendColored("No battles yet. Try /battle <username>\n\n", color: cGray)
             return
         }
         appendColored("╭── Battle History ───────────────────╮\n", color: cPurple)
@@ -5109,25 +5522,25 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         appendColored("  ╚══════════════════════════════════════╝\n\n", color: cCyan)
         appendColored("  Your pet is hungry! Let's feed it.\n", color: cGreen)
         appendColored("  Type: ", color: cGray)
-        appendColored("!feed\n\n", color: cYellow, bold: true)
-        bubbleLabel.stringValue = speechBubble("Hi! I'm hungry... Type !feed")
+        appendColored("/feed\n\n", color: cYellow, bold: true)
+        bubbleLabel.stringValue = speechBubble("Hi! I'm hungry... Type /feed")
     }
 
     func handleOnboardingStep(_ cmd: String) -> Bool {
         switch onboardingStep {
         case 1:
-            if cmd == "!feed" {
+            if cmd == "/feed" {
                 onboardingStep = 2
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                     self.appendColored("  Great! Now let's play together.\n", color: self.cGreen)
                     self.appendColored("  Type: ", color: self.cGray)
-                    self.appendColored("!play\n\n", color: self.cYellow, bold: true)
+                    self.appendColored("/play\n\n", color: self.cYellow, bold: true)
                     self.bubbleLabel.stringValue = speechBubble("Yum! Now play with me!")
                 }
-                return false // let !feed execute normally
+                return false // let /feed execute normally
             }
         case 2:
-            if cmd == "!play" {
+            if cmd == "/play" {
                 onboardingStep = 3
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                     self.appendColored("  Awesome! Now try asking Claude a question.\n", color: self.cGreen)
@@ -5138,14 +5551,14 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                 return false
             }
         case 3:
-            if !cmd.hasPrefix("!") {
+            if !cmd.hasPrefix("/") {
                 onboardingStep = 0
                 pet.hasCompletedOnboarding = true
                 pet.save()
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
                     self.appendColored("\n  ✅ Onboarding complete! You're ready.\n", color: self.cGreen, bold: true)
-                    self.appendColored("  Type !help to see all commands\n", color: self.cGray)
-                    self.appendColored("  Type !quests to see daily quests\n\n", color: self.cGray)
+                    self.appendColored("  Type /help to see all commands\n", color: self.cGray)
+                    self.appendColored("  Type /quests to see daily quests\n\n", color: self.cGray)
                     self.bubbleLabel.stringValue = speechBubble("Let's go! 🚀")
                     self.playSound("Glass")
                 }
@@ -5430,7 +5843,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                 guard remoteVersion != AgentODelegate.currentVersion else { return }
 
                 DispatchQueue.main.async {
-                    self.appendColored("🆕 Update available: v\(remoteVersion)! Type !update to install\n\n", color: self.cYellow, bold: true)
+                    self.appendColored("🆕 Update available: v\(remoteVersion)! Type /update to install\n\n", color: self.cYellow, bold: true)
                     self.bubbleLabel.stringValue = speechBubble("Update available!")
                 }
             }

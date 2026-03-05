@@ -11,7 +11,8 @@ export async function GET() {
     for (const username of players) {
       const data = await kv.hgetall(`player:${username}`)
       if (data) {
-        result.push({ username, ...data })
+        const { ownerToken, ...safeData } = data as Record<string, unknown>
+        result.push({ username, ...safeData })
       }
     }
 

@@ -16,9 +16,11 @@ export async function GET(
     const score = await kv.zscore('leaderboard', username)
     const rank = await kv.zrevrank('leaderboard', username)
 
+    const { ownerToken, ...safeData } = (data || {}) as Record<string, unknown>
+
     return NextResponse.json({
       username,
-      ...data,
+      ...safeData,
       score: score || 0,
       rank: rank !== null ? rank + 1 : -1,
     })
