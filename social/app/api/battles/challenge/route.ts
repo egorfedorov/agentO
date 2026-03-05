@@ -4,6 +4,7 @@ import { kv } from '@vercel/kv'
 export const dynamic = 'force-dynamic'
 
 const CHALLENGE_TTL_MS = 10 * 60 * 1000
+const ACTIVE_LOCK_TTL_SEC = 20 * 60
 
 type ChallengeStatus = 'pending' | 'accepted' | 'declined'
 
@@ -23,6 +24,18 @@ function challengeKey(challenger: string, opponent: string): string {
 
 function inboxKey(username: string): string {
   return `battle:inbox:${username}`
+}
+
+function activeLockKey(username: string): string {
+  return `battle:active:${username}`
+}
+
+async function clearActiveLock(username: string, expectedValue: string) {
+  const key = activeLockKey(username)
+  const current = await kv.get<string>(key)
+  if (current === expectedValue) {
+    await kv.del(key)
+  }
 }
 
 function parseBattlePayload(raw: unknown): Record<string, unknown> | null {
@@ -73,15 +86,31 @@ export async function POST(req: NextRequest) {
     const nowMs = Date.now()
     const existingExpiresMs = existing?.expiresAt ? Date.parse(existing.expiresAt) : 0
     const isExistingActive = existingExpiresMs > nowMs
+    const existingBattle = parseBattlePayload(existing?.battlePayload)
+    const [challengerLock, opponentLock] = await Promise.all([
+      kv.get<string>(activeLockKey(challenger)),
+      kv.get<string>(activeLockKey(opponent)),
+    ])
 
-    if (isExistingActive && existing?.status === 'accepted') {
+    if (challengerLock && challengerLock !== key) {
+      return NextResponse.json({ error: `${challenger} already has an active battle/challenge` }, { status: 409 })
+    }
+    if (opponentLock && opponentLock !== key) {
+      return NextResponse.json({ error: `${opponent} is already in another battle/challenge` }, { status: 409 })
+    }
+
+    if (
+      isExistingActive &&
+      existing?.status === 'accepted' &&
+      String((existingBattle as { status?: unknown } | null)?.status || '').toLowerCase() !== 'resolved'
+    ) {
       return NextResponse.json({
         ok: true,
         status: 'accepted',
         challenger,
         opponent,
         expiresAt: existing?.expiresAt,
-        battle: parseBattlePayload(existing?.battlePayload),
+        battle: existingBattle,
       })
     }
 
@@ -95,19 +124,32 @@ export async function POST(req: NextRequest) {
       })
     }
 
+    if (!isExistingActive && existing) {
+      await Promise.all([
+        kv.del(key),
+        kv.zrem(inboxKey(opponent), challenger),
+        clearActiveLock(challenger, key),
+        clearActiveLock(opponent, key),
+      ])
+    }
+
     const createdAt = new Date(nowMs).toISOString()
     const expiresAt = new Date(nowMs + CHALLENGE_TTL_MS).toISOString()
 
-    await kv.hset(key, {
-      challenger,
-      opponent,
-      status: 'pending',
-      createdAt,
-      expiresAt,
-      updatedAt: createdAt,
-    })
-    await kv.expire(key, 60 * 60 * 24)
-    await kv.zadd(inboxKey(opponent), { score: nowMs + CHALLENGE_TTL_MS, member: challenger })
+    await Promise.all([
+      kv.hset(key, {
+        challenger,
+        opponent,
+        status: 'pending',
+        createdAt,
+        expiresAt,
+        updatedAt: createdAt,
+      }),
+      kv.expire(key, 60 * 60 * 24),
+      kv.zadd(inboxKey(opponent), { score: nowMs + CHALLENGE_TTL_MS, member: challenger }),
+      kv.set(activeLockKey(challenger), key, { ex: ACTIVE_LOCK_TTL_SEC }),
+      kv.set(activeLockKey(opponent), key, { ex: ACTIVE_LOCK_TTL_SEC }),
+    ])
 
     return NextResponse.json({
       ok: true,

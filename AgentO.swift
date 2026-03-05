@@ -2,6 +2,20 @@ import AppKit
 import Foundation
 import Carbon.HIToolbox
 
+final class InputTextField: NSTextField {
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        if event.type == .keyDown,
+           flags == .command,
+           event.charactersIgnoringModifiers?.lowercased() == "a",
+           let editor = window?.fieldEditor(true, for: self) as? NSTextView {
+            editor.selectAll(nil)
+            return true
+        }
+        return super.performKeyEquivalent(with: event)
+    }
+}
+
 // MARK: - Skins
 
 enum AgentSkin: String, CaseIterable {
@@ -1504,6 +1518,84 @@ class PetBrain {
     }
 }
 
+class PromptJournal {
+    static let savePath = NSHomeDirectory() + "/.agento_prompts.json"
+
+    var entries: [[String: Any]] = []
+
+    private static let dayFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        return f
+    }()
+
+    func dayKey(for date: Date) -> String {
+        return PromptJournal.dayFormatter.string(from: date)
+    }
+
+    func record(source: String, prompt: String) {
+        let text = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        let words = text.split(whereSeparator: { $0.isWhitespace || $0.isNewline }).count
+        let now = Date()
+        let entry: [String: Any] = [
+            "timestamp": now.timeIntervalSince1970,
+            "day": dayKey(for: now),
+            "source": source.lowercased(),
+            "text": text,
+            "chars": text.count,
+            "words": words
+        ]
+        entries.append(entry)
+        if entries.count > 2500 {
+            entries = Array(entries.suffix(2500))
+        }
+        save()
+    }
+
+    func entries(forDay day: String) -> [[String: Any]] {
+        return entries.filter { ($0["day"] as? String ?? "") == day }
+    }
+
+    func entries(forLastDays days: Int) -> [[String: Any]] {
+        let safeDays = max(1, days)
+        let calendar = Calendar.current
+        let startToday = calendar.startOfDay(for: Date())
+        guard let cutoff = calendar.date(byAdding: .day, value: -(safeDays - 1), to: startToday) else {
+            return entries
+        }
+        let cutoffTS = cutoff.timeIntervalSince1970
+        return entries.filter { ($0["timestamp"] as? TimeInterval ?? 0) >= cutoffTS }
+    }
+
+    func save() {
+        if let jsonData = try? JSONSerialization.data(withJSONObject: entries),
+           let json = String(data: jsonData, encoding: .utf8) {
+            try? json.write(toFile: PromptJournal.savePath, atomically: true, encoding: .utf8)
+        }
+    }
+
+    static func load() -> PromptJournal {
+        let journal = PromptJournal()
+        guard let data = try? Data(contentsOf: URL(fileURLWithPath: savePath)),
+              let raw = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+            return journal
+        }
+        journal.entries = raw
+        if journal.entries.count > 2500 {
+            journal.entries = Array(journal.entries.suffix(2500))
+        }
+        return journal
+    }
+}
+
+struct BattleDuelContext {
+    var challenger: String
+    var opponent: String
+    var battleId: String
+    var moveSubmitted: Bool
+}
+
 // MARK: - Main App Delegate
 
 class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
@@ -1547,6 +1639,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
     var localMonitor: Any?
     var pet = PetStats.load()
     var brain = PetBrain.load()
+    var promptJournal = PromptJournal.load()
     var decayTimer: Timer?
     var currentTheme = Theme.matrix
     var pomodoro = PomodoroTimer()
@@ -1563,6 +1656,9 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
     var pendingBattlePollToken: UUID?
     var challengeInboxTimer: Timer?
     var knownIncomingChallengeKeys: Set<String> = []
+    var activeDuel: BattleDuelContext?
+    var duelStatusTimer: Timer?
+    var duelLastStatusSignature: String = ""
 
     // Clipboard watcher state
     var lastClipboard: String = ""
@@ -1831,7 +1927,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         dropContainer.addSubview(bottomStatsLabel)
 
         // Input field
-        inputField = NSTextField(frame: NSRect(x: 10, y: 12, width: w - 80, height: 28))
+        inputField = InputTextField(frame: NSRect(x: 10, y: 12, width: w - 80, height: 28))
         inputField.placeholderString = "Ask Agent-O anything... (Cmd+Shift+O toggle)"
         inputField.font = monoFont
         inputField.textColor = .white
@@ -3020,6 +3116,14 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             showDailySummary()
             return true
 
+        case "/promptstats":
+            showPromptStats(days: 1)
+            return true
+
+        case "/promptcoach":
+            showPromptCoach(days: 1)
+            return true
+
         case "/clipboard":
             showClipboardHistory("")
             return true
@@ -3092,6 +3196,23 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             if cmd.hasPrefix("/search ") {
                 let query = String(cmd.dropFirst(8)).trimmingCharacters(in: .whitespaces)
                 searchSnippets(query)
+                return true
+            }
+            if cmd.hasPrefix("/promptstats ") {
+                let raw = String(cmd.dropFirst(13)).trimmingCharacters(in: .whitespaces)
+                let days = Int(raw) ?? 1
+                showPromptStats(days: days)
+                return true
+            }
+            if cmd.hasPrefix("/promptcoach ") {
+                let raw = String(cmd.dropFirst(13)).trimmingCharacters(in: .whitespaces)
+                let days = Int(raw) ?? 1
+                showPromptCoach(days: days)
+                return true
+            }
+            if cmd.hasPrefix("/move ") {
+                let args = String(cmd.dropFirst(6)).trimmingCharacters(in: .whitespaces)
+                submitBattleMove(args: args)
                 return true
             }
             // Pet battle
@@ -3971,6 +4092,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
         // Learn from the prompt
         brain.learn(from: prompt)
+        promptJournal.record(source: cli, prompt: prompt)
 
         // Enhance prompt with brain context for Claude (not Codex)
         var enhancedPrompt = prompt
@@ -4515,6 +4637,200 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         }
     }
 
+    func promptIntentBucket(_ text: String) -> String {
+        let lower = text.lowercased()
+        if lower.contains("fix") || lower.contains("bug") || lower.contains("error") || lower.contains("stack trace") {
+            return "Debug"
+        }
+        if lower.contains("review") || lower.contains("audit") || lower.contains("code review") {
+            return "Review"
+        }
+        if lower.contains("refactor") || lower.contains("optimize") || lower.contains("improve") {
+            return "Improve"
+        }
+        if lower.contains("write") || lower.contains("generate") || lower.contains("create") || lower.contains("build") {
+            return "Create"
+        }
+        if lower.contains("explain") || lower.contains("analyze") || lower.contains("summary") {
+            return "Explain"
+        }
+        return "General"
+    }
+
+    func promptHasContext(_ text: String) -> Bool {
+        let lower = text.lowercased()
+        if lower.contains("file") || lower.contains("line") || lower.contains("error") || lower.contains("trace") {
+            return true
+        }
+        if text.contains("/") || text.contains(".swift") || text.contains(".ts") || text.contains(".py") || text.contains(".js") {
+            return true
+        }
+        return false
+    }
+
+    func promptHasOutputFormat(_ text: String) -> Bool {
+        let lower = text.lowercased()
+        return lower.contains("output") ||
+            lower.contains("format") ||
+            lower.contains("json") ||
+            lower.contains("steps") ||
+            lower.contains("bullet") ||
+            lower.contains("table")
+    }
+
+    func showPromptStats(days: Int) {
+        let safeDays = max(1, min(30, days))
+        let entries = promptJournal.entries(forLastDays: safeDays)
+        if entries.isEmpty {
+            appendColored("📭 No prompts logged for last \(safeDays) day(s).\n", color: cDimGray)
+            appendColored("  Use Claude/Codex in Agent-O, then run /promptstats again.\n\n", color: cGray)
+            return
+        }
+
+        var totalChars = 0
+        var totalWords = 0
+        var claudeCount = 0
+        var codexCount = 0
+        var contextCount = 0
+        var formatCount = 0
+        var intentCounts: [String: Int] = [:]
+        var longest: (chars: Int, source: String, text: String)? = nil
+
+        for entry in entries {
+            let chars = entry["chars"] as? Int ?? 0
+            let words = entry["words"] as? Int ?? 0
+            let source = entry["source"] as? String ?? "claude"
+            let text = entry["text"] as? String ?? ""
+
+            totalChars += chars
+            totalWords += words
+            if source == "codex" { codexCount += 1 } else { claudeCount += 1 }
+            if promptHasContext(text) { contextCount += 1 }
+            if promptHasOutputFormat(text) { formatCount += 1 }
+            let intent = promptIntentBucket(text)
+            intentCounts[intent, default: 0] += 1
+
+            if let current = longest {
+                if chars > current.chars {
+                    longest = (chars, source, text)
+                }
+            } else {
+                longest = (chars, source, text)
+            }
+        }
+
+        let count = entries.count
+        let avgChars = count > 0 ? totalChars / count : 0
+        let avgWords = count > 0 ? totalWords / count : 0
+        let contextPct = count > 0 ? (contextCount * 100 / count) : 0
+        let formatPct = count > 0 ? (formatCount * 100 / count) : 0
+        let topIntent = intentCounts.max { a, b in a.value < b.value }?.key ?? "General"
+
+        appendColored("╭── Prompt Stats ─────────────────────╮\n", color: cCyan)
+        appendColored("  Window: last \(safeDays) day(s)\n", color: cGray)
+        appendColored("  Total prompts: ", color: cGray)
+        appendColored("\(count)\n", color: cGreen, bold: true)
+        appendColored("  Claude/Codex: ", color: cGray)
+        appendColored("\(claudeCount)/\(codexCount)\n", color: cYellow, bold: true)
+        appendColored("  Avg size: ", color: cGray)
+        appendColored("\(avgWords) words, \(avgChars) chars\n", color: cYellow)
+        appendColored("  With context: ", color: cGray)
+        appendColored("\(contextPct)%\n", color: cGreen)
+        appendColored("  With output format: ", color: cGray)
+        appendColored("\(formatPct)%\n", color: cGreen)
+        appendColored("  Top intent: ", color: cGray)
+        appendColored("\(topIntent)\n", color: cPurple, bold: true)
+
+        if let longest = longest {
+            let preview = String(longest.text.prefix(100)).replacingOccurrences(of: "\n", with: " ")
+            appendColored("  Longest prompt (\(longest.source)): ", color: cGray)
+            appendColored("\(longest.chars) chars\n", color: cYellow)
+            appendColored("    \(preview)\(longest.text.count > 100 ? "..." : "")\n", color: cDimGray)
+        }
+        appendColored("╰────────────────────────────────────╯\n\n", color: cCyan)
+    }
+
+    func showPromptCoach(days: Int) {
+        let safeDays = max(1, min(30, days))
+        let entries = promptJournal.entries(forLastDays: safeDays)
+        if entries.isEmpty {
+            appendColored("📭 No prompts to coach yet for last \(safeDays) day(s).\n", color: cDimGray)
+            appendColored("  Run Claude/Codex prompts first, then /promptcoach.\n\n", color: cGray)
+            return
+        }
+
+        let count = entries.count
+        var shortCount = 0
+        var longCount = 0
+        var contextCount = 0
+        var formatCount = 0
+        var repeatedStarts: [String: Int] = [:]
+
+        for entry in entries {
+            let words = entry["words"] as? Int ?? 0
+            let text = entry["text"] as? String ?? ""
+            if words < 12 { shortCount += 1 }
+            if words > 220 { longCount += 1 }
+            if promptHasContext(text) { contextCount += 1 }
+            if promptHasOutputFormat(text) { formatCount += 1 }
+
+            let firstWords = text.split(separator: " ").prefix(2).map { String($0).lowercased() }.joined(separator: " ")
+            if !firstWords.isEmpty {
+                repeatedStarts[firstWords, default: 0] += 1
+            }
+        }
+
+        let shortPct = shortCount * 100 / count
+        let longPct = longCount * 100 / count
+        let contextPct = contextCount * 100 / count
+        let formatPct = formatCount * 100 / count
+        let topStart = repeatedStarts.max { a, b in a.value < b.value }
+
+        appendColored("╭── Prompt Coach ─────────────────────╮\n", color: cPurple)
+        appendColored("  Window: last \(safeDays) day(s), \(count) prompt(s)\n\n", color: cGray)
+
+        if shortPct > 35 {
+            appendColored("  1) Prompts too short (\(shortPct)%).\n", color: cYellow, bold: true)
+            appendColored("     Add goal + context + constraints in one message.\n", color: cGray)
+        } else {
+            appendColored("  1) Prompt length is mostly healthy.\n", color: cGreen)
+        }
+
+        if contextPct < 65 {
+            appendColored("  2) Add concrete context more often (\(contextPct)% now).\n", color: cYellow, bold: true)
+            appendColored("     Mention files, errors, env, or expected behavior.\n", color: cGray)
+        } else {
+            appendColored("  2) Context quality is good (\(contextPct)% with context).\n", color: cGreen)
+        }
+
+        if formatPct < 50 {
+            appendColored("  3) Ask for output format explicitly (\(formatPct)% now).\n", color: cYellow, bold: true)
+            appendColored("     Example: \"Output: steps + patch + test command\".\n", color: cGray)
+        } else {
+            appendColored("  3) Output-format requests are solid (\(formatPct)%).\n", color: cGreen)
+        }
+
+        if longPct > 20 {
+            appendColored("  4) Some prompts are very long (\(longPct)%).\n", color: cYellow, bold: true)
+            appendColored("     Move background to bullets; keep ask in first line.\n", color: cGray)
+        } else {
+            appendColored("  4) Prompt verbosity is under control.\n", color: cGreen)
+        }
+
+        if let topStart = topStart, topStart.value >= 5 {
+            appendColored("  5) You often start with \"\(topStart.key)\" (\(topStart.value)x).\n", color: cYellow, bold: true)
+            appendColored("     Vary starts: fix/review/build/compare to improve intent clarity.\n", color: cGray)
+        } else {
+            appendColored("  5) Prompt openings are varied enough.\n", color: cGreen)
+        }
+
+        appendColored("\n  Suggested template:\n", color: cCyan, bold: true)
+        appendColored("  Goal: <what outcome you need>\n", color: cDimGray)
+        appendColored("  Context: <files/errors/constraints>\n", color: cDimGray)
+        appendColored("  Output: <format + acceptance checks>\n", color: cDimGray)
+        appendColored("╰────────────────────────────────────╯\n\n", color: cPurple)
+    }
+
     func showHelp() {
         appendColored("╭── Commands ─────────────────────────╮\n", color: cCyan)
         appendColored("  CLI\n", color: cPurple, bold: true)
@@ -4604,6 +4920,8 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             ("/calc <expr>", "→ calc/convert/currency"),
             ("/regex <desc>", "→ build regex pattern"),
             ("/daily", "→ daily activity summary"),
+            ("/promptstats [N]", "→ prompt stats for N days"),
+            ("/promptcoach [N]", "→ prompt quality feedback"),
             ("/teach <fact>", "→ teach your pet something"),
             ("/memory", "→ what your pet knows"),
             ("/brain", "→ export pet brain (JSON)"),
@@ -4621,6 +4939,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             ("/challenges", "→ incoming battle challenges"),
             ("/accept <user>", "→ accept battle challenge"),
             ("/decline <user>", "→ decline battle challenge"),
+            ("/move <atk> <def>", "→ submit duel move"),
             ("/battles", "→ battle history"),
         ]
         for (cmd, desc) in socialCmds {
@@ -4831,6 +5150,114 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
     // MARK: - Pet Battles
 
+    func resetDuelContext() {
+        duelStatusTimer?.invalidate()
+        duelStatusTimer = nil
+        activeDuel = nil
+        duelLastStatusSignature = ""
+    }
+
+    func normalizedBattleZone(_ raw: String) -> String? {
+        let key = raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        switch key {
+        case "head", "h", "голова", "headshot":
+            return "head"
+        case "body", "torso", "b", "туловище", "корпус":
+            return "body"
+        case "legs", "leg", "l", "ноги", "нога":
+            return "legs"
+        default:
+            return nil
+        }
+    }
+
+    func zoneLabel(_ zone: String) -> String {
+        switch zone {
+        case "head": return "Head"
+        case "body": return "Body"
+        case "legs": return "Legs"
+        default: return zone
+        }
+    }
+
+    func challengeStatusURL(challenger: String, opponent: String) -> URL? {
+        let safeChallenger = challenger.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? challenger
+        let safeOpponent = opponent.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? opponent
+        let safeToken = playerAuthToken.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? playerAuthToken
+        return URL(string: "\(AgentODelegate.leaderboardURL)/api/battles/challenge/status?challenger=\(safeChallenger)&opponent=\(safeOpponent)&token=\(safeToken)")
+    }
+
+    func duelStatusSignature(battle: [String: Any]) -> String {
+        let status = battle["status"] as? String ?? "unknown"
+        let challengerMove = battle["challengerMove"] as? [String: Any]
+        let opponentMove = battle["opponentMove"] as? [String: Any]
+        let challengerAttack = challengerMove?["attack"] as? String ?? "-"
+        let challengerDefense = challengerMove?["defense"] as? String ?? "-"
+        let opponentAttack = opponentMove?["attack"] as? String ?? "-"
+        let opponentDefense = opponentMove?["defense"] as? String ?? "-"
+        let winner = battle["winner"] as? String ?? "-"
+        return "\(status)|\(challengerAttack)|\(challengerDefense)|\(opponentAttack)|\(opponentDefense)|\(winner)"
+    }
+
+    func renderMoveHelp(opponent: String, alreadySubmitted: Bool) {
+        appendColored("🧠 Duel phase: choose your attack + defense.\n", color: cYellow, bold: true)
+        appendColored("  Zones: head | body | legs\n", color: cGray)
+        appendColored("  Command: /move <attack> <defense>\n", color: cGray)
+        if alreadySubmitted {
+            appendColored("  Move locked. Waiting for \(opponent)...\n\n", color: cDimGray)
+        } else {
+            appendColored("  Example: /move head body\n\n", color: cDimGray)
+        }
+    }
+
+    func beginDuelPolling(challenger: String, opponent: String) {
+        if let timer = duelStatusTimer,
+           timer.isValid,
+           activeDuel?.challenger.lowercased() == challenger.lowercased(),
+           activeDuel?.opponent.lowercased() == opponent.lowercased() {
+            return
+        }
+        duelStatusTimer?.invalidate()
+        duelStatusTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
+            self?.pollDuelStatus(challenger: challenger, opponent: opponent)
+        }
+    }
+
+    func pollDuelStatus(challenger: String, opponent: String) {
+        guard battleActive else {
+            resetDuelContext()
+            return
+        }
+        guard let url = challengeStatusURL(challenger: challenger, opponent: opponent) else {
+            return
+        }
+
+        URLSession.shared.dataTask(with: url) { [weak self] data, _, _ in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                guard self.battleActive else {
+                    self.resetDuelContext()
+                    return
+                }
+                guard let data = data,
+                      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                    return
+                }
+
+                let status = (json["status"] as? String ?? "").lowercased()
+                if status == "declined" || status == "expired" || status == "not_found" {
+                    self.appendColored("⌛ Battle challenge ended (\(status)).\n\n", color: self.cDimGray)
+                    self.battleActive = false
+                    self.pendingBattlePollToken = nil
+                    self.setState(.idle)
+                    self.resetDuelContext()
+                    return
+                }
+                _ = self.runResolvedBattle(from: json, publishResult: false)
+            }
+        }.resume()
+    }
+
     func startBattle(opponent: String) {
         if playerUsername.isEmpty {
             appendColored("❌ Set your name first: /name YourName\n", color: cRed)
@@ -4842,7 +5269,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             appendColored("❌ Usage: /battle <username>\n\n", color: cRed)
             return
         }
-        if battleActive {
+        if battleActive || activeDuel != nil {
             appendColored("⚠️  Battle already in progress. Wait for it to finish.\n\n", color: cYellow)
             return
         }
@@ -4852,6 +5279,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         }
 
         battleActive = true
+        resetDuelContext()
         let pollToken = UUID()
         pendingBattlePollToken = pollToken
         setState(.thinking)
@@ -4864,6 +5292,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             appendColored("❌ Failed to create challenge request\n\n", color: cRed)
             battleActive = false
             pendingBattlePollToken = nil
+            resetDuelContext()
             setState(.error)
             return
         }
@@ -4885,6 +5314,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                     self.appendColored("❌ \(error.localizedDescription)\n\n", color: self.cRed)
                     self.battleActive = false
                     self.pendingBattlePollToken = nil
+                    self.resetDuelContext()
                     self.setState(.error)
                     return
                 }
@@ -4896,6 +5326,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                         self.appendColored("❌ \(serverError)\n\n", color: self.cRed)
                         self.battleActive = false
                         self.pendingBattlePollToken = nil
+                        self.resetDuelContext()
                         self.setState(.error)
                         return
                     }
@@ -4908,6 +5339,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                     self.appendColored("❌ Challenge request failed (HTTP \(http.statusCode))\n\n", color: self.cRed)
                     self.battleActive = false
                     self.pendingBattlePollToken = nil
+                    self.resetDuelContext()
                     self.setState(.error)
                     return
                 }
@@ -4917,6 +5349,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                     self.appendColored("❌ Invalid challenge response\n\n", color: self.cRed)
                     self.battleActive = false
                     self.pendingBattlePollToken = nil
+                    self.resetDuelContext()
                     self.setState(.error)
                     return
                 }
@@ -4936,6 +5369,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                     self.appendColored("❌ \(cleanOpponent) declined your challenge.\n\n", color: self.cRed)
                     self.battleActive = false
                     self.pendingBattlePollToken = nil
+                    self.resetDuelContext()
                     self.setState(.error)
                     return
                 }
@@ -4952,6 +5386,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             appendColored("⌛ No response from \(opponent). Challenge expired.\n\n", color: cDimGray)
             battleActive = false
             pendingBattlePollToken = nil
+            resetDuelContext()
             setState(.idle)
             bubbleLabel.stringValue = speechBubble("No accept yet.")
             return
@@ -4964,6 +5399,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             appendColored("❌ Failed to check challenge status\n\n", color: cRed)
             battleActive = false
             pendingBattlePollToken = nil
+            resetDuelContext()
             setState(.error)
             return
         }
@@ -4977,6 +5413,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                     self.appendColored("❌ \(error.localizedDescription)\n\n", color: self.cRed)
                     self.battleActive = false
                     self.pendingBattlePollToken = nil
+                    self.resetDuelContext()
                     self.setState(.error)
                     return
                 }
@@ -5011,11 +5448,13 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                     self.appendColored("❌ \(opponent) declined your challenge.\n\n", color: self.cRed)
                     self.battleActive = false
                     self.pendingBattlePollToken = nil
+                    self.resetDuelContext()
                     self.setState(.error)
                 case "expired":
                     self.appendColored("⌛ Challenge to \(opponent) expired.\n\n", color: self.cDimGray)
                     self.battleActive = false
                     self.pendingBattlePollToken = nil
+                    self.resetDuelContext()
                     self.setState(.idle)
                 default:
                     if attemptsLeft == 30 || attemptsLeft % 5 == 0 {
@@ -5079,7 +5518,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                 switch status {
                 case "accepted":
                     self.appendColored("✅ Challenge from \(cleanChallenger) accepted!\n", color: self.cGreen, bold: true)
-                    self.appendColored("  Starting synchronized battle...\n\n", color: self.cGray)
+                    self.appendColored("  Battle room opened. Pick your move with /move <attack> <defense>.\n\n", color: self.cGray)
                     self.bubbleLabel.stringValue = speechBubble("Challenge accepted!")
                     self.battleActive = true
                     if !self.runResolvedBattle(from: json, publishResult: false) {
@@ -5088,11 +5527,90 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                 case "declined":
                     self.appendColored("❌ Challenge from \(cleanChallenger) declined.\n\n", color: self.cYellow)
                     self.bubbleLabel.stringValue = speechBubble("Challenge declined.")
+                    self.battleActive = false
+                    self.pendingBattlePollToken = nil
+                    self.resetDuelContext()
                 case "not_found", "expired":
                     self.appendColored("⚠️  No active challenge from \(cleanChallenger).\n\n", color: self.cDimGray)
+                    self.battleActive = false
+                    self.pendingBattlePollToken = nil
+                    self.resetDuelContext()
                 default:
                     self.appendColored("⚠️  Unexpected status: \(status)\n\n", color: self.cDimGray)
                 }
+            }
+        }.resume()
+    }
+
+    func submitBattleMove(args: String) {
+        guard var duel = activeDuel else {
+            appendColored("❌ No active duel. Start with /battle <username> first.\n\n", color: cRed)
+            return
+        }
+        if duel.moveSubmitted {
+            appendColored("⌛ Your move is already locked. Waiting for opponent...\n\n", color: cDimGray)
+            return
+        }
+
+        let parts = args
+            .split(whereSeparator: { $0.isWhitespace || $0.isNewline })
+            .map { String($0) }
+        guard parts.count == 2,
+              let attack = normalizedBattleZone(parts[0]),
+              let defense = normalizedBattleZone(parts[1]) else {
+            appendColored("❌ Usage: /move <attack> <defense>\n", color: cRed)
+            appendColored("  Zones: head | body | legs\n", color: cGray)
+            appendColored("  Example: /move head body\n\n", color: cDimGray)
+            return
+        }
+
+        guard let url = URL(string: "\(AgentODelegate.leaderboardURL)/api/battles/challenge/move") else {
+            appendColored("❌ Failed to create move request\n\n", color: cRed)
+            return
+        }
+
+        appendColored("🎯 Move sent: attack \(zoneLabel(attack)), defend \(zoneLabel(defense))\n", color: cYellow, bold: true)
+        appendColored("  Waiting for opponent move...\n\n", color: cDimGray)
+
+        duel.moveSubmitted = true
+        activeDuel = duel
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let payload: [String: Any] = [
+            "challenger": duel.challenger,
+            "opponent": duel.opponent,
+            "player": playerUsername,
+            "token": playerAuthToken,
+            "attack": attack,
+            "defense": defense
+        ]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: payload)
+
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                if let error = error {
+                    self.appendColored("❌ \(error.localizedDescription)\n\n", color: self.cRed)
+                    return
+                }
+                if let http = response as? HTTPURLResponse, http.statusCode >= 400 {
+                    if let data = data,
+                       let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                       let serverError = json["error"] as? String {
+                        self.appendColored("❌ \(serverError)\n\n", color: self.cRed)
+                    } else {
+                        self.appendColored("❌ Move request failed\n\n", color: self.cRed)
+                    }
+                    return
+                }
+                guard let data = data,
+                      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                    self.appendColored("❌ Invalid response from battle server\n\n", color: self.cRed)
+                    return
+                }
+                _ = self.runResolvedBattle(from: json, publishResult: false)
             }
         }.resume()
     }
@@ -5219,6 +5737,112 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         let mySide = iAmChallenger ? challenger : opponent
         let oppSide = iAmChallenger ? opponent : challenger
         let oppName = oppSide["username"] as? String ?? "?"
+        let battleId = battle["id"] as? String ?? "\(challengerName)|\(opponentName)"
+        let battleStatus = (battle["status"] as? String ?? "").lowercased()
+        let challengerMove = battle["challengerMove"] as? [String: Any]
+        let opponentMove = battle["opponentMove"] as? [String: Any]
+        let myMove = iAmChallenger ? challengerMove : opponentMove
+        let oppMove = iAmChallenger ? opponentMove : challengerMove
+
+        if battleStatus == "pick_phase" || (battleStatus.isEmpty && (challengerMove != nil || opponentMove != nil) && battle["winner"] == nil) {
+            battleActive = true
+            pendingBattlePollToken = nil
+            setState(.thinking)
+            bubbleLabel.stringValue = speechBubble("Duel vs \(oppName)")
+
+            let mySubmitted = myMove != nil
+            let previousBattleId = activeDuel?.battleId ?? ""
+            activeDuel = BattleDuelContext(
+                challenger: challengerName,
+                opponent: opponentName,
+                battleId: battleId,
+                moveSubmitted: mySubmitted
+            )
+
+            let signature = duelStatusSignature(battle: battle)
+            if signature != duelLastStatusSignature {
+                if duelLastStatusSignature.isEmpty || previousBattleId != battleId {
+                    appendColored("\n", color: cGray)
+                    appendColored("  ╔══════════════════════════════════════╗\n", color: cCyan)
+                    appendColored("  ║     ⚔️  TACTICAL DUEL STARTED ⚔️      ║\n", color: cCyan)
+                    appendColored("  ╚══════════════════════════════════════╝\n\n", color: cCyan)
+                    appendColored("  \(playerUsername)", color: cGreen, bold: true)
+                    appendColored("  vs  ", color: cGray)
+                    appendColored("\(oppName)\n\n", color: cRed, bold: true)
+                }
+
+                let oppSubmitted = oppMove != nil
+                appendColored("  Your move: ", color: cGray)
+                appendColored(mySubmitted ? "locked\n" : "pending\n", color: mySubmitted ? cGreen : cYellow, bold: true)
+                appendColored("  Opponent:  ", color: cGray)
+                appendColored(oppSubmitted ? "locked\n" : "waiting\n", color: oppSubmitted ? cGreen : cDimGray, bold: true)
+
+                if let myMove = myMove {
+                    let myAttack = zoneLabel(myMove["attack"] as? String ?? "-")
+                    let myDefense = zoneLabel(myMove["defense"] as? String ?? "-")
+                    appendColored("  Your pick: A/\(myAttack) D/\(myDefense)\n", color: cCyan)
+                }
+                appendOutput("\n")
+
+                if !mySubmitted {
+                    renderMoveHelp(opponent: oppName, alreadySubmitted: false)
+                } else {
+                    renderMoveHelp(opponent: oppName, alreadySubmitted: true)
+                }
+                duelLastStatusSignature = signature
+            }
+
+            beginDuelPolling(challenger: challengerName, opponent: opponentName)
+            return true
+        }
+
+        if battleStatus == "resolved" || (battle["winner"] != nil && challengerMove != nil && opponentMove != nil) {
+            duelStatusTimer?.invalidate()
+            duelStatusTimer = nil
+            battleActive = true
+
+            let winner = (battle["winner"] as? String ?? "draw")
+            let resolutionNote = battle["resolutionNote"] as? String ?? ""
+            let challengerScore = intFromAny(battle["challengerScore"], default: intFromAny(challenger["power"], default: 0))
+            let opponentScore = intFromAny(battle["opponentScore"], default: intFromAny(opponent["power"], default: 0))
+            let myScore = iAmChallenger ? challengerScore : opponentScore
+            let oppScore = iAmChallenger ? opponentScore : challengerScore
+            let oppLevel = intFromAny(oppSide["level"], default: 1)
+
+            appendColored("\n", color: cGray)
+            appendColored("  ╔══════════════════════════════════════╗\n", color: cCyan)
+            appendColored("  ║        ⚔️  DUEL RESOLUTION ⚔️        ║\n", color: cCyan)
+            appendColored("  ╚══════════════════════════════════════╝\n\n", color: cCyan)
+
+            appendColored("  \(playerUsername)", color: cGreen, bold: true)
+            appendColored("  vs  ", color: cGray)
+            appendColored("\(oppName)\n\n", color: cRed, bold: true)
+
+            let myAttack = zoneLabel((myMove?["attack"] as? String) ?? "-")
+            let myDefense = zoneLabel((myMove?["defense"] as? String) ?? "-")
+            let oppAttack = zoneLabel((oppMove?["attack"] as? String) ?? "-")
+            let oppDefense = zoneLabel((oppMove?["defense"] as? String) ?? "-")
+
+            appendColored("  You:      A/\(myAttack) D/\(myDefense)\n", color: cGreen)
+            appendColored("  Opponent: A/\(oppAttack) D/\(oppDefense)\n", color: cRed)
+            appendColored("  Score: ", color: cGray)
+            appendColored("\(myScore)", color: cGreen, bold: true)
+            appendColored(" : ", color: cGray)
+            appendColored("\(oppScore)\n", color: cRed, bold: true)
+            if !resolutionNote.isEmpty {
+                appendColored("  Note: \(resolutionNote)\n", color: cDimGray)
+            }
+            appendOutput("\n")
+
+            finishBattleFromServer(
+                winner: winner,
+                myScore: myScore,
+                oppScore: oppScore,
+                oppName: oppName,
+                oppLevel: oppLevel
+            )
+            return true
+        }
 
         let myLevel = intFromAny(mySide["level"], default: pet.level)
         let myHunger = intFromAny(mySide["hunger"], default: pet.hunger)
@@ -5291,9 +5915,11 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
     }
 
     func fetchOpponentAndRunBattle(opponent: String) {
+        resetDuelContext()
         guard let url = URL(string: "\(AgentODelegate.leaderboardURL)/api/player/\(opponent.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? opponent)") else {
             appendColored("❌ Invalid username\n\n", color: cRed)
             battleActive = false
+            resetDuelContext()
             setState(.error)
             return
         }
@@ -5307,6 +5933,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                 if let error = error {
                     self.appendColored("❌ \(error.localizedDescription)\n\n", color: self.cRed)
                     self.battleActive = false
+                    self.resetDuelContext()
                     self.setState(.error)
                     return
                 }
@@ -5316,6 +5943,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                     self.appendColored("❌ Player \"\(opponent)\" not found on leaderboard\n", color: self.cRed)
                     self.appendColored("  They need to /leaderboard first\n\n", color: self.cGray)
                     self.battleActive = false
+                    self.resetDuelContext()
                     self.setState(.error)
                     return
                 }
@@ -5413,6 +6041,66 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         return (base + streakBonus + achBonus) * luck
     }
 
+    func finishBattleFromServer(winner: String, myScore: Int, oppScore: Int, oppName: String, oppLevel: Int) {
+        _ = oppLevel
+        let normalizedWinner = winner.lowercased()
+        let myName = playerUsername.lowercased()
+
+        appendColored("\n  ──────────────────────────────────────\n", color: cGray)
+
+        let result: String
+        if normalizedWinner == myName {
+            let xpGain = 45 + max(0, myScore - oppScore)
+            appendColored("  🏆 YOU WIN! ", color: cGreen, bold: true)
+            appendColored("+\(xpGain) XP\n\n", color: cYellow, bold: true)
+            pet.gainXP(xpGain)
+            pet.happiness = min(100, pet.happiness + 10)
+            pet.battlesWon += 1
+            result = "win"
+            setState(.happy)
+            bubbleLabel.stringValue = speechBubble("Tactical win vs \(oppName)!")
+            playSound("Glass")
+            updateDailyQuest("battle_win", by: 1)
+        } else if normalizedWinner == "draw" {
+            let xpGain = 30
+            appendColored("  🤝 DRAW! ", color: cYellow, bold: true)
+            appendColored("+\(xpGain) XP\n\n", color: cYellow)
+            pet.gainXP(xpGain)
+            result = "draw"
+            setState(.idle)
+            bubbleLabel.stringValue = speechBubble("Close duel!")
+        } else {
+            let xpGain = 15
+            appendColored("  💀 YOU LOSE! ", color: cRed, bold: true)
+            appendColored("+\(xpGain) XP (consolation)\n\n", color: cGray)
+            pet.gainXP(xpGain)
+            pet.energy = max(0, pet.energy - 10)
+            pet.battlesLost += 1
+            result = "loss"
+            setState(.error)
+            bubbleLabel.stringValue = speechBubble("\(oppName) outplayed us...")
+        }
+
+        let entry: [String: Any] = [
+            "opponent": oppName,
+            "result": result,
+            "myPower": myScore,
+            "oppPower": oppScore,
+            "mode": "duel",
+            "date": ISO8601DateFormatter().string(from: Date())
+        ]
+        pet.battleHistory.insert(entry, at: 0)
+        if pet.battleHistory.count > 20 { pet.battleHistory = Array(pet.battleHistory.prefix(20)) }
+        pet.save()
+        refreshStatsDisplay()
+
+        appendColored("  Battle another: /battle <username>\n\n", color: cGray)
+        battleActive = false
+        pendingBattlePollToken = nil
+        resetDuelContext()
+        processAchievements()
+    }
+
     func finishBattle(myPower: Double, oppPower: Double, oppName: String, oppLevel: Int, publishResult: Bool = true) {
         appendColored("\n  ──────────────────────────────────────\n", color: cGray)
 
@@ -5476,6 +6164,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         appendColored("  Battle another: /battle <username>\n\n", color: cGray)
         battleActive = false
         pendingBattlePollToken = nil
+        resetDuelContext()
         processAchievements()
     }
 
@@ -5521,11 +6210,16 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             let res = b["result"] as? String ?? "?"
             let myP = b["myPower"] as? Int ?? 0
             let opP = b["oppPower"] as? Int ?? 0
+            let mode = b["mode"] as? String ?? "power"
             let icon = res == "win" ? "🏆" : (res == "loss" ? "💀" : "🤝")
             let color = res == "win" ? cGreen : (res == "loss" ? cRed : cYellow)
             appendColored("  \(icon) ", color: color)
             appendColored("vs \(opp.padding(toLength: 14, withPad: " ", startingAt: 0))", color: cGray)
-            appendColored("\(myP) vs \(opP)\n", color: color)
+            appendColored("\(myP) vs \(opP)", color: color)
+            if mode == "duel" {
+                appendColored("  [duel]", color: cCyan)
+            }
+            appendOutput("\n")
         }
         appendColored("╰────────────────────────────────────╯\n\n", color: cPurple)
     }

@@ -3,7 +3,10 @@ import { kv } from '@vercel/kv'
 
 export const dynamic = 'force-dynamic'
 
+const ACTIVE_LOCK_TTL_SEC = 20 * 60
+
 type ChallengeStatus = 'pending' | 'accepted' | 'declined'
+type BattleStage = 'pick_phase' | 'resolved'
 
 interface ChallengeRecord {
   challenger: string
@@ -26,12 +29,26 @@ interface SideStats {
   power: number
 }
 
+type HitZone = 'head' | 'body' | 'legs'
+
+interface BattleMove {
+  attack: HitZone
+  defense: HitZone
+  submittedAt: string
+}
+
 interface BattlePayload {
   id: string
   createdAt: string
+  status: BattleStage
   challenger: SideStats
   opponent: SideStats
-  winner: string
+  challengerMove?: BattleMove
+  opponentMove?: BattleMove
+  challengerScore?: number
+  opponentScore?: number
+  winner?: string
+  resolutionNote?: string
 }
 
 function challengeKey(challenger: string, opponent: string): string {
@@ -40,6 +57,10 @@ function challengeKey(challenger: string, opponent: string): string {
 
 function inboxKey(username: string): string {
   return `battle:inbox:${username}`
+}
+
+function activeLockKey(username: string): string {
+  return `battle:active:${username}`
 }
 
 function toInt(value: unknown, fallback = 0): number {
@@ -51,14 +72,13 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value))
 }
 
-function seededLuck(seed: string): number {
+function seededUnit(seed: string): number {
   let hash = 2166136261
   for (let i = 0; i < seed.length; i += 1) {
     hash ^= seed.charCodeAt(i)
     hash = Math.imul(hash, 16777619)
   }
-  const normalized = (hash >>> 0) / 4294967295
-  return 0.85 + normalized * 0.3
+  return (hash >>> 0) / 4294967295
 }
 
 function computePower(stats: Omit<SideStats, 'power'>, seed: string): number {
@@ -66,7 +86,7 @@ function computePower(stats: Omit<SideStats, 'power'>, seed: string): number {
   const base = stats.level * 100 + avgStats * 2
   const streakBonus = stats.streak * 15
   const achBonus = stats.achievements * 20
-  const luck = seededLuck(seed)
+  const luck = 0.85 + seededUnit(seed) * 0.3
   return Math.floor((base + streakBonus + achBonus) * luck)
 }
 
@@ -95,33 +115,35 @@ function parseBattlePayload(raw: unknown): BattlePayload | null {
   return null
 }
 
-async function pushBattleLog(payload: BattlePayload) {
-  const entry = {
-    id: payload.id,
-    playerA: payload.challenger.username,
-    playerB: payload.opponent.username,
-    winner: payload.winner,
-    result:
-      payload.winner === payload.challenger.username
-        ? 'win'
-        : payload.winner === payload.opponent.username
-          ? 'loss'
-          : 'draw',
-    playerALevel: payload.challenger.level,
-    playerBLevel: payload.opponent.level,
-    playerAPower: payload.challenger.power,
-    playerBPower: payload.opponent.power,
-    createdAt: payload.createdAt,
+function buildBattlePayload(
+  challenger: string,
+  opponent: string,
+  challengeCreatedAt: string,
+  challengerData: Record<string, unknown> | null,
+  opponentData: Record<string, unknown> | null,
+): BattlePayload {
+  const challengerStatsBase = parseSide(challenger, challengerData)
+  const opponentStatsBase = parseSide(opponent, opponentData)
+  const seedBase = `${challenger}|${opponent}|${challengeCreatedAt}`
+  const challengerPower = computePower(challengerStatsBase, `${seedBase}|challenger`)
+  const opponentPower = computePower(opponentStatsBase, `${seedBase}|opponent`)
+  const createdAt = new Date().toISOString()
+
+  return {
+    id: `battle_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    createdAt,
+    status: 'pick_phase',
+    challenger: { ...challengerStatsBase, power: challengerPower },
+    opponent: { ...opponentStatsBase, power: opponentPower },
   }
-  const serialized = JSON.stringify(entry)
-  await Promise.all([
-    kv.lpush('battle:feed', serialized),
-    kv.ltrim('battle:feed', 0, 199),
-    kv.lpush(`battle:player:${payload.challenger.username}`, serialized),
-    kv.ltrim(`battle:player:${payload.challenger.username}`, 0, 99),
-    kv.lpush(`battle:player:${payload.opponent.username}`, serialized),
-    kv.ltrim(`battle:player:${payload.opponent.username}`, 0, 99),
-  ])
+}
+
+async function clearActiveLock(username: string, expectedValue: string) {
+  const key = activeLockKey(username)
+  const current = await kv.get<string>(key)
+  if (current === expectedValue) {
+    await kv.del(key)
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -157,16 +179,22 @@ export async function POST(req: NextRequest) {
 
     const expiresMs = challenge.expiresAt ? Date.parse(challenge.expiresAt) : 0
     if (challenge.status === 'pending' && expiresMs > 0 && expiresMs < Date.now()) {
-      await Promise.all([kv.del(key), kv.zrem(inboxKey(opponent), challenger)])
+      await Promise.all([
+        kv.del(key),
+        kv.zrem(inboxKey(opponent), challenger),
+        clearActiveLock(challenger, key),
+        clearActiveLock(opponent, key),
+      ])
       return NextResponse.json({ status: 'expired' })
     }
 
+    const existingBattle = parseBattlePayload(challenge.battlePayload)
     if (challenge.status === 'accepted' || challenge.status === 'declined') {
       return NextResponse.json({
         status: challenge.status,
         challenger,
         opponent,
-        battle: parseBattlePayload(challenge.battlePayload),
+        battle: existingBattle,
       })
     }
 
@@ -175,25 +203,15 @@ export async function POST(req: NextRequest) {
     let battlePayload: BattlePayload | null = null
 
     if (status === 'accepted') {
-      const challengerStatsBase = parseSide(challenger, challengerData)
-      const opponentStatsBase = parseSide(opponent, opponentData)
-      const seedBase = `${challenger}|${opponent}|${challenge.createdAt || updatedAt}`
-      const challengerPower = computePower(challengerStatsBase, `${seedBase}|challenger`)
-      const opponentPower = computePower(opponentStatsBase, `${seedBase}|opponent`)
-      const winner =
-        challengerPower > opponentPower
-          ? challenger
-          : opponentPower > challengerPower
-            ? opponent
-            : 'draw'
-
-      battlePayload = {
-        id: `battle_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-        createdAt: updatedAt,
-        challenger: { ...challengerStatsBase, power: challengerPower },
-        opponent: { ...opponentStatsBase, power: opponentPower },
-        winner,
-      }
+      battlePayload =
+        existingBattle ||
+        buildBattlePayload(
+          challenger,
+          opponent,
+          challenge.createdAt || updatedAt,
+          challengerData,
+          opponentData,
+        )
     }
 
     await Promise.all([
@@ -204,7 +222,12 @@ export async function POST(req: NextRequest) {
       }),
       kv.expire(key, 60 * 60 * 24),
       kv.zrem(inboxKey(opponent), challenger),
-      ...(battlePayload ? [pushBattleLog(battlePayload)] : []),
+      status === 'accepted'
+        ? kv.set(activeLockKey(challenger), key, { ex: ACTIVE_LOCK_TTL_SEC })
+        : clearActiveLock(challenger, key),
+      status === 'accepted'
+        ? kv.set(activeLockKey(opponent), key, { ex: ACTIVE_LOCK_TTL_SEC })
+        : clearActiveLock(opponent, key),
     ])
 
     return NextResponse.json({

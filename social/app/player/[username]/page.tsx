@@ -28,6 +28,13 @@ interface BattleEntry {
   playerBLevel: number
   playerAPower: number
   playerBPower: number
+  playerAAttack?: string | null
+  playerADefense?: string | null
+  playerBAttack?: string | null
+  playerBDefense?: string | null
+  playerAScore?: number
+  playerBScore?: number
+  battleType?: string
   createdAt: string
 }
 
@@ -76,6 +83,16 @@ function getStatBar(value: number, width: number = 10): string {
   const filled = Math.round((value / 100) * width)
   const empty = width - filled
   return '[' + '█'.repeat(filled) + '░'.repeat(empty) + ']'
+}
+
+function formatZone(zone?: string | null): string {
+  if (!zone) return '-'
+  switch (zone) {
+    case 'head': return 'Head'
+    case 'body': return 'Body'
+    case 'legs': return 'Legs'
+    default: return zone
+  }
 }
 
 function getBaseUrl(): string {
@@ -180,7 +197,7 @@ export default async function PlayerPage({
         <h2>Challenge {player.username}</h2>
         <code>/battle {player.username}</code>
         <p style={{ marginTop: 8, color: '#484f58', fontSize: '0.85rem' }}>
-          Run this command in Agent-O, then the opponent accepts with <code>/accept your_name</code>
+          Run this command in Agent-O, opponent accepts with <code>/accept your_name</code>, then both send <code>/move head body</code>.
         </p>
       </div>
 
@@ -206,6 +223,17 @@ export default async function PlayerPage({
                   </div>
                   <div className="battle-sub">
                     Lv.{battle.playerALevel} ({battle.playerAPower}) · Lv.{battle.playerBLevel} ({battle.playerBPower})
+                    {battle.playerAAttack && battle.playerADefense && battle.playerBAttack && battle.playerBDefense ? (
+                      <>
+                        {' · '}
+                        A:{formatZone(battle.playerAAttack)}/{formatZone(battle.playerADefense)}
+                        {' · '}
+                        B:{formatZone(battle.playerBAttack)}/{formatZone(battle.playerBDefense)}
+                        {typeof battle.playerAScore === 'number' && typeof battle.playerBScore === 'number'
+                          ? ` · Score ${battle.playerAScore}:${battle.playerBScore}`
+                          : ''}
+                      </>
+                    ) : null}
                   </div>
                   <div className="battle-time">
                     {battle.createdAt ? new Date(battle.createdAt).toLocaleString() : 'Unknown time'}

@@ -25,6 +25,13 @@ interface BattleEntry {
   playerBLevel: number
   playerAPower: number
   playerBPower: number
+  playerAAttack?: string | null
+  playerADefense?: string | null
+  playerBAttack?: string | null
+  playerBDefense?: string | null
+  playerAScore?: number
+  playerBScore?: number
+  battleType?: string
   createdAt: string
 }
 
@@ -51,6 +58,16 @@ function getSkinEmoji(skin: string): string {
     case 'skull': return '[X_X]'
     case 'clippy': return '[o_O]'
     default: return '[◉‿◉]'
+  }
+}
+
+function formatZone(zone?: string | null): string {
+  if (!zone) return '-'
+  switch (zone) {
+    case 'head': return 'Head'
+    case 'body': return 'Body'
+    case 'legs': return 'Legs'
+    default: return zone
   }
 }
 
@@ -185,6 +202,17 @@ export default async function Home() {
                   </div>
                   <div className="battle-sub">
                     Lv.{battle.playerALevel} ({battle.playerAPower}) · Lv.{battle.playerBLevel} ({battle.playerBPower})
+                    {battle.playerAAttack && battle.playerADefense && battle.playerBAttack && battle.playerBDefense ? (
+                      <>
+                        {' · '}
+                        A:{formatZone(battle.playerAAttack)}/{formatZone(battle.playerADefense)}
+                        {' · '}
+                        B:{formatZone(battle.playerBAttack)}/{formatZone(battle.playerBDefense)}
+                        {typeof battle.playerAScore === 'number' && typeof battle.playerBScore === 'number'
+                          ? ` · Score ${battle.playerAScore}:${battle.playerBScore}`
+                          : ''}
+                      </>
+                    ) : null}
                   </div>
                   <div className="battle-time">
                     {battle.createdAt ? new Date(battle.createdAt).toLocaleString() : 'Unknown time'}

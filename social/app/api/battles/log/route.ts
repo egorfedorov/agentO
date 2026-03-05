@@ -13,6 +13,13 @@ interface BattleLogPayload {
   playerBLevel?: number
   playerAPower?: number
   playerBPower?: number
+  playerAAttack?: string
+  playerADefense?: string
+  playerBAttack?: string
+  playerBDefense?: string
+  playerAScore?: number
+  playerBScore?: number
+  battleType?: string
   createdAt?: string
 }
 
@@ -49,6 +56,13 @@ export async function POST(req: NextRequest) {
       playerBLevel: body.playerBLevel || 0,
       playerAPower: body.playerAPower || 0,
       playerBPower: body.playerBPower || 0,
+      playerAAttack: body.playerAAttack || null,
+      playerADefense: body.playerADefense || null,
+      playerBAttack: body.playerBAttack || null,
+      playerBDefense: body.playerBDefense || null,
+      playerAScore: body.playerAScore || 0,
+      playerBScore: body.playerBScore || 0,
+      battleType: body.battleType || 'power',
       createdAt,
     }
     const serialized = JSON.stringify(entry)

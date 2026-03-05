@@ -13,6 +13,13 @@ interface BattleEntry {
   playerBLevel: number
   playerAPower: number
   playerBPower: number
+  playerAAttack?: string | null
+  playerADefense?: string | null
+  playerBAttack?: string | null
+  playerBDefense?: string | null
+  playerAScore?: number
+  playerBScore?: number
+  battleType?: string
   createdAt: string
 }
 

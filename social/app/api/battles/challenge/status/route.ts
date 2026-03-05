@@ -23,6 +23,18 @@ function inboxKey(username: string): string {
   return `battle:inbox:${username}`
 }
 
+function activeLockKey(username: string): string {
+  return `battle:active:${username}`
+}
+
+async function clearActiveLock(username: string, expectedValue: string) {
+  const key = activeLockKey(username)
+  const current = await kv.get<string>(key)
+  if (current === expectedValue) {
+    await kv.del(key)
+  }
+}
+
 function parseBattlePayload(raw: unknown): Record<string, unknown> | null {
   if (!raw) return null
   if (typeof raw === 'object') return raw as Record<string, unknown>
@@ -52,8 +64,10 @@ export async function GET(req: NextRequest) {
     ])
     const challengerToken = String((challengerData as Record<string, unknown> | null)?.ownerToken || '')
     const opponentToken = String((opponentData as Record<string, unknown> | null)?.ownerToken || '')
-    if ((challengerToken || opponentToken) && token && token !== challengerToken && token !== opponentToken) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 403 })
+    if (challengerToken || opponentToken) {
+      if (!token || (token !== challengerToken && token !== opponentToken)) {
+        return NextResponse.json({ error: 'Invalid token' }, { status: 403 })
+      }
     }
 
     const key = challengeKey(challenger, opponent)
@@ -64,7 +78,12 @@ export async function GET(req: NextRequest) {
 
     const expiresMs = challenge.expiresAt ? Date.parse(challenge.expiresAt) : 0
     if (challenge.status === 'pending' && expiresMs > 0 && expiresMs < Date.now()) {
-      await Promise.all([kv.del(key), kv.zrem(inboxKey(opponent), challenger)])
+      await Promise.all([
+        kv.del(key),
+        kv.zrem(inboxKey(opponent), challenger),
+        clearActiveLock(challenger, key),
+        clearActiveLock(opponent, key),
+      ])
       return NextResponse.json({ status: 'expired' })
     }
 

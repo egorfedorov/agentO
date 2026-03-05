@@ -22,6 +22,18 @@ function inboxKey(username: string): string {
   return `battle:inbox:${username}`
 }
 
+function activeLockKey(username: string): string {
+  return `battle:active:${username}`
+}
+
+async function clearActiveLock(username: string, expectedValue: string) {
+  const key = activeLockKey(username)
+  const current = await kv.get<string>(key)
+  if (current === expectedValue) {
+    await kv.del(key)
+  }
+}
+
 export async function GET(req: NextRequest) {
   try {
     const username = req.nextUrl.searchParams.get('username')?.trim() || ''
@@ -46,12 +58,23 @@ export async function GET(req: NextRequest) {
       const challenge = (await kv.hgetall(challengeKey(challenger, username))) as Partial<ChallengeRecord> | null
       if (!challenge || challenge.status !== 'pending') {
         await kv.zrem(inboxKey(username), challenger)
+        const expectedChallengeKey = challengeKey(challenger, username)
+        await Promise.all([
+          clearActiveLock(challenger, expectedChallengeKey),
+          clearActiveLock(username, expectedChallengeKey),
+        ])
         continue
       }
 
       const expiresMs = challenge.expiresAt ? Date.parse(challenge.expiresAt) : 0
       if (expiresMs > 0 && expiresMs < nowMs) {
-        await Promise.all([kv.zrem(inboxKey(username), challenger), kv.del(challengeKey(challenger, username))])
+        const expectedChallengeKey = challengeKey(challenger, username)
+        await Promise.all([
+          kv.zrem(inboxKey(username), challenger),
+          kv.del(expectedChallengeKey),
+          clearActiveLock(challenger, expectedChallengeKey),
+          clearActiveLock(username, expectedChallengeKey),
+        ])
         continue
       }
 
