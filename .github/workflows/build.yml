@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: macos-latest
@@ -24,7 +27,8 @@ jobs:
           mkdir -p AgentO.app/Contents/MacOS
           mkdir -p AgentO.app/Contents/Resources
           cp agento AgentO.app/Contents/MacOS/
-          cat > AgentO.app/Contents/Info.plist << 'PLIST'
+          TAG="${GITHUB_REF_NAME}"
+          cat > AgentO.app/Contents/Info.plist << PLIST
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
@@ -36,9 +40,9 @@ jobs:
             <key>CFBundleName</key>
             <string>Agent-O</string>
             <key>CFBundleVersion</key>
-            <string>${GITHUB_REF_NAME}</string>
+            <string>${TAG}</string>
             <key>CFBundleShortVersionString</key>
-            <string>${GITHUB_REF_NAME}</string>
+            <string>${TAG}</string>
             <key>LSUIElement</key>
             <true/>
             <key>NSHighResolutionCapable</key>
@@ -55,6 +59,3 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: AgentO-${{ github.ref_name }}-macos.zip
-          generate_release_notes: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
