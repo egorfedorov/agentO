@@ -12,6 +12,7 @@ interface ChallengeRecord {
   createdAt: string
   expiresAt: string
   updatedAt: string
+  battlePayload?: string
 }
 
 function challengeKey(challenger: string, opponent: string): string {
@@ -22,13 +23,37 @@ function inboxKey(username: string): string {
   return `battle:inbox:${username}`
 }
 
+function parseBattlePayload(raw: unknown): Record<string, unknown> | null {
+  if (!raw) return null
+  if (typeof raw === 'object') return raw as Record<string, unknown>
+  if (typeof raw === 'string') {
+    try {
+      return JSON.parse(raw) as Record<string, unknown>
+    } catch {
+      return null
+    }
+  }
+  return null
+}
+
 export async function GET(req: NextRequest) {
   try {
     const challenger = req.nextUrl.searchParams.get('challenger')?.trim() || ''
     const opponent = req.nextUrl.searchParams.get('opponent')?.trim() || ''
+    const token = req.nextUrl.searchParams.get('token')?.trim() || ''
 
     if (!challenger || !opponent) {
       return NextResponse.json({ error: 'Missing challenger or opponent' }, { status: 400 })
+    }
+
+    const [challengerData, opponentData] = await Promise.all([
+      kv.hgetall(`player:${challenger}`),
+      kv.hgetall(`player:${opponent}`),
+    ])
+    const challengerToken = String((challengerData as Record<string, unknown> | null)?.ownerToken || '')
+    const opponentToken = String((opponentData as Record<string, unknown> | null)?.ownerToken || '')
+    if ((challengerToken || opponentToken) && token && token !== challengerToken && token !== opponentToken) {
+      return NextResponse.json({ error: 'Invalid token' }, { status: 403 })
     }
 
     const key = challengeKey(challenger, opponent)
@@ -50,6 +75,7 @@ export async function GET(req: NextRequest) {
       createdAt: challenge.createdAt,
       expiresAt: challenge.expiresAt,
       updatedAt: challenge.updatedAt,
+      battle: parseBattlePayload(challenge.battlePayload),
     })
   } catch {
     return NextResponse.json({ error: 'Server error' }, { status: 500 })

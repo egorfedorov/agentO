@@ -1507,7 +1507,7 @@ class PetBrain {
 // MARK: - Main App Delegate
 
 class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
-    static let currentVersion = "6.1.0"
+    static let currentVersion = "6.1.1"
     // UI
     var window: NSPanel!
     var miniWindow: NSPanel!
@@ -1561,6 +1561,8 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
     var triviaActive = false
     var battleActive = false
     var pendingBattlePollToken: UUID?
+    var challengeInboxTimer: Timer?
+    var knownIncomingChallengeKeys: Set<String> = []
 
     // Clipboard watcher state
     var lastClipboard: String = ""
@@ -2049,6 +2051,9 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             }
             // Auto-detect git changes
             self.checkGitChanges()
+        }
+        challengeInboxTimer = Timer.scheduledTimer(withTimeInterval: 8.0, repeats: true) { [weak self] _ in
+            self?.checkIncomingBattleChallenges(silent: true)
         }
     }
 
@@ -4920,6 +4925,9 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                 if status == "accepted" {
                     self.pendingBattlePollToken = nil
                     self.appendColored("✅ Challenge accepted by \(cleanOpponent)!\n\n", color: self.cGreen, bold: true)
+                    if self.runResolvedBattle(from: json, publishResult: false) {
+                        return
+                    }
                     self.fetchOpponentAndRunBattle(opponent: cleanOpponent)
                     return
                 }
@@ -4951,7 +4959,8 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
         let safeChallenger = playerUsername.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? playerUsername
         let safeOpponent = opponent.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? opponent
-        guard let url = URL(string: "\(AgentODelegate.leaderboardURL)/api/battles/challenge/status?challenger=\(safeChallenger)&opponent=\(safeOpponent)") else {
+        let safeToken = playerAuthToken.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? playerAuthToken
+        guard let url = URL(string: "\(AgentODelegate.leaderboardURL)/api/battles/challenge/status?challenger=\(safeChallenger)&opponent=\(safeOpponent)&token=\(safeToken)") else {
             appendColored("❌ Failed to check challenge status\n\n", color: cRed)
             battleActive = false
             pendingBattlePollToken = nil
@@ -4980,17 +4989,23 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                 }
 
                 let status: String
+                let jsonPayload: [String: Any]?
                 if let data = data,
                    let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
                     status = (json["status"] as? String ?? "pending").lowercased()
+                    jsonPayload = json
                 } else {
                     status = "pending"
+                    jsonPayload = nil
                 }
 
                 switch status {
                 case "accepted":
                     self.pendingBattlePollToken = nil
                     self.appendColored("✅ Challenge accepted by \(opponent)!\n\n", color: self.cGreen, bold: true)
+                    if let jsonPayload = jsonPayload, self.runResolvedBattle(from: jsonPayload, publishResult: false) {
+                        return
+                    }
                     self.fetchOpponentAndRunBattle(opponent: opponent)
                 case "declined":
                     self.appendColored("❌ \(opponent) declined your challenge.\n\n", color: self.cRed)
@@ -5064,8 +5079,12 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                 switch status {
                 case "accepted":
                     self.appendColored("✅ Challenge from \(cleanChallenger) accepted!\n", color: self.cGreen, bold: true)
-                    self.appendColored("  They can now start the battle sequence.\n\n", color: self.cGray)
+                    self.appendColored("  Starting synchronized battle...\n\n", color: self.cGray)
                     self.bubbleLabel.stringValue = speechBubble("Challenge accepted!")
+                    self.battleActive = true
+                    if !self.runResolvedBattle(from: json, publishResult: false) {
+                        self.fetchOpponentAndRunBattle(opponent: cleanChallenger)
+                    }
                 case "declined":
                     self.appendColored("❌ Challenge from \(cleanChallenger) declined.\n\n", color: self.cYellow)
                     self.bubbleLabel.stringValue = speechBubble("Challenge declined.")
@@ -5079,15 +5098,24 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
     }
 
     func listPendingBattleChallenges() {
-        if playerUsername.isEmpty {
-            appendColored("❌ Set your name first: /name YourName\n\n", color: cRed)
+        checkIncomingBattleChallenges(silent: false)
+    }
+
+    func checkIncomingBattleChallenges(silent: Bool) {
+        if playerUsername.isEmpty || playerAuthToken.isEmpty {
+            if !silent {
+                appendColored("❌ Set /name and publish once via /leaderboard first\n\n", color: cRed)
+            }
             return
         }
+        if battleActive && silent { return }
 
         let safeUser = playerUsername.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? playerUsername
         let safeToken = playerAuthToken.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? playerAuthToken
         guard let url = URL(string: "\(AgentODelegate.leaderboardURL)/api/battles/challenge/inbox?username=\(safeUser)&token=\(safeToken)") else {
-            appendColored("❌ Failed to create inbox request\n\n", color: cRed)
+            if !silent {
+                appendColored("❌ Failed to create inbox request\n\n", color: cRed)
+            }
             return
         }
 
@@ -5095,22 +5123,59 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             DispatchQueue.main.async {
                 guard let self = self else { return }
                 if let error = error {
-                    self.appendColored("❌ \(error.localizedDescription)\n\n", color: self.cRed)
+                    if !silent {
+                        self.appendColored("❌ \(error.localizedDescription)\n\n", color: self.cRed)
+                    }
                     return
                 }
                 if let http = response as? HTTPURLResponse, http.statusCode == 404 {
-                    self.appendColored("⚠️  Challenge API not deployed on server yet.\n\n", color: self.cYellow)
+                    if !silent {
+                        self.appendColored("⚠️  Challenge API not deployed on server yet.\n\n", color: self.cYellow)
+                    }
                     return
                 }
                 guard let data = data,
                       let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-                    self.appendColored("❌ Invalid response from server\n\n", color: self.cRed)
+                    if !silent {
+                        self.appendColored("❌ Invalid response from server\n\n", color: self.cRed)
+                    }
                     return
                 }
 
                 let challenges = json["challenges"] as? [[String: Any]] ?? []
+                var currentKeys: Set<String> = []
+                for item in challenges {
+                    let challenger = item["challenger"] as? String ?? "?"
+                    let createdAt = item["createdAt"] as? String ?? ""
+                    let key = "\(challenger)|\(createdAt)"
+                    currentKeys.insert(key)
+                }
+                self.knownIncomingChallengeKeys = self.knownIncomingChallengeKeys.intersection(currentKeys)
+
                 if challenges.isEmpty {
-                    self.appendColored("📭 No pending battle challenges.\n\n", color: self.cDimGray)
+                    if !silent {
+                        self.appendColored("📭 No pending battle challenges.\n\n", color: self.cDimGray)
+                    }
+                    return
+                }
+
+                if silent {
+                    var hasNew = false
+                    for item in challenges {
+                        let challenger = item["challenger"] as? String ?? "?"
+                        let createdAt = item["createdAt"] as? String ?? ""
+                        let key = "\(challenger)|\(createdAt)"
+                        if !self.knownIncomingChallengeKeys.contains(key) {
+                            hasNew = true
+                            self.knownIncomingChallengeKeys.insert(key)
+                            self.appendColored("⚔️  Incoming challenge from \(challenger)!\n", color: self.cYellow, bold: true)
+                            self.appendColored("  /accept \(challenger)  |  /decline \(challenger)\n\n", color: self.cGray)
+                        }
+                    }
+                    if hasNew {
+                        self.bubbleLabel.stringValue = speechBubble("New battle challenge!")
+                        self.playSound("Pop")
+                    }
                     return
                 }
 
@@ -5128,6 +5193,101 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                 self.appendOutput("\n")
             }
         }.resume()
+    }
+
+    func intFromAny(_ value: Any?, default defaultValue: Int = 0) -> Int {
+        if let v = value as? Int { return v }
+        if let v = value as? Double { return Int(v) }
+        if let v = value as? String, let n = Int(v) { return n }
+        return defaultValue
+    }
+
+    @discardableResult
+    func runResolvedBattle(from responseJson: [String: Any], publishResult: Bool) -> Bool {
+        guard let battle = responseJson["battle"] as? [String: Any],
+              let challenger = battle["challenger"] as? [String: Any],
+              let opponent = battle["opponent"] as? [String: Any] else {
+            return false
+        }
+
+        let challengerName = challenger["username"] as? String ?? "?"
+        let opponentName = opponent["username"] as? String ?? "?"
+        let iAmChallenger = playerUsername.lowercased() == challengerName.lowercased()
+        let iAmOpponent = playerUsername.lowercased() == opponentName.lowercased()
+        guard iAmChallenger || iAmOpponent else { return false }
+
+        let mySide = iAmChallenger ? challenger : opponent
+        let oppSide = iAmChallenger ? opponent : challenger
+        let oppName = oppSide["username"] as? String ?? "?"
+
+        let myLevel = intFromAny(mySide["level"], default: pet.level)
+        let myHunger = intFromAny(mySide["hunger"], default: pet.hunger)
+        let myHappiness = intFromAny(mySide["happiness"], default: pet.happiness)
+        let myEnergy = intFromAny(mySide["energy"], default: pet.energy)
+        let myStreak = intFromAny(mySide["streak"], default: pet.streak)
+        let myAch = intFromAny(mySide["achievements"], default: pet.unlockedAchievements.count)
+        let myPower = intFromAny(mySide["power"], default: 0)
+
+        let oppLevel = intFromAny(oppSide["level"], default: 1)
+        let oppHunger = intFromAny(oppSide["hunger"], default: 50)
+        let oppHappiness = intFromAny(oppSide["happiness"], default: 50)
+        let oppEnergy = intFromAny(oppSide["energy"], default: 50)
+        let oppStreak = intFromAny(oppSide["streak"], default: 0)
+        let oppAch = intFromAny(oppSide["achievements"], default: 0)
+        let oppPower = intFromAny(oppSide["power"], default: 0)
+
+        battleActive = true
+        setState(.dancing)
+        bubbleLabel.stringValue = speechBubble("Battle started!")
+
+        appendColored("\n", color: cGray)
+        appendColored("  ╔══════════════════════════════════════╗\n", color: cCyan)
+        appendColored("  ║         ⚔️  PET BATTLE ⚔️            ║\n", color: cCyan)
+        appendColored("  ╚══════════════════════════════════════╝\n\n", color: cCyan)
+
+        appendColored("  \(playerUsername)", color: cGreen, bold: true)
+        appendColored("  vs  ", color: cGray)
+        appendColored("\(oppName)\n\n", color: cRed, bold: true)
+
+        let rounds: [(String, Int, Int)] = [
+            ("Level", myLevel, oppLevel),
+            ("Food", myHunger, oppHunger),
+            ("Joy", myHappiness, oppHappiness),
+            ("Energy", myEnergy, oppEnergy),
+            ("Streak", myStreak, oppStreak),
+            ("Badges", myAch, oppAch),
+        ]
+
+        var step = 0
+        func showRound() {
+            guard step < rounds.count else {
+                self.finishBattle(
+                    myPower: Double(myPower),
+                    oppPower: Double(oppPower),
+                    oppName: oppName,
+                    oppLevel: oppLevel,
+                    publishResult: publishResult
+                )
+                return
+            }
+            let (name, myVal, oppVal) = rounds[step]
+            let winner = myVal > oppVal ? ">" : (myVal < oppVal ? "<" : "=")
+            let myColor = myVal >= oppVal ? self.cGreen : self.cRed
+            let oppColor = oppVal >= myVal ? self.cGreen : self.cRed
+
+            self.appendColored("  \(name.padding(toLength: 8, withPad: " ", startingAt: 0))", color: self.cGray)
+            self.appendColored("\(String(myVal).padding(toLength: 5, withPad: " ", startingAt: 0))", color: myColor, bold: true)
+            self.appendColored(" \(winner) ", color: self.cYellow, bold: true)
+            self.appendColored("\(oppVal)\n", color: oppColor, bold: true)
+
+            step += 1
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                showRound()
+            }
+        }
+
+        showRound()
+        return true
     }
 
     func fetchOpponentAndRunBattle(opponent: String) {
@@ -5220,7 +5380,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         func showRound() {
             guard step < rounds.count else {
                 // All rounds shown, determine winner
-                self.finishBattle(myPower: myPower, oppPower: oppPower, oppName: oppName, oppLevel: oppLevel)
+                self.finishBattle(myPower: myPower, oppPower: oppPower, oppName: oppName, oppLevel: oppLevel, publishResult: true)
                 return
             }
             let (name, myVal, oppVal) = rounds[step]
@@ -5253,7 +5413,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         return (base + streakBonus + achBonus) * luck
     }
 
-    func finishBattle(myPower: Double, oppPower: Double, oppName: String, oppLevel: Int) {
+    func finishBattle(myPower: Double, oppPower: Double, oppName: String, oppLevel: Int, publishResult: Bool = true) {
         appendColored("\n  ──────────────────────────────────────\n", color: cGray)
 
         let myPwr = Int(myPower)
@@ -5309,7 +5469,9 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         if pet.battleHistory.count > 20 { pet.battleHistory = Array(pet.battleHistory.prefix(20)) }
         pet.save()
         refreshStatsDisplay()
-        publishBattleResult(opponent: oppName, opponentLevel: oppLevel, result: result, myPower: myPwr, oppPower: oppPwr)
+        if publishResult {
+            publishBattleResult(opponent: oppName, opponentLevel: oppLevel, result: result, myPower: myPwr, oppPower: oppPwr)
+        }
 
         appendColored("  Battle another: /battle <username>\n\n", color: cGray)
         battleActive = false

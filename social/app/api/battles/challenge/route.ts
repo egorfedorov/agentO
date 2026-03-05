@@ -14,6 +14,7 @@ interface ChallengeRecord {
   createdAt: string
   expiresAt: string
   updatedAt: string
+  battlePayload?: string
 }
 
 function challengeKey(challenger: string, opponent: string): string {
@@ -22,6 +23,19 @@ function challengeKey(challenger: string, opponent: string): string {
 
 function inboxKey(username: string): string {
   return `battle:inbox:${username}`
+}
+
+function parseBattlePayload(raw: unknown): Record<string, unknown> | null {
+  if (!raw) return null
+  if (typeof raw === 'object') return raw as Record<string, unknown>
+  if (typeof raw === 'string') {
+    try {
+      return JSON.parse(raw) as Record<string, unknown>
+    } catch {
+      return null
+    }
+  }
+  return null
 }
 
 export async function POST(req: NextRequest) {
@@ -67,6 +81,7 @@ export async function POST(req: NextRequest) {
         challenger,
         opponent,
         expiresAt: existing?.expiresAt,
+        battle: parseBattlePayload(existing?.battlePayload),
       })
     }
 
