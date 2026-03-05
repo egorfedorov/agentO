@@ -3,22 +3,62 @@ import { kv } from '@vercel/kv'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET() {
-  try {
-    const players = await kv.zrange('leaderboard', 0, 99, { rev: true })
+type LeaderboardPlayer = Record<string, unknown> & { username: string }
 
-    const result = []
+let lastSnapshot: LeaderboardPlayer[] = []
+let lastSnapshotAt = 0
+
+function fallbackResponse(reason: string) {
+  const ageMs = lastSnapshotAt > 0 ? Date.now() - lastSnapshotAt : null
+  return NextResponse.json({
+    players: lastSnapshot,
+    stale: true,
+    staleReason: reason,
+    staleAgeMs: ageMs,
+  })
+}
+
+export async function GET() {
+  const result: LeaderboardPlayer[] = []
+  let hadLookupErrors = false
+
+  try {
+    const players = await kv.zrange<string[]>('leaderboard', 0, 99, { rev: true })
+
     for (const username of players) {
-      const data = await kv.hgetall(`player:${username}`)
-      if (data) {
-        const { ownerToken, ...safeData } = data as Record<string, unknown>
-        result.push({ username, ...safeData })
+      try {
+        const data = await kv.hgetall(`player:${username}`)
+        if (data) {
+          const { ownerToken, ...safeData } = data as Record<string, unknown>
+          result.push({ username, ...safeData })
+        }
+      } catch {
+        hadLookupErrors = true
       }
     }
 
-    return NextResponse.json({ players: result })
-  } catch (e) {
-    // Fallback: return empty if KV not configured
-    return NextResponse.json({ players: [] })
+    if (result.length === 0 && players.length > 0 && lastSnapshot.length > 0) {
+      return fallbackResponse('empty-after-lookup')
+    }
+
+    if (result.length > 0 || players.length === 0) {
+      lastSnapshot = result
+      lastSnapshotAt = Date.now()
+    }
+
+    return NextResponse.json({
+      players: result,
+      stale: false,
+      partial: hadLookupErrors,
+    })
+  } catch {
+    if (lastSnapshot.length > 0) {
+      return fallbackResponse('zrange-error')
+    }
+    return NextResponse.json({
+      players: [],
+      stale: true,
+      staleReason: 'cold-start-error',
+    })
   }
 }
