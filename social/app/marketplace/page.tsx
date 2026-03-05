@@ -39,6 +39,20 @@ interface MarketSummary {
     activeRentals: number
     totalRentals: number
   }
+  economics: {
+    avgPricePerDayActive: number
+    avgRentalDaysRecent: number
+    recentRentalVolume: number
+    utilizationPct: number
+  }
+  specializations: Array<{
+    key: string
+    label: string
+    listings: number
+    avgPricePerDay: number
+    renterCount: number
+    totalDays: number
+  }>
   recentRentals: MarketRental[]
 }
 
@@ -62,15 +76,23 @@ async function getListings(): Promise<MarketListing[]> {
 }
 
 async function getSummary(): Promise<MarketSummary> {
+  const fallback: MarketSummary = {
+    counts: { activeListings: 0, activeRentals: 0, totalRentals: 0 },
+    economics: {
+      avgPricePerDayActive: 0,
+      avgRentalDaysRecent: 0,
+      recentRentalVolume: 0,
+      utilizationPct: 0,
+    },
+    specializations: [],
+    recentRentals: [],
+  }
   try {
     const res = await fetch(`${getBaseUrl()}/api/pets/market/summary?limit=20`, {
       cache: 'no-store',
     })
     if (!res.ok) {
-      return {
-        counts: { activeListings: 0, activeRentals: 0, totalRentals: 0 },
-        recentRentals: [],
-      }
+      return fallback
     }
     const data = await res.json()
     return {
@@ -79,13 +101,17 @@ async function getSummary(): Promise<MarketSummary> {
         activeRentals: Number(data?.counts?.activeRentals || 0),
         totalRentals: Number(data?.counts?.totalRentals || 0),
       },
+      economics: {
+        avgPricePerDayActive: Number(data?.economics?.avgPricePerDayActive || 0),
+        avgRentalDaysRecent: Number(data?.economics?.avgRentalDaysRecent || 0),
+        recentRentalVolume: Number(data?.economics?.recentRentalVolume || 0),
+        utilizationPct: Number(data?.economics?.utilizationPct || 0),
+      },
+      specializations: Array.isArray(data?.specializations) ? data.specializations : [],
       recentRentals: (data?.recentRentals || []) as MarketRental[],
     }
   } catch {
-    return {
-      counts: { activeListings: 0, activeRentals: 0, totalRentals: 0 },
-      recentRentals: [],
-    }
+    return fallback
   }
 }
 
@@ -129,6 +155,35 @@ export default async function MarketplacePage() {
         <p><code>/rent take username 3</code> to rent someone&apos;s pet</p>
         <p><code>/rent my both</code> to view your rental history</p>
         <p><code>/rent end rental_id</code> to end your active rental as owner</p>
+      </div>
+
+      <div className="earn-section">
+        <div className="earn-head">
+          <h2>Specialist Pet Economy</h2>
+          <p>Pets that are better in one domain are more likely to be rented.</p>
+        </div>
+        <div className="earn-stats">
+          <span>Avg price: {summary.economics.avgPricePerDayActive.toLocaleString()} XP/day</span>
+          <span>Avg duration: {summary.economics.avgRentalDaysRecent} days</span>
+          <span>Utilization: {summary.economics.utilizationPct}%</span>
+          <span>Recent volume: {summary.economics.recentRentalVolume.toLocaleString()} XP</span>
+        </div>
+        <div className="earn-specialties">
+          <h3>Most Requested Specializations</h3>
+          {summary.specializations.length === 0 ? (
+            <p className="battle-empty">No specialization stats yet.</p>
+          ) : (
+            <div className="earn-specialty-grid">
+              {summary.specializations.slice(0, 6).map((spec) => (
+                <div className="earn-specialty-card" key={spec.key}>
+                  <div className="name">{spec.label}</div>
+                  <div className="meta">Listings {spec.listings} · Avg {spec.avgPricePerDay.toLocaleString()} XP/day</div>
+                  <div className="meta">Rentals {spec.renterCount} · Total {spec.totalDays} days</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="market-grid">

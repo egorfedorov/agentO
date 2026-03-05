@@ -629,6 +629,105 @@ a:hover { text-decoration: underline; }
   color: var(--dim);
 }
 
+.earn-section {
+  margin-top: 24px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 20px;
+}
+
+.earn-head h2 {
+  color: var(--cyan);
+  font-size: 1.1rem;
+}
+
+.earn-head p {
+  color: var(--dim);
+  font-size: 0.82rem;
+  margin-top: 4px;
+}
+
+.earn-stats {
+  margin-top: 12px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.earn-stats span {
+  background: rgba(255, 215, 64, 0.08);
+  border: 1px solid rgba(255, 215, 64, 0.2);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  color: var(--gray);
+}
+
+.earn-steps {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.earn-step {
+  border: 1px solid rgba(77, 212, 230, 0.2);
+  border-radius: 10px;
+  padding: 10px;
+  background: rgba(10, 10, 20, 0.55);
+}
+
+.earn-step h3 {
+  color: var(--white);
+  font-size: 0.9rem;
+}
+
+.earn-step p {
+  margin-top: 5px;
+  font-size: 0.78rem;
+  color: var(--gray);
+}
+
+.earn-step code {
+  color: var(--green);
+}
+
+.earn-specialties {
+  margin-top: 14px;
+}
+
+.earn-specialties h3 {
+  color: var(--yellow);
+  font-size: 0.9rem;
+}
+
+.earn-specialty-grid {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+.earn-specialty-card {
+  border: 1px solid rgba(179, 136, 255, 0.2);
+  border-radius: 10px;
+  padding: 10px;
+  background: rgba(26, 26, 46, 0.8);
+}
+
+.earn-specialty-card .name {
+  color: var(--purple);
+  font-size: 0.84rem;
+  font-weight: bold;
+}
+
+.earn-specialty-card .meta {
+  margin-top: 3px;
+  color: var(--gray);
+  font-size: 0.74rem;
+}
+
 /* Make player rows clickable */
 .player-row a.name {
   color: var(--white);

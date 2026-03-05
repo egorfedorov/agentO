@@ -41,6 +41,20 @@ interface MarketSummary {
     activeRentals: number
     totalRentals: number
   }
+  economics: {
+    avgPricePerDayActive: number
+    avgRentalDaysRecent: number
+    recentRentalVolume: number
+    utilizationPct: number
+  }
+  specializations: Array<{
+    key: string
+    label: string
+    listings: number
+    avgPricePerDay: number
+    renterCount: number
+    totalDays: number
+  }>
 }
 
 function getEvolution(level: number): string {
@@ -112,18 +126,26 @@ async function getBattles(): Promise<BattleEntry[]> {
 }
 
 async function getMarketSummary(): Promise<MarketSummary> {
+  const fallback: MarketSummary = {
+    counts: {
+      activeListings: 0,
+      activeRentals: 0,
+      totalRentals: 0,
+    },
+    economics: {
+      avgPricePerDayActive: 0,
+      avgRentalDaysRecent: 0,
+      recentRentalVolume: 0,
+      utilizationPct: 0,
+    },
+    specializations: [],
+  }
   try {
     const res = await fetch(`${getBaseUrl()}/api/pets/market/summary?limit=6`, {
       cache: 'no-store',
     })
     if (!res.ok) {
-      return {
-        counts: {
-          activeListings: 0,
-          activeRentals: 0,
-          totalRentals: 0,
-        },
-      }
+      return fallback
     }
     const data = await res.json()
     return {
@@ -132,15 +154,16 @@ async function getMarketSummary(): Promise<MarketSummary> {
         activeRentals: Number(data?.counts?.activeRentals || 0),
         totalRentals: Number(data?.counts?.totalRentals || 0),
       },
+      economics: {
+        avgPricePerDayActive: Number(data?.economics?.avgPricePerDayActive || 0),
+        avgRentalDaysRecent: Number(data?.economics?.avgRentalDaysRecent || 0),
+        recentRentalVolume: Number(data?.economics?.recentRentalVolume || 0),
+        utilizationPct: Number(data?.economics?.utilizationPct || 0),
+      },
+      specializations: Array.isArray(data?.specializations) ? data.specializations : [],
     }
   } catch {
-    return {
-      counts: {
-        activeListings: 0,
-        activeRentals: 0,
-        totalRentals: 0,
-      },
-    }
+    return fallback
   }
 }
 
@@ -283,6 +306,56 @@ export default async function Home() {
           Publish your pet for rent with <code>/rent publish &lt;pricePerDay&gt; &lt;maxDays&gt; &lt;title&gt;</code>
           {' '}in Agent-O.
         </p>
+      </div>
+
+      <div className="earn-section">
+        <div className="earn-head">
+          <h2>How To Earn With Specialist Pets</h2>
+          <p>Train a niche pet, publish listing, get hired for focused workflows.</p>
+        </div>
+
+        <div className="earn-stats">
+          <span>Avg listing price: {market.economics.avgPricePerDayActive.toLocaleString()} XP/day</span>
+          <span>Avg rental duration: {market.economics.avgRentalDaysRecent} days</span>
+          <span>Market utilization: {market.economics.utilizationPct}%</span>
+          <span>Recent rental volume: {market.economics.recentRentalVolume.toLocaleString()} XP</span>
+        </div>
+
+        <div className="earn-steps">
+          <div className="earn-step">
+            <h3>1) Train Daily</h3>
+            <p>Use Claude/Codex prompts in your niche and improve profile with <code>/training</code> + <code>/train</code>.</p>
+          </div>
+          <div className="earn-step">
+            <h3>2) Publish Your Pet</h3>
+            <p>List your specialist pet with <code>/rent publish</code> and set rental conditions.</p>
+          </div>
+          <div className="earn-step">
+            <h3>3) Get Hired</h3>
+            <p>Renters choose pets by specialization quality and rental history on the marketplace.</p>
+          </div>
+        </div>
+
+        <div className="earn-specialties">
+          <h3>Top Specializations Right Now</h3>
+          {market.specializations.length === 0 ? (
+            <p className="battle-empty">No specialization data yet. Publish first listings to populate demand map.</p>
+          ) : (
+            <div className="earn-specialty-grid">
+              {market.specializations.slice(0, 6).map((spec) => (
+                <div className="earn-specialty-card" key={spec.key}>
+                  <div className="name">{spec.label}</div>
+                  <div className="meta">
+                    Listings {spec.listings} · Avg {spec.avgPricePerDay.toLocaleString()} XP/day
+                  </div>
+                  <div className="meta">
+                    Rentals {spec.renterCount} · Total days {spec.totalDays}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="join-section">
