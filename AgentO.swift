@@ -1411,6 +1411,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
     var lastClipboard: String = ""
     var clipboardTimer: Timer?
     var isWatchingClipboard: Bool = false
+    var autoTranslateLang: String? = nil
 
     // Snippets state
     var savedSnippets: [(title: String, content: String, date: Date)] = []
@@ -2621,6 +2622,19 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                 searchSnippets(query)
                 return true
             }
+            // Auto-translate toggle: !translate ru, !translate en, !translate off
+            if cmd.hasPrefix("!translate ") {
+                let arg = String(cmd.dropFirst(11)).trimmingCharacters(in: .whitespaces).lowercased()
+                if arg == "off" || arg == "stop" {
+                    clearAutoTranslate()
+                } else if AgentODelegate.translateLangs.contains(arg.uppercased()) {
+                    setAutoTranslate(arg)
+                } else {
+                    appendColored("❌ Unknown language: \(arg)\n", color: cRed)
+                    appendColored("  Supported: EN, RU, ES, FR, DE, IT, PT, JA, KO, ZH, AR, HI, TR, PL, NL, UK, CS, SV\n\n", color: cGray)
+                }
+                return true
+            }
             // Skin change
             if cmd.hasPrefix("!skin ") {
                 let skinName = String(cmd.dropFirst(6)).lowercased()
@@ -2693,9 +2707,38 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         bubbleLabel.stringValue = speechBubble("Stopped watching")
     }
 
+    func setAutoTranslate(_ lang: String) {
+        autoTranslateLang = lang.lowercased()
+        let langName = lang.uppercased()
+        if !isWatchingClipboard {
+            startClipboardWatch()
+        }
+        appendColored("🌐 Auto-translate → \(langName)\n", color: cPurple, bold: true)
+        appendColored("  Copy any text — it will be translated to \(langName) automatically\n", color: cGray)
+        appendColored("  Type !notranslate to stop auto-translating\n\n", color: cGray)
+        bubbleLabel.stringValue = speechBubble("Auto-translate → \(langName)")
+    }
+
+    func clearAutoTranslate() {
+        autoTranslateLang = nil
+        appendColored("🌐 Auto-translate OFF\n\n", color: cGray)
+        bubbleLabel.stringValue = speechBubble("Auto-translate off")
+    }
+
     func checkClipboard() {
         guard let content = NSPasteboard.general.string(forType: .string), content != lastClipboard else { return }
         lastClipboard = content
+
+        // Auto-translate mode
+        if let lang = autoTranslateLang {
+            let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { return }
+            appendColored("📋 Copied: \(String(trimmed.prefix(80)))\(trimmed.count > 80 ? "..." : "")\n", color: cGray)
+            translateText(trimmed, to: lang)
+            return
+        }
+
+        // Normal clipboard detection mode
         let lower = content.lowercased()
 
         let codeKeywords = ["func ", "def ", "class ", "=>", "import ", "const ", "let ", "var ", "function ", "return ", "if (", "for (", "while ("]
@@ -3317,6 +3360,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                             // Copy to clipboard
                             NSPasteboard.general.clearContents()
                             NSPasteboard.general.setString(translated, forType: .string)
+                            self.lastClipboard = translated
                             self.appendColored("📋 Copied to clipboard!\n\n", color: self.cGray)
                             self.bubbleLabel.stringValue = speechBubble("Translated! 📋")
                             self.setState(.happy)
@@ -3385,8 +3429,6 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         let custCmds: [(String, String)] = [
             ("!skin <name>", "→ robot/cat/skull/clippy"),
             ("!theme <name>", "→ matrix/cyberpunk/sunset/ocean/hacker"),
-            ("!ru", "→ Russian language"),
-            ("!en", "→ English language"),
         ]
         for (cmd, desc) in custCmds {
             appendColored("  \(cmd.padding(toLength: 16, withPad: " ", startingAt: 0))", color: cYellow)
@@ -3397,6 +3439,9 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             ("EN <text>", "→ translate to English"),
             ("RU <text>", "→ translate to Russian"),
             ("ES/FR/DE...", "→ any language (18 supported)"),
+            ("!translate ru", "→ auto-translate clipboard → RU"),
+            ("!translate en", "→ auto-translate clipboard → EN"),
+            ("!translate off", "→ stop auto-translate"),
         ]
         for (cmd, desc) in transCmds {
             appendColored("  \(cmd.padding(toLength: 16, withPad: " ", startingAt: 0))", color: cYellow)
