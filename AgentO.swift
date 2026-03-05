@@ -2462,7 +2462,9 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
         process.standardOutput = pipe
         process.standardError = pipe
-        process.environment = ProcessInfo.processInfo.environment
+        var env = ProcessInfo.processInfo.environment
+        env.removeValue(forKey: "CLAUDECODE")
+        process.environment = env
         currentProcess = process
 
         do {
@@ -2525,7 +2527,9 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         process.arguments = ["-l", "-c", command]
         process.standardOutput = pipe
         process.standardError = pipe
-        process.environment = ProcessInfo.processInfo.environment
+        var env = ProcessInfo.processInfo.environment
+        env.removeValue(forKey: "CLAUDECODE")
+        process.environment = env
         do {
             try process.run()
             process.waitUntilExit()
