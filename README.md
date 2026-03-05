@@ -142,7 +142,7 @@ This gives users a path to earn from domain expertise by training high-quality p
 - Makes expertise discoverable and comparable.
 - Creates a feedback loop where better training leads to better demand.
 
-## New in v6.2.0
+## New in v6.3.0
 
 ### Tactical PvP Duels
 - Challenge flow is now explicit: invite -> accept/decline -> both submit move.
