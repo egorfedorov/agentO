@@ -19,6 +19,7 @@
 
 <p align="center">
   <a href="https://egorfedorov.github.io/agentO/">Website</a> &middot;
+  <a href="https://social-coral-five.vercel.app/">Leaderboard</a> &middot;
   <a href="#quick-start">Quick Start</a> &middot;
   <a href="#features">Features</a> &middot;
   <a href="#all-commands">Commands</a>
@@ -125,6 +126,23 @@ Unlock badges for milestones — first command, 100 commands, commits, streaks, 
 - Nudges you when you have 10+ uncommitted changes
 - Suggests `!commit` to auto-generate a message
 
+### Pet Brain (AI Intelligence)
+- Pet gets **smarter as it levels up**
+- **Lv.5+** — detects your languages & frameworks, adds context to prompts
+- **Lv.10+** — remembers your preferences (`!teach I prefer tabs`)
+- **Lv.15+** — tracks recent topics for continuity
+- **Lv.20+** — full prompt engineering, expert-level assistance
+- `!teach <fact>` — teach your pet something
+- `!memory` — see what your pet knows
+- `!brain` — export brain as JSON (share/sell/trade!)
+- `!forget <fact>` — make pet forget
+
+### Leaderboard & Social
+- `!name <username>` — set your display name
+- `!leaderboard` — publish stats to [global leaderboard](https://social-coral-five.vercel.app/)
+- Rankings by level, XP, streak, achievements
+- Compete with other Agent-O users worldwide
+
 ### Customization
 - **4 Skins:** Robot, Cat, Skull, Clippy
 - **5 Themes:** Matrix, Cyberpunk, Sunset, Ocean, Hacker
@@ -178,6 +196,24 @@ Unlock badges for milestones — first command, 100 commands, commits, streaks, 
 | `!chat new` | Start new chat |
 | `!chat list` | List all chats |
 | `!chat <N>` | Switch to chat N |
+| `!remind <t> <text>` | Set reminder (30m/2h) |
+| `!reminders` | List active reminders |
+| `!standup` | Daily standup from git |
+| `!sh <desc>` | Natural language → shell |
+| `!clipboard` | Clipboard history |
+| `!calc <expr>` | Currency/unit/timezone calc |
+| `!regex <desc>` | AI regex builder |
+| `!daily` | Daily activity summary |
+| `!teach <fact>` | Teach your pet |
+| `!memory` | What your pet knows |
+| `!brain` | Export pet brain JSON |
+| `!forget <fact>` | Make pet forget |
+| `!name <name>` | Set leaderboard name |
+| `!leaderboard` | Publish to leaderboard |
+| `!compact` | Minimal UI mode |
+| `!full` | Full UI mode |
+| `!update` | Check for updates |
+| `!version` | Current version |
 | `!git` | Git project status |
 | `!ps` | Monitor processes |
 | `!tip` | Random tip |
@@ -191,7 +227,7 @@ Unlock badges for milestones — first command, 100 commands, commits, streaks, 
 - **Framework:** AppKit (native macOS)
 - **Binary size:** ~50KB
 - **Dependencies:** 0
-- **Persistence:** JSON file at `~/.agento_pet.json`
+- **Persistence:** `~/.agento_pet.json`, `~/.agento_brain.json`
 
 ## License
 

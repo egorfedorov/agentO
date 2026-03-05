@@ -1359,10 +1359,125 @@ class DropView: NSView {
     }
 }
 
+// MARK: - Pet Brain
+
+class PetBrain {
+    static let savePath = NSHomeDirectory() + "/.agento_brain.json"
+
+    var facts: [String] = []
+    var languages: [String] = []
+    var frameworks: [String] = []
+    var patterns: [String: Int] = [:]
+    var lastTopics: [String] = []
+
+    func learn(from prompt: String) {
+        let langMap: [(String, [String])] = [
+            ("Swift", ["swift", ".swift", "swiftui", "uikit", "appkit"]),
+            ("Python", ["python", ".py", "pip", "django", "flask", "pandas"]),
+            ("JavaScript", ["javascript", "js", "node", "react", "vue", "angular", "npm"]),
+            ("TypeScript", ["typescript", "ts", ".tsx", "angular", "next.js"]),
+            ("Rust", ["rust", "cargo", ".rs", "tokio"]),
+            ("Go", ["golang", "go mod", ".go", "goroutine"]),
+            ("C++", ["c++", "cpp", "cmake", "iostream"]),
+            ("Ruby", ["ruby", ".rb", "rails", "gem"]),
+            ("Java", ["java", "spring", "gradle", "maven"]),
+            ("Kotlin", ["kotlin", ".kt", "android"]),
+        ]
+        let lower = prompt.lowercased()
+        for (lang, keywords) in langMap {
+            if keywords.contains(where: { lower.contains($0) }) && !languages.contains(lang) {
+                languages.append(lang)
+            }
+        }
+
+        let fwMap: [(String, [String])] = [
+            ("React", ["react", "jsx", "usestate", "useeffect"]),
+            ("Next.js", ["next.js", "nextjs", "getserverside"]),
+            ("SwiftUI", ["swiftui", "@state", "@binding"]),
+            ("Django", ["django", "models.py", "views.py"]),
+            ("Express", ["express", "app.get", "app.post"]),
+            ("Docker", ["docker", "dockerfile", "container"]),
+            ("Git", ["git", "commit", "branch", "merge"]),
+        ]
+        for (fw, keywords) in fwMap {
+            if keywords.contains(where: { lower.contains($0) }) && !frameworks.contains(fw) {
+                frameworks.append(fw)
+            }
+        }
+
+        let topic = String(prompt.prefix(50))
+        lastTopics.append(topic)
+        if lastTopics.count > 10 { lastTopics.removeFirst() }
+
+        let words = prompt.split(separator: " ").prefix(3).map { String($0).lowercased() }
+        let pattern = words.joined(separator: " ")
+        patterns[pattern, default: 0] += 1
+
+        save()
+    }
+
+    func buildContext(level: Int) -> String? {
+        guard level >= 5 else { return nil }
+
+        var context: [String] = []
+
+        if !languages.isEmpty {
+            context.append("User's languages: \(languages.joined(separator: ", "))")
+        }
+        if !frameworks.isEmpty {
+            context.append("User's frameworks: \(frameworks.joined(separator: ", "))")
+        }
+
+        if level >= 10 && !facts.isEmpty {
+            context.append("User preferences: \(facts.joined(separator: "; "))")
+        }
+
+        if level >= 15 && !lastTopics.isEmpty {
+            let recent = lastTopics.suffix(3).joined(separator: "; ")
+            context.append("Recent topics: \(recent)")
+        }
+
+        if level >= 20 {
+            context.append("You are an expert assistant. Be concise, provide code examples, and anticipate follow-up questions.")
+        }
+
+        guard !context.isEmpty else { return nil }
+        return "[Context from Agent-O pet (Lv.\(level)): \(context.joined(separator: ". "))]"
+    }
+
+    func save() {
+        let data: [String: Any] = [
+            "facts": facts,
+            "languages": languages,
+            "frameworks": frameworks,
+            "patterns": patterns,
+            "lastTopics": lastTopics,
+        ]
+        if let jsonData = try? JSONSerialization.data(withJSONObject: data),
+           let json = String(data: jsonData, encoding: .utf8) {
+            try? json.write(toFile: PetBrain.savePath, atomically: true, encoding: .utf8)
+        }
+    }
+
+    static func load() -> PetBrain {
+        let brain = PetBrain()
+        guard let data = try? Data(contentsOf: URL(fileURLWithPath: savePath)),
+              let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return brain
+        }
+        brain.facts = dict["facts"] as? [String] ?? []
+        brain.languages = dict["languages"] as? [String] ?? []
+        brain.frameworks = dict["frameworks"] as? [String] ?? []
+        brain.patterns = dict["patterns"] as? [String: Int] ?? [:]
+        brain.lastTopics = dict["lastTopics"] as? [String] ?? []
+        return brain
+    }
+}
+
 // MARK: - Main App Delegate
 
 class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
-    static let currentVersion = "3.1.0"
+    static let currentVersion = "4.0.0"
     // UI
     var window: NSPanel!
     var miniWindow: NSPanel!
@@ -1400,6 +1515,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
     var globalMonitor: Any?
     var localMonitor: Any?
     var pet = PetStats.load()
+    var brain = PetBrain.load()
     var decayTimer: Timer?
     var currentTheme = Theme.matrix
     var pomodoro = PomodoroTimer()
@@ -1433,7 +1549,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
     // Leaderboard
     var playerUsername: String = ""
-    static let leaderboardURL = "https://agento-social.vercel.app"
+    static let leaderboardURL = "https://social-coral-five.vercel.app"
 
     // Reminders
     var reminders: [(text: String, timer: Timer, fireDate: Date)] = []
@@ -1983,7 +2099,17 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
     func refreshBottomStats() {
         guard bottomStatsLabel != nil else { return }
         let p = pet
-        bottomStatsLabel.stringValue = "Lv.\(p.level) \(p.moodEmoji)  │  Food:\(p.hunger)%  │  Joy:\(p.happiness)%  │  Nrg:\(p.energy)%  │  XP:\(p.xp)/\(p.xpForNextLevel)"
+        var stats = "Lv.\(p.level) \(p.moodEmoji)  │  Food:\(p.hunger)%  │  Joy:\(p.happiness)%  │  Nrg:\(p.energy)%  │  XP:\(p.xp)/\(p.xpForNextLevel)"
+        if p.level >= 20 {
+            stats += " │ IQ:MAX"
+        } else if p.level >= 15 {
+            stats += " │ IQ:+++"
+        } else if p.level >= 10 {
+            stats += " │ IQ:++"
+        } else if p.level >= 5 {
+            stats += " │ IQ:+"
+        }
+        bottomStatsLabel.stringValue = stats
     }
 
     func localizedMood() -> String {
@@ -2723,6 +2849,14 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             showHelp()
             return true
 
+        case "!memory":
+            showBrainMemory()
+            return true
+
+        case "!brain":
+            exportBrain()
+            return true
+
         case "!update":
             checkForUpdate()
             return true
@@ -2800,6 +2934,40 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             return true
 
         default:
+            // Teach the pet brain
+            if cmd.hasPrefix("!teach ") {
+                let fact = String(cmd.dropFirst(7)).trimmingCharacters(in: .whitespaces)
+                if fact.isEmpty {
+                    appendColored("Usage: !teach <fact>\n\n", color: cRed)
+                } else {
+                    brain.facts.append(fact)
+                    brain.save()
+                    appendColored("Learned: \"\(fact)\"\n", color: cGreen, bold: true)
+                    appendColored("  \(brain.facts.count) fact(s) stored\n\n", color: cGray)
+                    bubbleLabel.stringValue = speechBubble("I'll remember that!")
+                    playSound("Pop")
+                }
+                return true
+            }
+            // Forget a fact
+            if cmd.hasPrefix("!forget ") {
+                let fact = String(cmd.dropFirst(8)).trimmingCharacters(in: .whitespaces)
+                if let idx = brain.facts.firstIndex(of: fact) {
+                    brain.facts.remove(at: idx)
+                    brain.save()
+                    appendColored("Forgot: \"\(fact)\"\n\n", color: cYellow)
+                    bubbleLabel.stringValue = speechBubble("Forgotten!")
+                    playSound("Pop")
+                } else {
+                    appendColored("I don't know that fact.\n", color: cRed)
+                    if !brain.facts.isEmpty {
+                        appendColored("  Known facts: \(brain.facts.joined(separator: ", "))\n\n", color: cGray)
+                    } else {
+                        appendOutput("\n")
+                    }
+                }
+                return true
+            }
             // Reminder
             if cmd.hasPrefix("!remind ") {
                 let args = String(cmd.dropFirst(8))
@@ -3684,9 +3852,18 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         let process = Process()
         let pipe = Pipe()
 
+        // Learn from the prompt
+        brain.learn(from: prompt)
+
+        // Enhance prompt with brain context for Claude (not Codex)
+        var enhancedPrompt = prompt
+        if cli != "codex", let context = brain.buildContext(level: pet.level) {
+            enhancedPrompt = "\(context)\n\n\(prompt)"
+        }
+
         // Use shell to get proper PATH
         process.executableURL = URL(fileURLWithPath: "/bin/zsh")
-        let escapedPrompt = prompt
+        let escapedPrompt = enhancedPrompt
             .replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "\"", with: "\\\"")
             .replacingOccurrences(of: "$", with: "\\$")
@@ -4292,6 +4469,10 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             ("!calc <expr>", "→ calc/convert/currency"),
             ("!regex <desc>", "→ build regex pattern"),
             ("!daily", "→ daily activity summary"),
+            ("!teach <fact>", "→ teach your pet something"),
+            ("!memory", "→ what your pet knows"),
+            ("!brain", "→ export pet brain (JSON)"),
+            ("!forget <fact>", "→ make pet forget"),
         ]
         for (cmd, desc) in smartCmds {
             appendColored("  \(cmd.padding(toLength: 16, withPad: " ", startingAt: 0))", color: cYellow)
@@ -4315,6 +4496,89 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         appendOutput("Commit · Tests · Explain · Review\n")
         appendColored("Hotkey: ", color: cPurple, bold: true)
         appendOutput("⌘⇧O toggle, ↑↓ history, Drag&Drop files\n\n")
+    }
+
+    // MARK: - Pet Brain
+
+    func showBrainMemory() {
+        let iqLabel: String
+        if pet.level >= 20 { iqLabel = "Cosmic IQ" }
+        else if pet.level >= 15 { iqLabel = "Mythic IQ" }
+        else if pet.level >= 10 { iqLabel = "Epic IQ" }
+        else if pet.level >= 5 { iqLabel = "Evolved IQ" }
+        else { iqLabel = "Baby IQ" }
+
+        appendColored("╭── Pet Brain ────────────────────────╮\n", color: cPurple)
+        appendColored("  Intelligence: \(iqLabel) (Lv.\(pet.level))\n", color: cCyan, bold: true)
+
+        if brain.languages.isEmpty {
+            appendColored("  Languages: (none detected yet)\n", color: cGray)
+        } else {
+            appendColored("  Languages: \(brain.languages.joined(separator: ", "))\n", color: cGreen)
+        }
+
+        if brain.frameworks.isEmpty {
+            appendColored("  Frameworks: (none detected yet)\n", color: cGray)
+        } else {
+            appendColored("  Frameworks: \(brain.frameworks.joined(separator: ", "))\n", color: cGreen)
+        }
+
+        if brain.facts.isEmpty {
+            appendColored("  Facts: (none taught yet, use !teach)\n", color: cGray)
+        } else {
+            appendColored("  Facts: \(brain.facts.joined(separator: "; "))\n", color: cGreen)
+        }
+
+        if brain.lastTopics.isEmpty {
+            appendColored("  Recent topics: (none yet)\n", color: cGray)
+        } else {
+            let recent = brain.lastTopics.suffix(5).joined(separator: "\n    ")
+            appendColored("  Recent topics:\n    \(recent)\n", color: cDimGray)
+        }
+
+        appendColored("  Patterns tracked: \(brain.patterns.count)\n", color: cDimGray)
+
+        appendColored("  ──────────────────────────────────\n", color: cPurple)
+        if pet.level < 5 {
+            appendColored("  Brain inactive (unlocks at Lv.5)\n", color: cYellow)
+        } else if pet.level < 10 {
+            appendColored("  Active: injects languages & frameworks\n", color: cGreen)
+        } else if pet.level < 15 {
+            appendColored("  Active: + user facts & preferences\n", color: cGreen)
+        } else if pet.level < 20 {
+            appendColored("  Active: + recent topic context\n", color: cGreen)
+        } else {
+            appendColored("  Active: FULL enhancement (expert mode)\n", color: cGreen, bold: true)
+        }
+        appendColored("╰────────────────────────────────────╯\n\n", color: cPurple)
+        playSound("Pop")
+    }
+
+    func exportBrain() {
+        let exportPath = NSHomeDirectory() + "/Desktop/agento-brain.json"
+        let data: [String: Any] = [
+            "facts": brain.facts,
+            "languages": brain.languages,
+            "frameworks": brain.frameworks,
+            "patterns": brain.patterns,
+            "lastTopics": brain.lastTopics,
+            "petLevel": pet.level,
+        ]
+        if let jsonData = try? JSONSerialization.data(withJSONObject: data, options: .prettyPrinted),
+           let json = String(data: jsonData, encoding: .utf8) {
+            do {
+                try json.write(toFile: exportPath, atomically: true, encoding: .utf8)
+                let size = jsonData.count
+                appendColored("Exported pet brain!\n", color: cGreen, bold: true)
+                appendColored("  Path: \(exportPath)\n", color: cCyan)
+                appendColored("  Size: \(size) bytes\n", color: cGray)
+                appendColored("  Languages: \(brain.languages.count), Frameworks: \(brain.frameworks.count), Facts: \(brain.facts.count)\n\n", color: cGray)
+                bubbleLabel.stringValue = speechBubble("Brain exported!")
+                playSound("Pop")
+            } catch {
+                appendColored("Export failed: \(error.localizedDescription)\n\n", color: cRed)
+            }
+        }
     }
 
     // MARK: - Leaderboard
