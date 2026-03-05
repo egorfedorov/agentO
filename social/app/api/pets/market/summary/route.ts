@@ -171,7 +171,7 @@ export async function GET(req: NextRequest) {
     const avgRentalDays = recentRentals.length
       ? Math.round((recentRentalDaysTotal / recentRentals.length) * 10) / 10
       : 0
-    const activeListings = Math.max(0, toInt(activeListingsRaw, 0))
+    const activeListings = Math.max(activePriceCount, Math.max(0, toInt(activeListingsRaw, 0)))
     const activeRentals = Math.max(0, toInt(activeRentalsRaw, 0))
     const activeMarketPool = activeListings + activeRentals
     const utilizationPct =
