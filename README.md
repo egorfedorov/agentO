@@ -62,6 +62,40 @@ xattr -cr ~/Downloads/AgentO.app
 - Correct: `/update`, `/battle user`, `/rent publish 50 7 CyberCat`
 - Incorrect: `update`, `!update`
 
+## New in v6.2.0
+
+### Tactical PvP Duels
+- Challenge flow is now explicit: invite -> accept/decline -> both submit move.
+- Moves use zone strategy (`head`, `body`, `legs`) for both attack and defense.
+- Commands:
+  - `/battle <username>`
+  - `/accept <username>` / `/decline <username>`
+  - `/move <attackZone> <defenseZone>`
+
+### Pet Marketplace (Rentals)
+- Publish your pet as a rental listing directly from Agent-O.
+- Rent other players' pets and track rental lifecycle/history.
+- Commands:
+  - `/market`
+  - `/rent publish <pricePerDay> <maxDays> <title>`
+  - `/rent take <owner> <days>`
+  - `/rent my [owner|renter|both]`
+  - `/rent end <rentalId>`
+- Web landing:
+  - Leaderboard: https://social-coral-five.vercel.app/
+  - Marketplace: https://social-coral-five.vercel.app/marketplace
+
+### Pet Training Loop
+- New training dashboard and memory-training command for your pet.
+- Commands:
+  - `/training` — training quality dashboard
+  - `/train <fact>` — train pet memory (+XP)
+  - `/promptcoach [N]` — prompt quality coaching
+
+### Landing & Docs Refresh
+- Landing page now highlights tactical duels, marketplace rentals, and training.
+- README includes slash-command rule and pre-release checks for `/update`.
+
 ## Features
 
 ### Guided Onboarding

@@ -4,14 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Agent-O -- Your ASCII Desktop Companion for AI Coding</title>
-    <meta name="description" content="A native macOS floating Tamagotchi that integrates with Claude CLI & Codex CLI. Zero dependencies, pure Swift. Feed it, play with it, watch it evolve as you code.">
+    <meta name="description" content="A native macOS floating Tamagotchi for Claude CLI & Codex CLI with tactical pet duels, pet rentals marketplace, and trainable pet brain. Zero dependencies, pure Swift.">
     <meta property="og:title" content="Agent-O -- ASCII Desktop Companion">
-    <meta property="og:description" content="A floating Tamagotchi for developers. Integrates with Claude CLI & Codex CLI. Zero dependencies, pure Swift.">
+    <meta property="og:description" content="ASCII coding companion with tactical duels, pet rentals marketplace, and trainable pet brain. Integrates with Claude CLI & Codex CLI.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://egorfedorov.github.io/agentO/">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="Agent-O -- ASCII Desktop Companion">
-    <meta name="twitter:description" content="A floating Tamagotchi for developers. Feed it, play with it, watch it evolve as you code.">
+    <meta name="twitter:description" content="ASCII coding companion with tactical duels, rentals marketplace, and trainable pet brain.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -273,6 +273,46 @@
             letter-spacing: 1px;
             opacity: 0.6;
             animation: float 2.5s ease-in-out infinite;
+        }
+
+        .hero-note {
+            color: var(--text-dim);
+            font-size: 0.78rem;
+            margin-top: -1.6rem;
+            margin-bottom: 2.2rem;
+        }
+
+        .hero-note code {
+            color: var(--green);
+        }
+
+        .release-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.25rem;
+        }
+
+        .release-card {
+            background: linear-gradient(160deg, rgba(77, 212, 230, 0.06), rgba(167, 139, 250, 0.06));
+            border: 1px solid var(--border-hover);
+            border-radius: 14px;
+            padding: 1.4rem;
+        }
+
+        .release-card h3 {
+            font-size: 0.95rem;
+            margin-bottom: 0.55rem;
+        }
+
+        .release-card p {
+            font-size: 0.82rem;
+            color: var(--text-dim);
+            margin-bottom: 0.65rem;
+        }
+
+        .release-card code {
+            color: var(--green);
+            font-size: 0.75rem;
         }
 
         /* ============================================
@@ -695,19 +735,51 @@
     <h1 class="hero-title gradient-text">Agent-O</h1>
     <p class="hero-tagline">
         Your <strong>ASCII Desktop Companion</strong> for Claude CLI &amp; Codex CLI
+        with tactical duels, social pet rentals, and a trainable AI pet brain.
     </p>
 
     <div class="hero-cta">
         <a href="https://github.com/egorfedorov/agentO/releases" class="btn btn-primary">
             &#11015; Download
         </a>
+        <a href="https://social-coral-five.vercel.app/marketplace" class="btn btn-secondary">
+            &#127970; Pet Marketplace
+        </a>
         <a href="https://social-coral-five.vercel.app/" class="btn btn-secondary">
-            &#9733; View Leaderboard
+            &#127942; Leaderboard
         </a>
     </div>
+    <p class="hero-note">Use slash commands only: <code>/update</code> <code>/battle</code> <code>/market</code> <code>/training</code></p>
 
     <div class="hero-scroll">&#9660; scroll to explore</div>
 </div>
+
+<!-- ========== NEW IN V6.2.0 ========== -->
+<section>
+    <div class="container">
+        <span class="section-label">New in v6.2.0</span>
+        <h2 class="section-heading">Big social update: <span class="gradient-text">fight, rent, train</span></h2>
+        <p class="section-desc">Agent-O is now a multiplayer coding companion with tactical duels, a public pet rental market, and a real training loop for your pet's memory.</p>
+
+        <div class="release-grid">
+            <div class="release-card">
+                <h3>&#9876; Tactical Duel System</h3>
+                <p>Battle flow is now challenge-based. Opponent must accept, then both players pick attack and defense zones (head/body/legs).</p>
+                <code>/battle username -> /accept username -> /move head body</code>
+            </div>
+            <div class="release-card">
+                <h3>&#127970; Pet Marketplace Rentals</h3>
+                <p>Publish your pet listing, rent other pets, track active and completed rentals, and view everything on a web marketplace.</p>
+                <code>/rent publish 50 7 CyberCat | /rent take owner 3</code>
+            </div>
+            <div class="release-card">
+                <h3>&#129504; Training Dashboard</h3>
+                <p>See training score, prompt quality, learned patterns, and continuously improve your pet with explicit memory training.</p>
+                <code>/training | /train "I prefer concise patch plans"</code>
+            </div>
+        </div>
+    </div>
+</section>
 
 <!-- ========== FEATURES ========== -->
 <section>
@@ -732,7 +804,7 @@
             <div class="feature-card">
                 <span class="feature-icon">&#9876;</span>
                 <h3>Pet Battles</h3>
-                <p>Challenge other players with <code style="color:var(--cyan);">/battle username</code>; duel starts after <code style="color:var(--cyan);">/accept</code>. Stats-based combat with XP rewards for the winner.</p>
+                <p>Challenge another player, wait for accept, then pick attack + defense zones. Tactical choices can beat raw level difference.</p>
             </div>
 
             <div class="feature-card">
@@ -745,7 +817,6 @@
                 <span class="feature-icon">&#128220;</span>
                 <h3>Daily Quests</h3>
                 <p>Fresh objectives every day to keep you engaged and earning bonus XP.</p>
-                <span class="feature-tag tag-coming">COMING SOON</span>
             </div>
 
             <div class="feature-card">
@@ -758,6 +829,12 @@
                 <span class="feature-icon">&#127760;</span>
                 <h3>Social Leaderboard</h3>
                 <p>Compete globally. Track XP, level, and achievements. See how your Agent-O stacks up against others.</p>
+            </div>
+
+            <div class="feature-card">
+                <span class="feature-icon">&#127970;</span>
+                <h3>Pet Marketplace</h3>
+                <p>Rent out your pet or rent someone else's. Includes public listings, rental history, and owner token protection.</p>
             </div>
 
             <div class="feature-card">
@@ -787,7 +864,7 @@
             <div class="feature-card">
                 <span class="feature-icon">&#128260;</span>
                 <h3>Auto-Update</h3>
-                <p>Agent-O checks for updates automatically and keeps itself current with the latest features.</p>
+                <p>Agent-O checks for updates automatically. Manual update command is slash-based: <code style="color:var(--green);">/update</code>.</p>
             </div>
         </div>
     </div>
@@ -826,9 +903,10 @@
             <div class="step">
                 <div class="step-number">3</div>
                 <h3>Code with your pet</h3>
-                <p>Ask Claude questions, earn XP, unlock achievements, battle friends, and watch your companion evolve.</p>
+                <p>Ask Claude/Codex, train your pet memory, duel players, publish rentals, and grow your pet's social rank.</p>
                 <div class="step-ascii">
   > explain this fn
+  /training
   &#10003; +25 XP
   &#9733; Level Up!
                 </div>
@@ -862,7 +940,7 @@
                 <div class="community-stat-label">Languages</div>
             </div>
             <div class="community-stat">
-                <div class="community-stat-num gradient-text">35+</div>
+                <div class="community-stat-num gradient-text">50+</div>
                 <div class="community-stat-label">Commands</div>
             </div>
             <div class="community-stat">
@@ -910,6 +988,9 @@
                 &#11015; Download Latest Release
             </a>
         </div>
+        <p style="margin-top:0.95rem;color:var(--text-dim);font-size:0.78rem;">
+            Tip: commands must start with slash, for example <code style="color:var(--green);">/update</code>.
+        </p>
     </div>
 </section>
 
@@ -929,6 +1010,8 @@
         <a href="https://github.com/egorfedorov/agentO/releases">Releases</a>
         &nbsp;&middot;&nbsp;
         <a href="https://social-coral-five.vercel.app/">Leaderboard</a>
+        &nbsp;&middot;&nbsp;
+        <a href="https://social-coral-five.vercel.app/marketplace">Marketplace</a>
         &nbsp;&middot;&nbsp;
         MIT License
     </p>
