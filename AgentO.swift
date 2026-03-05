@@ -1362,6 +1362,7 @@ class DropView: NSView {
 // MARK: - Main App Delegate
 
 class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
+    static let currentVersion = "2.4.0"
     // UI
     var window: NSPanel!
     var miniWindow: NSPanel!
@@ -1449,6 +1450,10 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         showWelcome()
         refreshGitStatus()
         playSound("Funk")
+        // Check for updates 5 seconds after launch
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
+            self?.checkForUpdateSilent()
+        }
     }
 
     // MARK: - Menu Bar
@@ -2556,6 +2561,14 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             showHelp()
             return true
 
+        case "!update":
+            checkForUpdate()
+            return true
+
+        case "!version":
+            appendColored("Agent-O v\(AgentODelegate.currentVersion)\n\n", color: cCyan, bold: true)
+            return true
+
         case "!watch":
             startClipboardWatch()
             return true
@@ -3473,6 +3486,8 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             ("!ps", "→ monitor processes"),
             ("!tip", "→ random tip"),
             ("!history", "→ command history"),
+            ("!update", "→ check & install updates"),
+            ("!version", "→ current version"),
             ("!clear", "→ clear output"),
         ]
         for (cmd, desc) in toolCmds {
@@ -3484,6 +3499,212 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         appendOutput("Commit · Tests · Explain · Review\n")
         appendColored("Hotkey: ", color: cPurple, bold: true)
         appendOutput("⌘⇧O toggle, ↑↓ history, Drag&Drop files\n\n")
+    }
+
+    // MARK: - Auto-Update
+
+    func checkForUpdate() {
+        appendColored("🔄 Checking for updates...\n", color: cCyan)
+        setState(.thinking)
+        bubbleLabel.stringValue = speechBubble("Checking updates...")
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
+            let urlString = "https://api.github.com/repos/egorfedorov/agentO/releases/latest"
+            guard let url = URL(string: urlString) else { return }
+
+            var request = URLRequest(url: url)
+            request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+
+            let task = URLSession.shared.dataTask(with: request) { data, response, error in
+                DispatchQueue.main.async {
+                    if let error = error {
+                        self.appendColored("❌ \(error.localizedDescription)\n\n", color: self.cRed)
+                        self.setState(.error)
+                        return
+                    }
+                    guard let data = data,
+                          let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                          let tagName = json["tag_name"] as? String else {
+                        self.appendColored("❌ Could not check version\n\n", color: self.cRed)
+                        self.setState(.error)
+                        return
+                    }
+
+                    let remoteVersion = tagName.hasPrefix("v") ? String(tagName.dropFirst()) : tagName
+
+                    if remoteVersion == AgentODelegate.currentVersion {
+                        self.appendColored("✅ Already up to date! v\(AgentODelegate.currentVersion)\n\n", color: self.cGreen, bold: true)
+                        self.setState(.happy)
+                        self.bubbleLabel.stringValue = speechBubble("Up to date!")
+                        return
+                    }
+
+                    // New version available — find download URL
+                    self.appendColored("🆕 New version: v\(remoteVersion) (current: v\(AgentODelegate.currentVersion))\n", color: self.cYellow, bold: true)
+
+                    if let assets = json["assets"] as? [[String: Any]] {
+                        let zipAsset = assets.first(where: { ($0["name"] as? String ?? "").hasSuffix("-macos.zip") })
+                        if let downloadURL = zipAsset?["browser_download_url"] as? String {
+                            self.appendColored("⬇️  Downloading...\n", color: self.cCyan)
+                            self.downloadAndInstallUpdate(from: downloadURL, version: remoteVersion)
+                            return
+                        }
+                    }
+
+                    // No zip asset — show manual update link
+                    let body = json["html_url"] as? String ?? "https://github.com/egorfedorov/agentO/releases"
+                    self.appendColored("📥 Download: \(body)\n\n", color: self.cCyan)
+                    self.setState(.idle)
+                }
+            }
+            task.resume()
+        }
+    }
+
+    func downloadAndInstallUpdate(from urlString: String, version: String) {
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self,
+                  let url = URL(string: urlString) else { return }
+
+            let task = URLSession.shared.downloadTask(with: url) { tempURL, response, error in
+                DispatchQueue.main.async {
+                    if let error = error {
+                        self.appendColored("❌ Download failed: \(error.localizedDescription)\n\n", color: self.cRed)
+                        self.setState(.error)
+                        return
+                    }
+                    guard let tempURL = tempURL else {
+                        self.appendColored("❌ Download failed\n\n", color: self.cRed)
+                        self.setState(.error)
+                        return
+                    }
+
+                    // Find the current .app bundle path
+                    let bundlePath = Bundle.main.bundlePath
+                    let isAppBundle = bundlePath.hasSuffix(".app")
+
+                    if isAppBundle {
+                        // Running as .app — replace in place
+                        self.installAppUpdate(from: tempURL, to: bundlePath, version: version)
+                    } else {
+                        // Running from CLI (./run.sh) — extract to Downloads
+                        self.extractToDownloads(from: tempURL, version: version)
+                    }
+                }
+            }
+            task.resume()
+        }
+    }
+
+    func installAppUpdate(from zipURL: URL, to appPath: String, version: String) {
+        let fm = FileManager.default
+        let tmpDir = NSTemporaryDirectory() + "agento-update-\(UUID().uuidString)"
+
+        do {
+            // Unzip
+            let unzipProc = Process()
+            unzipProc.executableURL = URL(fileURLWithPath: "/usr/bin/unzip")
+            unzipProc.arguments = ["-o", zipURL.path, "-d", tmpDir]
+            try unzipProc.run()
+            unzipProc.waitUntilExit()
+
+            // Find AgentO.app in extracted folder
+            let extracted = try fm.contentsOfDirectory(atPath: tmpDir)
+            guard let appName = extracted.first(where: { $0.hasSuffix(".app") }) else {
+                appendColored("❌ No .app found in update\n\n", color: cRed)
+                setState(.error)
+                return
+            }
+
+            let newAppPath = tmpDir + "/" + appName
+            let parentDir = (appPath as NSString).deletingLastPathComponent
+            let backupPath = parentDir + "/AgentO-backup.app"
+
+            // Backup current, move new
+            try? fm.removeItem(atPath: backupPath)
+            try fm.moveItem(atPath: appPath, toPath: backupPath)
+            try fm.moveItem(atPath: newAppPath, toPath: appPath)
+
+            // Remove quarantine
+            let xattr = Process()
+            xattr.executableURL = URL(fileURLWithPath: "/usr/bin/xattr")
+            xattr.arguments = ["-cr", appPath]
+            try xattr.run()
+            xattr.waitUntilExit()
+
+            appendColored("✅ Updated to v\(version)!\n", color: cGreen, bold: true)
+            appendColored("🔄 Restarting...\n\n", color: cCyan)
+            setState(.happy)
+            bubbleLabel.stringValue = speechBubble("Updated! Restarting...")
+
+            // Relaunch
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                let proc = Process()
+                proc.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+                proc.arguments = [appPath]
+                try? proc.run()
+                NSApp.terminate(nil)
+            }
+        } catch {
+            appendColored("❌ Update failed: \(error.localizedDescription)\n\n", color: cRed)
+            setState(.error)
+        }
+    }
+
+    func extractToDownloads(from zipURL: URL, version: String) {
+        let downloadsDir = NSSearchPathForDirectoriesInDomains(.downloadsDirectory, .userDomainMask, true).first ?? "/tmp"
+        let destDir = downloadsDir + "/AgentO-v\(version)"
+
+        do {
+            let proc = Process()
+            proc.executableURL = URL(fileURLWithPath: "/usr/bin/unzip")
+            proc.arguments = ["-o", zipURL.path, "-d", destDir]
+            try proc.run()
+            proc.waitUntilExit()
+
+            // Remove quarantine
+            let xattr = Process()
+            xattr.executableURL = URL(fileURLWithPath: "/usr/bin/xattr")
+            xattr.arguments = ["-cr", destDir]
+            try xattr.run()
+            xattr.waitUntilExit()
+
+            appendColored("✅ Downloaded v\(version) to:\n", color: cGreen, bold: true)
+            appendColored("  \(destDir)/AgentO.app\n", color: cCyan)
+            appendColored("  Open it to use the new version\n\n", color: cGray)
+            setState(.happy)
+            bubbleLabel.stringValue = speechBubble("Updated! v\(version)")
+        } catch {
+            appendColored("❌ Extract failed: \(error.localizedDescription)\n\n", color: cRed)
+            setState(.error)
+        }
+    }
+
+    func checkForUpdateSilent() {
+        DispatchQueue.global(qos: .background).async { [weak self] in
+            guard let self = self else { return }
+            let urlString = "https://api.github.com/repos/egorfedorov/agentO/releases/latest"
+            guard let url = URL(string: urlString) else { return }
+
+            var request = URLRequest(url: url)
+            request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+
+            let task = URLSession.shared.dataTask(with: request) { data, _, _ in
+                guard let data = data,
+                      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                      let tagName = json["tag_name"] as? String else { return }
+
+                let remoteVersion = tagName.hasPrefix("v") ? String(tagName.dropFirst()) : tagName
+                guard remoteVersion != AgentODelegate.currentVersion else { return }
+
+                DispatchQueue.main.async {
+                    self.appendColored("🆕 Update available: v\(remoteVersion)! Type !update to install\n\n", color: self.cYellow, bold: true)
+                    self.bubbleLabel.stringValue = speechBubble("Update available!")
+                }
+            }
+            task.resume()
+        }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
