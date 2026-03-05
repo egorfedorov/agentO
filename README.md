@@ -102,6 +102,22 @@ Unlock badges for milestones — first command, 100 commands, commits, streaks, 
 - Shows level, evolution stage, stats, achievements, streak
 - Share on Twitter/Discord to flex your Agent-O
 
+### Smart Dev Tools
+- `!screenshot` — capture screen area and analyze with Claude
+- `!diff` — send git diff to Claude for AI code review
+- `!commit` — auto-generate commit message from staged changes
+- `!ask <file>` — send any file to Claude for analysis
+
+### Multiple Chats
+- `!chat new` — start a fresh conversation
+- `!chat list` — see all your chat sessions
+- `!chat <N>` — switch between chats
+
+### Auto-Commit Detection
+- Agent-O monitors your git repo in the background
+- Nudges you when you have 10+ uncommitted changes
+- Suggests `!commit` to auto-generate a message
+
 ### Customization
 - **4 Skins:** Robot, Cat, Skull, Clippy
 - **5 Themes:** Matrix, Cyberpunk, Sunset, Ocean, Hacker
@@ -148,6 +164,13 @@ Unlock badges for milestones — first command, 100 commands, commits, streaks, 
 | `!snippets` | List saved snippets |
 | `!search <q>` | Search snippets |
 | `!share` | Export pet share card (SVG) |
+| `!screenshot` | Capture & analyze screen area |
+| `!diff` | AI code review of git changes |
+| `!commit` | Auto-generate commit message |
+| `!ask <file>` | Analyze a file with Claude |
+| `!chat new` | Start new chat |
+| `!chat list` | List all chats |
+| `!chat <N>` | Switch to chat N |
 | `!git` | Git project status |
 | `!ps` | Monitor processes |
 | `!tip` | Random tip |

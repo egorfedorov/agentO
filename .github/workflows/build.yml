@@ -1,0 +1,60 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Agent-O
+        run: |
+          swiftc AgentO.swift -o agento \
+            -framework AppKit \
+            -framework Foundation \
+            -framework Carbon \
+            -O
+
+      - name: Create .app bundle
+        run: |
+          mkdir -p AgentO.app/Contents/MacOS
+          mkdir -p AgentO.app/Contents/Resources
+          cp agento AgentO.app/Contents/MacOS/
+          cat > AgentO.app/Contents/Info.plist << 'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleExecutable</key>
+            <string>agento</string>
+            <key>CFBundleIdentifier</key>
+            <string>com.egorfedorov.agento</string>
+            <key>CFBundleName</key>
+            <string>Agent-O</string>
+            <key>CFBundleVersion</key>
+            <string>${GITHUB_REF_NAME}</string>
+            <key>CFBundleShortVersionString</key>
+            <string>${GITHUB_REF_NAME}</string>
+            <key>LSUIElement</key>
+            <true/>
+            <key>NSHighResolutionCapable</key>
+            <true/>
+          </dict>
+          </plist>
+          PLIST
+
+      - name: Zip .app bundle
+        run: |
+          zip -r AgentO-${{ github.ref_name }}-macos.zip AgentO.app
+
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: AgentO-${{ github.ref_name }}-macos.zip
+          generate_release_notes: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

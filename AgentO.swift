@@ -1416,6 +1416,13 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
     var savedSnippets: [(title: String, content: String, date: Date)] = []
     var lastResponse: String = ""
 
+    // Chat system
+    var chatSessions: [[String]] = [[]]  // array of output histories
+    var currentChat: Int = 0
+
+    // Auto-commit detection
+    var lastGitChangeCount: Int = 0
+
     // Colors
     let cGreen = NSColor(red: 0.0, green: 0.9, blue: 0.4, alpha: 1.0)
     let cCyan = NSColor(red: 0.3, green: 0.8, blue: 1.0, alpha: 1.0)
@@ -1766,6 +1773,8 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             } else if self.pet.energy < 20 && self.state == .idle {
                 self.bubbleLabel.stringValue = speechBubble(L10n.t("tired"))
             }
+            // Auto-detect git changes
+            self.checkGitChanges()
         }
     }
 
@@ -2566,6 +2575,26 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             generateShareCard()
             return true
 
+        case "!screenshot":
+            captureScreenshot()
+            return true
+
+        case "!diff":
+            reviewDiff()
+            return true
+
+        case "!commit":
+            autoCommitMessage()
+            return true
+
+        case "!chat new":
+            newChat()
+            return true
+
+        case "!chat list":
+            listChats()
+            return true
+
         case "!history":
             appendColored("📜 Command history:\n", color: cCyan, bold: true)
             for (i, cmd) in commandHistory.dropLast().enumerated() {
@@ -2575,6 +2604,17 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             return true
 
         default:
+            // Ask about file
+            if cmd.hasPrefix("!ask ") {
+                let path = String(cmd.dropFirst(5)).trimmingCharacters(in: .whitespaces)
+                askAboutFile(path)
+                return true
+            }
+            // Switch chat
+            if cmd.hasPrefix("!chat "), let num = Int(String(cmd.dropFirst(6))) {
+                switchChat(to: num)
+                return true
+            }
             // Snippet search
             if cmd.hasPrefix("!search ") {
                 let query = String(cmd.dropFirst(8)).trimmingCharacters(in: .whitespaces)
@@ -2777,6 +2817,240 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             playSound("Pop")
         } catch {
             appendColored("❌ Failed to save: \(error.localizedDescription)\n\n", color: cRed)
+        }
+    }
+
+    // MARK: - Screenshot
+
+    func captureScreenshot() {
+        let tmpPath = NSTemporaryDirectory() + "agento_screenshot.png"
+        appendColored("📸 Click and drag to capture a screen area...\n", color: cCyan, bold: true)
+        bubbleLabel.stringValue = speechBubble("Select area... 📸")
+        setState(.thinking)
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+            process.arguments = ["-i", tmpPath]
+            try? process.run()
+            process.waitUntilExit()
+
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                if FileManager.default.fileExists(atPath: tmpPath) {
+                    self.appendColored("📸 Screenshot captured!\n", color: self.cGreen, bold: true)
+                    self.appendColored("⏳ → claude (analyzing image)...\n", color: self.cDimGray)
+                    let oldLevel = self.pet.level
+                    self.pet.onCommandRun()
+                    self.pet.save()
+                    self.refreshStatsDisplay()
+                    DispatchQueue.global(qos: .userInitiated).async {
+                        self.runCLI(cli: "claude", prompt: "Analyze this screenshot and describe what you see. If there's code, explain it. If there's an error, suggest a fix. Image: \(tmpPath)", oldLevel: oldLevel)
+                    }
+                } else {
+                    self.appendColored("❌ Screenshot cancelled\n\n", color: self.cGray)
+                    self.setState(.idle)
+                }
+            }
+        }
+    }
+
+    // MARK: - Git Diff Review
+
+    func reviewDiff() {
+        setState(.thinking)
+        appendColored("🔍 Getting git diff...\n", color: cCyan, bold: true)
+        bubbleLabel.stringValue = speechBubble("Reviewing code... 🔍")
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
+            let process = Process()
+            let pipe = Pipe()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+            process.arguments = ["diff", "--stat", "--diff-filter=ACDMR", "-p"]
+            process.standardOutput = pipe
+            process.standardError = pipe
+            try? process.run()
+            process.waitUntilExit()
+
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            let diff = String(data: data, encoding: .utf8) ?? ""
+
+            DispatchQueue.main.async {
+                if diff.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    self.appendColored("✅ No changes to review (clean working tree)\n\n", color: self.cGreen)
+                    self.setState(.idle)
+                    return
+                }
+                let truncated = String(diff.prefix(3000))
+                self.appendColored("📝 Sending diff to Claude for review...\n", color: self.cDimGray)
+                let oldLevel = self.pet.level
+                self.pet.onCommandRun()
+                self.pet.save()
+                self.refreshStatsDisplay()
+                DispatchQueue.global(qos: .userInitiated).async {
+                    self.runCLI(cli: "claude", prompt: "Review this git diff. Point out potential bugs, suggest improvements, and highlight good changes. Be concise.\n\n\(truncated)", oldLevel: oldLevel)
+                }
+            }
+        }
+    }
+
+    // MARK: - Auto Commit Message
+
+    func autoCommitMessage() {
+        setState(.thinking)
+        appendColored("📝 Generating commit message...\n", color: cCyan, bold: true)
+        bubbleLabel.stringValue = speechBubble("Writing commit... 📝")
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
+            // Get staged diff
+            let process = Process()
+            let pipe = Pipe()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+            process.arguments = ["diff", "--cached", "--stat", "-p"]
+            process.standardOutput = pipe
+            process.standardError = pipe
+            try? process.run()
+            process.waitUntilExit()
+
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            let diff = String(data: data, encoding: .utf8) ?? ""
+
+            DispatchQueue.main.async {
+                if diff.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    self.appendColored("❌ No staged changes. Run: git add <files> first\n\n", color: self.cRed)
+                    self.setState(.idle)
+                    return
+                }
+                let truncated = String(diff.prefix(3000))
+                self.appendColored("⏳ → claude...\n", color: self.cDimGray)
+                let oldLevel = self.pet.level
+                self.pet.onCommandRun()
+                self.pet.save()
+                self.refreshStatsDisplay()
+                DispatchQueue.global(qos: .userInitiated).async {
+                    self.runCLI(cli: "claude", prompt: "Generate a concise git commit message (1-2 lines) for these staged changes. Just the message, no explanation.\n\n\(truncated)", oldLevel: oldLevel)
+                }
+            }
+        }
+    }
+
+    // MARK: - Ask About File
+
+    func askAboutFile(_ path: String) {
+        let expandedPath = NSString(string: path).expandingTildeInPath
+        guard FileManager.default.fileExists(atPath: expandedPath) else {
+            appendColored("❌ File not found: \(path)\n\n", color: cRed)
+            return
+        }
+        guard let content = try? String(contentsOfFile: expandedPath, encoding: .utf8) else {
+            appendColored("❌ Cannot read file: \(path)\n\n", color: cRed)
+            return
+        }
+        let truncated = String(content.prefix(4000))
+        let fileName = (path as NSString).lastPathComponent
+        setState(.thinking)
+        appendColored("📄 Reading \(fileName) (\(content.count) chars)...\n", color: cCyan)
+        bubbleLabel.stringValue = speechBubble("Analyzing \(fileName)...")
+        appendColored("⏳ → claude...\n", color: cDimGray)
+
+        let oldLevel = pet.level
+        pet.onCommandRun()
+        pet.save()
+        refreshStatsDisplay()
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            self?.runCLI(cli: "claude", prompt: "Explain this file (\(fileName)). What does it do? Any issues?\n\n```\n\(truncated)\n```", oldLevel: oldLevel)
+        }
+    }
+
+    // MARK: - Chat System
+
+    func newChat() {
+        chatSessions.append([])
+        currentChat = chatSessions.count - 1
+        outputText.textStorage?.setAttributedString(NSAttributedString(string: ""))
+        appendColored("💬 New chat #\(currentChat + 1)\n\n", color: cCyan, bold: true)
+        bubbleLabel.stringValue = speechBubble("New chat! 💬")
+        playSound("Pop")
+    }
+
+    func listChats() {
+        appendColored("💬 Chats (\(chatSessions.count)):\n", color: cCyan, bold: true)
+        for (i, session) in chatSessions.enumerated() {
+            let marker = i == currentChat ? " ◀ current" : ""
+            let preview = session.last ?? "(empty)"
+            let shortPreview = String(preview.prefix(40))
+            appendColored("  \(i + 1). ", color: cYellow)
+            appendOutput("\(shortPreview)\(marker)\n")
+        }
+        appendOutput("\n")
+        appendColored("  !chat <N> to switch, !chat new for new\n\n", color: cGray)
+    }
+
+    func switchChat(to num: Int) {
+        let index = num - 1
+        guard index >= 0, index < chatSessions.count else {
+            appendColored("❌ Chat #\(num) doesn't exist\n\n", color: cRed)
+            return
+        }
+        currentChat = index
+        outputText.textStorage?.setAttributedString(NSAttributedString(string: ""))
+        appendColored("💬 Switched to chat #\(num)\n\n", color: cCyan, bold: true)
+        bubbleLabel.stringValue = speechBubble("Chat #\(num)")
+        playSound("Pop")
+    }
+
+    // MARK: - Auto-commit Detection
+
+    func checkGitChanges() {
+        DispatchQueue.global(qos: .background).async { [weak self] in
+            let process = Process()
+            let pipe = Pipe()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+            process.arguments = ["status", "--porcelain"]
+            process.standardOutput = pipe
+            process.standardError = Pipe()
+            try? process.run()
+            process.waitUntilExit()
+
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            let output = String(data: data, encoding: .utf8) ?? ""
+            let changeCount = output.components(separatedBy: "\n").filter { !$0.isEmpty }.count
+
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                if changeCount >= 10 && self.lastGitChangeCount < 10 {
+                    self.appendColored("💡 You have \(changeCount) uncommitted changes.\n", color: self.cYellow, bold: true)
+                    self.appendColored("   Type !commit to auto-generate a commit message\n\n", color: self.cGray)
+                    self.bubbleLabel.stringValue = speechBubble("Time to commit? 💡")
+                }
+                self.lastGitChangeCount = changeCount
+            }
+        }
+    }
+
+    // MARK: - Enhanced Sounds
+
+    func playSoundForEvent(_ event: String) {
+        switch event {
+        case "levelup":
+            playSound("Hero")
+        case "achievement":
+            playSound("Glass")
+        case "feed", "play", "rest":
+            playSound("Pop")
+        case "error":
+            playSound("Basso")
+        case "gamewin":
+            playSound("Purr")
+        case "translate":
+            playSound("Tink")
+        case "pomo_done":
+            playSound("Submarine")
+        default:
+            playSound("Pop")
         }
     }
 
@@ -3129,18 +3403,32 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             appendOutput("\(desc)\n")
         }
         appendColored("  Tools\n", color: cPurple, bold: true)
-        let toolCmds: [(String, String)] = [
-            ("!git", "→ git project status"),
-            ("!ps", "→ monitor processes"),
-            ("!tip", "→ random tip"),
-            ("!history", "→ command history"),
-            ("!clear", "→ clear output"),
+        appendColored("  Smart Tools\n", color: cPurple, bold: true)
+        let smartCmds: [(String, String)] = [
+            ("!screenshot", "→ capture & analyze screen area"),
+            ("!diff", "→ AI code review of git changes"),
+            ("!commit", "→ auto-generate commit message"),
+            ("!ask <file>", "→ analyze a file with Claude"),
             ("!watch", "→ clipboard watcher on"),
             ("!unwatch", "→ clipboard watcher off"),
             ("!save", "→ save last response"),
             ("!snippets", "→ list saved snippets"),
             ("!search <q>", "→ search snippets"),
             ("!share", "→ export pet share card"),
+            ("!chat new", "→ start new chat"),
+            ("!chat list", "→ list all chats"),
+            ("!chat <N>", "→ switch to chat N"),
+        ]
+        for (cmd, desc) in smartCmds {
+            appendColored("  \(cmd.padding(toLength: 16, withPad: " ", startingAt: 0))", color: cYellow)
+            appendOutput("\(desc)\n")
+        }
+        let toolCmds: [(String, String)] = [
+            ("!git", "→ git project status"),
+            ("!ps", "→ monitor processes"),
+            ("!tip", "→ random tip"),
+            ("!history", "→ command history"),
+            ("!clear", "→ clear output"),
         ]
         for (cmd, desc) in toolCmds {
             appendColored("  \(cmd.padding(toLength: 16, withPad: " ", startingAt: 0))", color: cYellow)
