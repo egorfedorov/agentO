@@ -1426,6 +1426,22 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
     // Auto-commit detection
     var lastGitChangeCount: Int = 0
 
+    // Reminders
+    var reminders: [(text: String, timer: Timer, fireDate: Date)] = []
+
+    // Clipboard history
+    var clipboardHistory: [(content: String, date: Date)] = []
+
+    // Currency rate cache
+    var cachedRates: [String: Double]? = nil
+    var ratesCacheDate: Date? = nil
+
+    // Daily tracking
+    var todayCommands: Int = 0
+    var todayXP: Int = 0
+    var todayDate: String = ""
+    var sessionStart: Date = Date()
+
     // Colors
     let cGreen = NSColor(red: 0.0, green: 0.9, blue: 0.4, alpha: 1.0)
     let cCyan = NSColor(red: 0.3, green: 0.8, blue: 1.0, alpha: 1.0)
@@ -2618,7 +2634,41 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             appendOutput("\n")
             return true
 
+        case "!reminders":
+            listReminders()
+            return true
+
+        case "!standup":
+            generateStandup()
+            return true
+
+        case "!daily":
+            showDailySummary()
+            return true
+
+        case "!clipboard":
+            showClipboardHistory("")
+            return true
+
         default:
+            // Reminder
+            if cmd.hasPrefix("!remind ") {
+                let args = String(cmd.dropFirst(8))
+                scheduleReminder(args)
+                return true
+            }
+            // Natural language shell
+            if cmd.hasPrefix("!sh ") {
+                let desc = String(cmd.dropFirst(4)).trimmingCharacters(in: .whitespaces)
+                naturalShell(desc)
+                return true
+            }
+            // Clipboard history with args
+            if cmd.hasPrefix("!clipboard ") {
+                let args = String(cmd.dropFirst(11))
+                showClipboardHistory(args)
+                return true
+            }
             // Ask about file
             if cmd.hasPrefix("!ask ") {
                 let path = String(cmd.dropFirst(5)).trimmingCharacters(in: .whitespaces)
@@ -2681,6 +2731,18 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                 }
                 return true
             }
+            // Quick calc & conversions
+            if cmd.hasPrefix("!calc ") {
+                let args = String(cmd.dropFirst(6)).trimmingCharacters(in: .whitespaces)
+                quickCalc(args)
+                return true
+            }
+            // Regex builder
+            if cmd.hasPrefix("!regex ") {
+                let desc = String(cmd.dropFirst(7)).trimmingCharacters(in: .whitespaces)
+                regexBuilder(desc)
+                return true
+            }
             // Number game guess
             if cmd.hasPrefix("!guess ") {
                 let num = String(cmd.dropFirst(7)).trimmingCharacters(in: .whitespaces)
@@ -2697,6 +2759,266 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             }
             return false
         }
+    }
+
+    // MARK: - Reminders
+
+    func scheduleReminder(_ args: String) {
+        let parts = args.trimmingCharacters(in: .whitespaces).split(separator: " ", maxSplits: 1)
+        guard parts.count >= 2 else {
+            appendColored("❌ Usage: !remind <time> <text>\n", color: cRed)
+            appendColored("  Example: !remind 30m check deploy\n", color: cGray)
+            appendColored("  Example: !remind 2h call meeting\n\n", color: cGray)
+            return
+        }
+
+        let timeStr = String(parts[0]).lowercased()
+        let text = String(parts[1])
+        var seconds: TimeInterval = 0
+
+        if timeStr.hasSuffix("m"), let mins = Double(timeStr.dropLast()) {
+            seconds = mins * 60
+        } else if timeStr.hasSuffix("h"), let hrs = Double(timeStr.dropLast()) {
+            seconds = hrs * 3600
+        } else {
+            appendColored("❌ Invalid time format. Use Xm (minutes) or Xh (hours)\n\n", color: cRed)
+            return
+        }
+
+        guard seconds > 0 else {
+            appendColored("❌ Time must be greater than 0\n\n", color: cRed)
+            return
+        }
+
+        let fireDate = Date().addingTimeInterval(seconds)
+        let timer = Timer.scheduledTimer(withTimeInterval: seconds, repeats: false) { [weak self] _ in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                self.appendColored("⏰ REMINDER: \(text)\n\n", color: self.cYellow, bold: true)
+                self.bubbleLabel.stringValue = speechBubble("Reminder: \(text)")
+                self.setState(.happy, duration: 3)
+                self.playSound("Glass")
+                self.sendNotification(title: "Agent-O Reminder", body: text)
+                self.reminders.removeAll { $0.text == text && $0.fireDate == fireDate }
+            }
+        }
+
+        reminders.append((text: text, timer: timer, fireDate: fireDate))
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        appendColored("⏰ Reminder set: \(text)\n", color: cGreen, bold: true)
+        appendColored("  Fires at \(formatter.string(from: fireDate)) (\(timeStr))\n\n", color: cGray)
+        bubbleLabel.stringValue = speechBubble("Reminder set!")
+        playSound("Pop")
+    }
+
+    func listReminders() {
+        let active = reminders.filter { $0.fireDate > Date() }
+        guard !active.isEmpty else {
+            appendColored("⏰ No active reminders\n\n", color: cDimGray)
+            return
+        }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        appendColored("⏰ Active Reminders (\(active.count)):\n", color: cCyan, bold: true)
+        for (i, r) in active.enumerated() {
+            let remaining = Int(r.fireDate.timeIntervalSinceNow)
+            let mins = remaining / 60
+            let secs = remaining % 60
+            appendColored("  \(i+1). ", color: cYellow)
+            appendOutput("\(r.text) — at \(formatter.string(from: r.fireDate)) (in \(mins)m \(secs)s)\n")
+        }
+        appendOutput("\n")
+    }
+
+    // MARK: - Daily Standup
+
+    func generateStandup() {
+        setState(.thinking)
+        bubbleLabel.stringValue = speechBubble("Preparing standup...")
+        appendColored("📋 Generating standup report...\n", color: cCyan, bold: true)
+
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            guard let self = self else { return }
+            let author = self.shell("git config user.name 2>/dev/null")?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let branch = self.shell("git branch --show-current 2>/dev/null")?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "N/A"
+            let commits = self.shell("git log --oneline --since=\"yesterday\" --author=\"\(author)\" 2>/dev/null")?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let commitCount = commits.isEmpty ? 0 : commits.components(separatedBy: "\n").count
+            let diffStat = self.shell("git diff --stat HEAD~\(max(commitCount, 1)) 2>/dev/null")?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+            var report = "## Daily Standup — \(DateFormatter.localizedString(from: Date(), dateStyle: .medium, timeStyle: .none))\n\n"
+            report += "**Branch:** \(branch)\n"
+            report += "**Author:** \(author)\n\n"
+
+            if commits.isEmpty {
+                report += "### Done\n- No commits since yesterday\n\n"
+            } else {
+                report += "### Done (\(commitCount) commits)\n"
+                for line in commits.components(separatedBy: "\n") where !line.isEmpty {
+                    report += "- \(line)\n"
+                }
+                report += "\n"
+            }
+
+            if !diffStat.isEmpty {
+                report += "### Files Changed\n```\n\(diffStat)\n```\n"
+            }
+
+            DispatchQueue.main.async {
+                self.appendColored("╭── Standup Report ───────────────────╮\n", color: self.cCyan)
+                self.appendColored("  Branch: \(branch)\n", color: self.cYellow)
+                self.appendColored("  Author: \(author)\n\n", color: self.cGray)
+
+                if commits.isEmpty {
+                    self.appendColored("  No commits since yesterday\n", color: self.cDimGray)
+                } else {
+                    self.appendColored("  Commits (\(commitCount)):\n", color: self.cGreen, bold: true)
+                    for line in commits.components(separatedBy: "\n") where !line.isEmpty {
+                        self.appendColored("  - \(line)\n", color: self.cGray)
+                    }
+                }
+
+                if !diffStat.isEmpty {
+                    self.appendColored("\n  Files changed:\n", color: self.cPurple, bold: true)
+                    for line in diffStat.components(separatedBy: "\n") where !line.isEmpty {
+                        self.appendColored("  \(line)\n", color: self.cDimGray)
+                    }
+                }
+
+                self.appendColored("╰────────────────────────────────────╯\n\n", color: self.cCyan)
+
+                // Copy to clipboard
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(report, forType: .string)
+                self.appendColored("📋 Standup copied to clipboard!\n\n", color: self.cGreen)
+                self.bubbleLabel.stringValue = speechBubble("Standup ready!")
+                self.setState(.happy, duration: 2)
+                self.playSound("Pop")
+            }
+        }
+    }
+
+    // MARK: - Natural Language Shell
+
+    func naturalShell(_ description: String) {
+        let dangerous = ["rm -rf /", "sudo ", "mkfs", "dd if="]
+        for d in dangerous {
+            if description.lowercased().contains(d) {
+                appendColored("❌ Refused: potentially dangerous command pattern detected\n\n", color: cRed)
+                setState(.error, duration: 2)
+                return
+            }
+        }
+
+        setState(.thinking)
+        bubbleLabel.stringValue = speechBubble("Converting to shell...")
+        appendColored("🐚 NL → Shell: \(description)\n", color: cCyan, bold: true)
+        appendColored("⏳ → claude...\n", color: cDimGray)
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
+            let prompt = "Convert this to a single shell command for macOS. Output ONLY the command, nothing else: \(description)"
+            let escapedPrompt = prompt
+                .replacingOccurrences(of: "\\", with: "\\\\")
+                .replacingOccurrences(of: "\"", with: "\\\"")
+                .replacingOccurrences(of: "$", with: "\\$")
+                .replacingOccurrences(of: "`", with: "\\`")
+            let generated = self.shell("claude -p \"\(escapedPrompt)\"")?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+            DispatchQueue.main.async {
+                guard !generated.isEmpty else {
+                    self.appendColored("❌ Could not generate command\n\n", color: self.cRed)
+                    self.setState(.error, duration: 2)
+                    return
+                }
+
+                // Safety check on generated command
+                for d in dangerous {
+                    if generated.lowercased().contains(d) {
+                        self.appendColored("❌ Generated command refused (dangerous): \(generated)\n\n", color: self.cRed)
+                        self.setState(.error, duration: 2)
+                        return
+                    }
+                }
+
+                self.appendColored("⚡ Command: ", color: self.cYellow, bold: true)
+                self.appendOutput("\(generated)\n")
+                self.appendColored("⏳ Executing...\n", color: self.cDimGray)
+
+                DispatchQueue.global(qos: .userInitiated).async {
+                    let output = self.shell(generated) ?? ""
+                    DispatchQueue.main.async {
+                        if !output.isEmpty {
+                            self.appendOutput(output)
+                            if !output.hasSuffix("\n") { self.appendOutput("\n") }
+                        }
+                        self.appendOutput("\n")
+                        self.setState(.happy, duration: 2)
+                        self.bubbleLabel.stringValue = speechBubble("Done!")
+                        self.playSound("Glass")
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Clipboard History
+
+    func showClipboardHistory(_ args: String) {
+        let arg = args.trimmingCharacters(in: .whitespaces)
+
+        // Search mode
+        if arg.hasPrefix("search ") {
+            let query = String(arg.dropFirst(7)).trimmingCharacters(in: .whitespaces).lowercased()
+            let results = clipboardHistory.filter { $0.content.lowercased().contains(query) }
+            guard !results.isEmpty else {
+                appendColored("🔍 No clipboard entries matching \"\(query)\"\n\n", color: cDimGray)
+                return
+            }
+            let formatter = DateFormatter()
+            formatter.dateFormat = "HH:mm:ss"
+            appendColored("🔍 Clipboard search: \"\(query)\" (\(results.count) results)\n", color: cCyan, bold: true)
+            for (i, entry) in results.enumerated() {
+                let preview = String(entry.content.prefix(60)).replacingOccurrences(of: "\n", with: " ")
+                appendColored("  \(i+1). ", color: cYellow)
+                appendColored("[\(formatter.string(from: entry.date))] ", color: cDimGray)
+                appendOutput("\(preview)\(entry.content.count > 60 ? "..." : "")\n")
+            }
+            appendOutput("\n")
+            return
+        }
+
+        // Copy back mode: !clipboard N
+        if let num = Int(arg) {
+            guard num >= 1 && num <= clipboardHistory.count else {
+                appendColored("❌ Invalid entry number. Range: 1-\(clipboardHistory.count)\n\n", color: cRed)
+                return
+            }
+            let entry = clipboardHistory[clipboardHistory.count - num]
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(entry.content, forType: .string)
+            let preview = String(entry.content.prefix(60)).replacingOccurrences(of: "\n", with: " ")
+            appendColored("📋 Copied entry #\(num) to clipboard: \(preview)\(entry.content.count > 60 ? "..." : "")\n\n", color: cGreen)
+            playSound("Pop")
+            return
+        }
+
+        // Default: show last 10
+        guard !clipboardHistory.isEmpty else {
+            appendColored("📋 Clipboard history is empty\n\n", color: cDimGray)
+            return
+        }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm:ss"
+        let entries = clipboardHistory.suffix(10)
+        appendColored("📋 Clipboard History (last \(entries.count)):\n", color: cCyan, bold: true)
+        for (i, entry) in entries.enumerated() {
+            let preview = String(entry.content.prefix(60)).replacingOccurrences(of: "\n", with: " ")
+            appendColored("  \(i+1). ", color: cYellow)
+            appendColored("[\(formatter.string(from: entry.date))] ", color: cDimGray)
+            appendOutput("\(preview)\(entry.content.count > 60 ? "..." : "")\n")
+        }
+        appendColored("  Use !clipboard <N> to re-copy, !clipboard search <query> to search\n\n", color: cGray)
     }
 
     // MARK: - Clipboard Watcher
@@ -2746,6 +3068,12 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         lastClipboardCount = currentCount
         guard let content = NSPasteboard.general.string(forType: .string), !content.isEmpty else { return }
         lastClipboard = content
+
+        // Track clipboard history
+        clipboardHistory.append((content: content, date: Date()))
+        if clipboardHistory.count > 50 {
+            clipboardHistory.removeFirst(clipboardHistory.count - 50)
+        }
 
         // Auto-translate mode
         if let lang = autoTranslateLang {
@@ -3404,6 +3732,317 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         }
     }
 
+    // MARK: - Quick Calc & Conversions
+
+    func quickCalc(_ input: String) {
+        setState(.thinking)
+        bubbleLabel.stringValue = speechBubble("Calculating...")
+
+        // Parse: <amount> <from> to <to>
+        let parts = input.lowercased().split(separator: " ")
+        guard parts.count >= 4,
+              let amount = Double(parts[0]),
+              parts[parts.count - 2] == "to" else {
+            appendColored("❌ Usage: !calc <amount> <from> to <to>\n", color: cRed)
+            appendColored("  Examples:\n", color: cGray)
+            appendColored("  !calc 150 usd to rub\n", color: cDimGray)
+            appendColored("  !calc 100 km to miles\n", color: cDimGray)
+            appendColored("  !calc 2pm est to msk\n\n", color: cDimGray)
+            setState(.idle)
+            return
+        }
+
+        let fromUnit = String(parts[1])
+        let toUnit = String(parts[parts.count - 1])
+
+        // Unit conversions (no API needed)
+        let unitConversions: [String: [String: (Double) -> Double]] = [
+            "km":      ["miles": { $0 / 1.60934 }, "mi": { $0 / 1.60934 }],
+            "miles":   ["km": { $0 * 1.60934 }],
+            "mi":      ["km": { $0 * 1.60934 }],
+            "kg":      ["lbs": { $0 * 2.20462 }, "lb": { $0 * 2.20462 }],
+            "lbs":     ["kg": { $0 / 2.20462 }],
+            "lb":      ["kg": { $0 / 2.20462 }],
+            "c":       ["f": { $0 * 9.0 / 5.0 + 32.0 }],
+            "f":       ["c": { ($0 - 32.0) * 5.0 / 9.0 }],
+            "cm":      ["inches": { $0 / 2.54 }, "in": { $0 / 2.54 }],
+            "inches":  ["cm": { $0 * 2.54 }],
+            "in":      ["cm": { $0 * 2.54 }],
+            "l":       ["gallons": { $0 / 3.78541 }, "gal": { $0 / 3.78541 }],
+            "gallons": ["l": { $0 * 3.78541 }],
+            "gal":     ["l": { $0 * 3.78541 }],
+        ]
+
+        if let conversions = unitConversions[fromUnit], let converter = conversions[toUnit] {
+            let result = converter(amount)
+            appendColored("🔢 ", color: cCyan)
+            appendColored(String(format: "%.2f %@ = %.2f %@\n\n", amount, fromUnit, result, toUnit), color: cGreen, bold: true)
+            bubbleLabel.stringValue = speechBubble(String(format: "%.2f %@!", result, toUnit))
+            setState(.happy, duration: 2)
+            playSound("Pop")
+            return
+        }
+
+        // Timezone conversions
+        let tzOffsets: [String: Int] = [
+            "utc": 0, "gmt": 0, "est": -5, "edt": -4, "cst": -6, "cdt": -5,
+            "mst": -7, "mdt": -6, "pst": -8, "pdt": -7, "msk": 3, "eet": 2,
+            "eest": 3, "cet": 1, "cest": 2, "jst": 9, "kst": 9, "ist": 5,
+            "aest": 10, "aedt": 11, "brt": -3, "cst_cn": 8
+        ]
+
+        if let fromOffset = tzOffsets[fromUnit], let toOffset = tzOffsets[toUnit] {
+            // Parse time like "2pm", "14", "1430", "2:30pm"
+            let timeStr = String(parts[0])
+            var hour = 0
+            var minute = 0
+            let cleanTime = timeStr.replacingOccurrences(of: "am", with: "").replacingOccurrences(of: "pm", with: "")
+
+            if cleanTime.contains(":") {
+                let tp = cleanTime.split(separator: ":")
+                hour = Int(tp[0]) ?? 0
+                minute = tp.count > 1 ? (Int(tp[1]) ?? 0) : 0
+            } else {
+                hour = Int(cleanTime) ?? 0
+            }
+
+            if timeStr.contains("pm") && hour < 12 { hour += 12 }
+            if timeStr.contains("am") && hour == 12 { hour = 0 }
+
+            let diff = toOffset - fromOffset
+            var newHour = (hour + diff) % 24
+            if newHour < 0 { newHour += 24 }
+
+            let fromFormatted = String(format: "%02d:%02d %@", hour, minute, fromUnit.uppercased())
+            let toFormatted = String(format: "%02d:%02d %@", newHour, minute, toUnit.uppercased())
+
+            appendColored("🕐 ", color: cCyan)
+            appendColored("\(fromFormatted) = \(toFormatted)", color: cGreen, bold: true)
+            let diffSign = diff >= 0 ? "+" : ""
+            appendColored("  (\(diffSign)\(diff)h)\n\n", color: cDimGray)
+            bubbleLabel.stringValue = speechBubble("\(toFormatted)")
+            setState(.happy, duration: 2)
+            playSound("Pop")
+            return
+        }
+
+        // Currency conversion (API)
+        let currencies: Set<String> = ["usd", "eur", "rub", "gbp", "jpy", "cny", "krw", "try", "brl", "inr", "uah", "pln", "czk", "sek", "mxn"]
+        guard currencies.contains(fromUnit), currencies.contains(toUnit) else {
+            appendColored("❌ Unknown conversion: \(fromUnit) → \(toUnit)\n", color: cRed)
+            appendColored("  Currencies: USD EUR RUB GBP JPY CNY KRW TRY BRL INR UAH PLN CZK SEK MXN\n", color: cDimGray)
+            appendColored("  Units: km↔miles, kg↔lbs, C↔F, cm↔inches, L↔gallons\n", color: cDimGray)
+            appendColored("  Timezones: UTC EST PST MSK JST KST CET etc.\n\n", color: cDimGray)
+            setState(.idle)
+            return
+        }
+
+        // Check cache (1 hour)
+        if let rates = cachedRates,
+           let cacheDate = ratesCacheDate,
+           Date().timeIntervalSince(cacheDate) < 3600 {
+            performCurrencyConversion(amount: amount, from: fromUnit, to: toUnit, rates: rates)
+            return
+        }
+
+        appendColored("💱 Fetching exchange rates...\n", color: cDimGray)
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
+            guard let url = URL(string: "https://open.er-api.com/v6/latest/USD"),
+                  let data = try? Data(contentsOf: url),
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let rates = json["rates"] as? [String: Double] else {
+                DispatchQueue.main.async {
+                    self.appendColored("❌ Failed to fetch exchange rates\n\n", color: self.cRed)
+                    self.setState(.error, duration: 2)
+                }
+                return
+            }
+
+            DispatchQueue.main.async {
+                self.cachedRates = rates.reduce(into: [String: Double]()) { $0[$1.key.lowercased()] = $1.value }
+                self.ratesCacheDate = Date()
+                self.performCurrencyConversion(amount: amount, from: fromUnit, to: toUnit, rates: self.cachedRates!)
+            }
+        }
+    }
+
+    func performCurrencyConversion(amount: Double, from: String, to: String, rates: [String: Double]) {
+        guard let fromRate = rates[from], let toRate = rates[to], fromRate > 0 else {
+            appendColored("❌ Rate not found for \(from) or \(to)\n\n", color: cRed)
+            setState(.error, duration: 2)
+            return
+        }
+
+        let result = amount / fromRate * toRate
+        appendColored("💱 ", color: cCyan)
+        appendColored(String(format: "%.2f %@ = %.2f %@\n\n", amount, from.uppercased(), result, to.uppercased()), color: cGreen, bold: true)
+        bubbleLabel.stringValue = speechBubble(String(format: "%.2f %@", result, to.uppercased()))
+        setState(.happy, duration: 2)
+        playSound("Pop")
+    }
+
+    // MARK: - Regex Builder
+
+    func regexBuilder(_ description: String) {
+        guard !description.isEmpty else {
+            appendColored("❌ Usage: !regex <description>\n", color: cRed)
+            appendColored("  Example: !regex email validation\n", color: cDimGray)
+            appendColored("  Example: !regex match dates like 2024-01-15\n\n", color: cDimGray)
+            setState(.idle)
+            return
+        }
+
+        setState(.thinking)
+        bubbleLabel.stringValue = speechBubble("Building regex...")
+        appendColored("🔧 Regex Builder: \(description)\n", color: cCyan, bold: true)
+        appendColored("⏳ → claude...\n", color: cDimGray)
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
+            let prompt = "Generate a regex pattern for: \(description). Output format:\nPattern: <regex>\nExample matches: <3 examples>\nExplanation: <brief>"
+            let escapedPrompt = prompt
+                .replacingOccurrences(of: "\\", with: "\\\\")
+                .replacingOccurrences(of: "\"", with: "\\\"")
+                .replacingOccurrences(of: "$", with: "\\$")
+                .replacingOccurrences(of: "`", with: "\\`")
+            let result = self.shell("claude -p \"\(escapedPrompt)\"")?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+            DispatchQueue.main.async {
+                guard !result.isEmpty else {
+                    self.appendColored("❌ Could not generate regex\n\n", color: self.cRed)
+                    self.setState(.error, duration: 2)
+                    return
+                }
+
+                // Display result
+                self.appendColored("\n", color: self.cGreen)
+                for line in result.split(separator: "\n", omittingEmptySubsequences: false) {
+                    let l = String(line)
+                    if l.hasPrefix("Pattern:") {
+                        self.appendColored("  \(l)\n", color: self.cGreen, bold: true)
+                    } else if l.hasPrefix("Example") {
+                        self.appendColored("  \(l)\n", color: self.cYellow)
+                    } else if l.hasPrefix("Explanation") {
+                        self.appendColored("  \(l)\n", color: self.cGray)
+                    } else {
+                        self.appendColored("  \(l)\n", color: self.cGray)
+                    }
+                }
+                self.appendOutput("\n")
+
+                // Extract and copy just the pattern to clipboard
+                if let patternLine = result.split(separator: "\n").first(where: { $0.hasPrefix("Pattern:") }) {
+                    let pattern = String(patternLine.dropFirst(8)).trimmingCharacters(in: .whitespaces)
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(pattern, forType: .string)
+                    self.appendColored("📋 Pattern copied to clipboard\n\n", color: self.cDimGray)
+                }
+
+                self.bubbleLabel.stringValue = speechBubble("Regex ready!")
+                self.setState(.happy, duration: 2)
+                self.playSound("Pop")
+            }
+        }
+    }
+
+    // MARK: - Daily Summary
+
+    func checkDayReset() {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        let today = formatter.string(from: Date())
+        if todayDate != today {
+            todayDate = today
+            todayCommands = 0
+            todayXP = 0
+        }
+    }
+
+    func trackDailyCommand(xpEarned: Int = 0) {
+        checkDayReset()
+        todayCommands += 1
+        todayXP += xpEarned
+    }
+
+    func showDailySummary() {
+        checkDayReset()
+        setState(.thinking)
+        bubbleLabel.stringValue = speechBubble("Here's your day!")
+
+        let elapsed = Date().timeIntervalSince(sessionStart)
+        let hours = Int(elapsed) / 3600
+        let minutes = (Int(elapsed) % 3600) / 60
+
+        appendColored("╭── Daily Summary ────────────────────╮\n", color: cCyan)
+
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEEE, MMM d"
+        appendColored("  📅 \(formatter.string(from: Date()))\n\n", color: cYellow, bold: true)
+
+        // Commands today
+        appendColored("  ⌨️  Commands today:  ", color: cGray)
+        appendColored("\(todayCommands)\n", color: cGreen, bold: true)
+
+        // XP today
+        appendColored("  ⭐ XP earned today:  ", color: cGray)
+        appendColored("\(todayXP)\n", color: cGreen, bold: true)
+
+        // Session time
+        appendColored("  ⏱  Session time:    ", color: cGray)
+        if hours > 0 {
+            appendColored("\(hours)h \(minutes)m\n", color: cGreen, bold: true)
+        } else {
+            appendColored("\(minutes)m\n", color: cGreen, bold: true)
+        }
+
+        // Streak
+        appendColored("  🔥 Current streak:  ", color: cGray)
+        appendColored("\(pet.streak) day\(pet.streak == 1 ? "" : "s")\n", color: cGreen, bold: true)
+
+        // Git commits today
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            guard let self = self else { return }
+            let gitLog = self.shell("git log --oneline --since=\"midnight\" --author=\"$(git config user.name)\" 2>/dev/null | head -20") ?? ""
+            let commitCount = gitLog.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0 :
+                gitLog.trimmingCharacters(in: .whitespacesAndNewlines).split(separator: "\n").count
+
+            DispatchQueue.main.async {
+                self.appendColored("  📝 Git commits:     ", color: self.cGray)
+                self.appendColored("\(commitCount)\n", color: self.cGreen, bold: true)
+
+                // Pet stats
+                self.appendColored("\n  Pet Stats:\n", color: self.cPurple, bold: true)
+                self.appendColored("  🍕 Hunger:    \(self.pet.hunger)/100\n", color: self.cGray)
+                self.appendColored("  😊 Happiness: \(self.pet.happiness)/100\n", color: self.cGray)
+                self.appendColored("  ⚡ Energy:    \(self.pet.energy)/100\n", color: self.cGray)
+                self.appendColored("  ⭐ Level:     \(self.pet.level) (\(self.pet.xp)/\(self.pet.xpForNextLevel) XP)\n", color: self.cGray)
+
+                // Achievements
+                let totalAchievements = self.pet.unlockedAchievements.count
+                self.appendColored("  🏆 Achievements:    \(totalAchievements)/\(Achievement.all.count)\n", color: self.cGray)
+
+                self.appendColored("╰────────────────────────────────────╯\n\n", color: self.cCyan)
+
+                // Award bonus XP
+                let oldLevel = self.pet.level
+                self.pet.gainXP(20)
+                self.todayXP += 20
+                self.appendColored("  +20 XP for checking daily summary!\n\n", color: self.cYellow)
+                if self.pet.level > oldLevel {
+                    self.appendColored("⭐ LEVEL UP! → \(self.pet.level)!\n\n", color: self.cYellow, bold: true)
+                }
+                self.pet.save()
+                self.refreshStatsDisplay()
+
+                self.bubbleLabel.stringValue = speechBubble("Keep up the great work!")
+                self.setState(.happy, duration: 3)
+                self.playSound("Pop")
+            }
+        }
+    }
+
     func showHelp() {
         appendColored("╭── Commands ─────────────────────────╮\n", color: cCyan)
         appendColored("  CLI\n", color: cPurple, bold: true)
@@ -3482,6 +4121,14 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             ("!chat new", "→ start new chat"),
             ("!chat list", "→ list all chats"),
             ("!chat <N>", "→ switch to chat N"),
+            ("!remind <t> ..", "→ set reminder (30m/2h)"),
+            ("!reminders", "→ list active reminders"),
+            ("!standup", "→ daily standup report"),
+            ("!sh <desc>", "→ NL → shell command"),
+            ("!clipboard", "→ clipboard history"),
+            ("!calc <expr>", "→ calc/convert/currency"),
+            ("!regex <desc>", "→ build regex pattern"),
+            ("!daily", "→ daily activity summary"),
         ]
         for (cmd, desc) in smartCmds {
             appendColored("  \(cmd.padding(toLength: 16, withPad: " ", startingAt: 0))", color: cYellow)
