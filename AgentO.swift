@@ -1718,6 +1718,179 @@ class PromptJournal {
     }
 }
 
+struct ProviderCostRow {
+    var requests: Int = 0
+    var inputChars: Int = 0
+    var outputChars: Int = 0
+    var inputTokens: Int = 0
+    var outputTokens: Int = 0
+    var usd: Double = 0
+}
+
+class ProviderCostTracker {
+    static let savePath = NSHomeDirectory() + "/.agento_costs.json"
+
+    var rows: [String: ProviderCostRow] = [:]
+    var rateOverrides: [String: (inputPerM: Double, outputPerM: Double)] = [:]
+
+    func estimateTokens(chars: Int) -> Int {
+        return max(0, Int(ceil(Double(max(0, chars)) / 4.0)))
+    }
+
+    func envRate(provider: String, suffix: String) -> Double? {
+        let key = "AGENTO_RATE_\(provider.uppercased())_\(suffix)"
+        guard let raw = ProcessInfo.processInfo.environment[key]?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !raw.isEmpty else {
+            return nil
+        }
+        return Double(raw)
+    }
+
+    func defaultRates(provider: String) -> (inputPerM: Double, outputPerM: Double) {
+        switch provider.lowercased() {
+        case "gpt":
+            // Approx defaults (USD per 1M tokens) for budget telemetry.
+            return (0.40, 1.60)
+        case "gemini":
+            // Approx defaults (USD per 1M tokens).
+            return (0.35, 1.05)
+        case "claude":
+            return (0.0, 0.0)
+        case "codex":
+            return (0.0, 0.0)
+        case "ollama":
+            return (0.0, 0.0)
+        default:
+            return (0.0, 0.0)
+        }
+    }
+
+    func rates(provider: String) -> (inputPerM: Double, outputPerM: Double) {
+        let key = provider.lowercased()
+        if let override = rateOverrides[key] {
+            return override
+        }
+        let defaults = defaultRates(provider: key)
+        let envIn = envRate(provider: key, suffix: "IN_PER_M")
+        let envOut = envRate(provider: key, suffix: "OUT_PER_M")
+        return (
+            inputPerM: envIn ?? defaults.inputPerM,
+            outputPerM: envOut ?? defaults.outputPerM
+        )
+    }
+
+    func estimateUSD(provider: String, inputChars: Int, outputChars: Int) -> Double {
+        let ratesNow = rates(provider: provider)
+        let inTokens = estimateTokens(chars: inputChars)
+        let outTokens = estimateTokens(chars: outputChars)
+        let inUSD = (Double(inTokens) / 1_000_000.0) * ratesNow.inputPerM
+        let outUSD = (Double(outTokens) / 1_000_000.0) * ratesNow.outputPerM
+        return inUSD + outUSD
+    }
+
+    func record(provider: String, inputChars: Int, outputChars: Int) {
+        let key = provider.lowercased()
+        let inTokens = estimateTokens(chars: inputChars)
+        let outTokens = estimateTokens(chars: outputChars)
+        let runUSD = estimateUSD(provider: key, inputChars: inputChars, outputChars: outputChars)
+
+        var row = rows[key] ?? ProviderCostRow()
+        row.requests += 1
+        row.inputChars += max(0, inputChars)
+        row.outputChars += max(0, outputChars)
+        row.inputTokens += inTokens
+        row.outputTokens += outTokens
+        row.usd += runUSD
+        rows[key] = row
+        save()
+    }
+
+    func setRates(provider: String, inputPerM: Double, outputPerM: Double) {
+        rateOverrides[provider.lowercased()] = (max(0, inputPerM), max(0, outputPerM))
+        save()
+    }
+
+    func clearRates(provider: String) {
+        rateOverrides.removeValue(forKey: provider.lowercased())
+        save()
+    }
+
+    func reset() {
+        rows.removeAll()
+        save()
+    }
+
+    func totalUSD() -> Double {
+        return rows.values.reduce(0) { $0 + $1.usd }
+    }
+
+    func totalRequests() -> Int {
+        return rows.values.reduce(0) { $0 + $1.requests }
+    }
+
+    func save() {
+        var rowsRaw: [String: Any] = [:]
+        for (provider, row) in rows {
+            rowsRaw[provider] = [
+                "requests": row.requests,
+                "inputChars": row.inputChars,
+                "outputChars": row.outputChars,
+                "inputTokens": row.inputTokens,
+                "outputTokens": row.outputTokens,
+                "usd": row.usd,
+            ]
+        }
+
+        var overridesRaw: [String: Any] = [:]
+        for (provider, rates) in rateOverrides {
+            overridesRaw[provider] = [
+                "inputPerM": rates.inputPerM,
+                "outputPerM": rates.outputPerM,
+            ]
+        }
+
+        let payload: [String: Any] = [
+            "rows": rowsRaw,
+            "rateOverrides": overridesRaw,
+        ]
+        if let jsonData = try? JSONSerialization.data(withJSONObject: payload),
+           let json = String(data: jsonData, encoding: .utf8) {
+            try? json.write(toFile: ProviderCostTracker.savePath, atomically: true, encoding: .utf8)
+        }
+    }
+
+    static func load() -> ProviderCostTracker {
+        let tracker = ProviderCostTracker()
+        guard let data = try? Data(contentsOf: URL(fileURLWithPath: savePath)),
+              let raw = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return tracker
+        }
+
+        if let rowsRaw = raw["rows"] as? [String: [String: Any]] {
+            for (provider, row) in rowsRaw {
+                tracker.rows[provider] = ProviderCostRow(
+                    requests: row["requests"] as? Int ?? 0,
+                    inputChars: row["inputChars"] as? Int ?? 0,
+                    outputChars: row["outputChars"] as? Int ?? 0,
+                    inputTokens: row["inputTokens"] as? Int ?? 0,
+                    outputTokens: row["outputTokens"] as? Int ?? 0,
+                    usd: row["usd"] as? Double ?? 0
+                )
+            }
+        }
+
+        if let overridesRaw = raw["rateOverrides"] as? [String: [String: Any]] {
+            for (provider, rates) in overridesRaw {
+                let inPerM = rates["inputPerM"] as? Double ?? 0
+                let outPerM = rates["outputPerM"] as? Double ?? 0
+                tracker.rateOverrides[provider] = (inPerM, outPerM)
+            }
+        }
+
+        return tracker
+    }
+}
+
 enum TokenOptimizerMode: String {
     case off
     case balanced
@@ -2043,10 +2216,24 @@ enum AIProvider: String, CaseIterable {
     }
 }
 
+struct ProviderSyncResult {
+    var provider: AIProvider
+    var output: String
+    var error: String?
+    var inputChars: Int
+    var outputChars: Int
+    var model: String
+    var durationMs: Int
+
+    var success: Bool {
+        return error == nil && !output.isEmpty
+    }
+}
+
 // MARK: - Main App Delegate
 
 class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
-    static let sourceVersion = "6.3.0"
+    static let sourceVersion = "6.4.0"
     static func parseVersion(_ version: String) -> [Int] {
         return version
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -2119,10 +2306,12 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
     var pet = PetStats.load()
     var brain = PetBrain.load()
     var promptJournal = PromptJournal.load()
+    var costTracker = ProviderCostTracker.load()
     var tokenOptimizer = TokenOptimizer.load()
     var lastTokenOptimization: TokenOptimizationResult?
     var currentProvider: AIProvider = .claude
     var providerModelOverrides: [String: String] = [:]
+    var providerEndpointOverrides: [String: String] = [:]
     var decayTimer: Timer?
     var currentTheme = Theme.matrix
     var pomodoro = PomodoroTimer()
@@ -2211,6 +2400,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             currentProvider = provider
         }
         providerModelOverrides = UserDefaults.standard.dictionary(forKey: "agento_provider_models") as? [String: String] ?? [:]
+        providerEndpointOverrides = UserDefaults.standard.dictionary(forKey: "agento_provider_endpoints") as? [String: String] ?? [:]
         pet.save()
         lastLeaderboardSubmittedSignature = ""
         setupMenuBar()
@@ -3198,7 +3388,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
     func slashAutocompleteCommands() -> [String] {
         return [
             "/accept", "/ach", "/achievements", "/ask", "/battle", "/battles", "/brain",
-            "/break", "/calc", "/chat", "/challenges", "/claude", "/clear", "/clipboard",
+            "/break", "/calc", "/chat", "/challenges", "/claude", "/clear", "/clipboard", "/compare", "/cost",
             "/codex", "/commit", "/compact", "/daily", "/dance", "/decline", "/diff",
             "/en", "/evo", "/feed", "/forget", "/full", "/game", "/git", "/guess",
             "/gemini", "/gpt", "/help", "/history", "/inventory", "/leaderboard", "/market", "/memory", "/model", "/models", "/move",
@@ -3609,6 +3799,15 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             showProviderUsage(days: 7)
             return true
 
+        case "/cost":
+            showCostSummary()
+            return true
+
+        case "/compare":
+            appendColored("❌ Usage: /compare <prompt>\n", color: cRed)
+            appendColored("  Optional: /compare claude,codex <prompt>\n\n", color: cGray)
+            return true
+
         case "/specialist":
             showSpecialistStatus()
             return true
@@ -3852,6 +4051,16 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                 let raw = String(cmd.dropFirst(7)).trimmingCharacters(in: .whitespacesAndNewlines)
                 let days = max(1, Int(raw) ?? 7)
                 showProviderUsage(days: days)
+                return true
+            }
+            if cmd.hasPrefix("/cost ") {
+                let args = String(cmd.dropFirst(6)).trimmingCharacters(in: .whitespacesAndNewlines)
+                handleCostCommand(args: args)
+                return true
+            }
+            if cmd.hasPrefix("/compare ") {
+                let args = String(cmd.dropFirst(9)).trimmingCharacters(in: .whitespacesAndNewlines)
+                compareProviders(args: args)
                 return true
             }
             if cmd.hasPrefix("/optimizer ") {
@@ -4739,6 +4948,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
     func saveProviderPreferences() {
         UserDefaults.standard.set(currentProvider.rawValue, forKey: "agento_provider")
         UserDefaults.standard.set(providerModelOverrides, forKey: "agento_provider_models")
+        UserDefaults.standard.set(providerEndpointOverrides, forKey: "agento_provider_endpoints")
     }
 
     func sourceLabel(_ source: String) -> String {
@@ -4772,6 +4982,22 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             return env["AGENTO_GEMINI_MODEL"] ?? "gemini-2.0-flash"
         case .ollama:
             return env["AGENTO_OLLAMA_MODEL"] ?? "llama3.1"
+        }
+    }
+
+    func currentEndpoint(for provider: AIProvider) -> String {
+        if let override = providerEndpointOverrides[provider.rawValue]?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !override.isEmpty {
+            return override
+        }
+        let env = ProcessInfo.processInfo.environment
+        switch provider {
+        case .gpt:
+            return env["AGENTO_OPENAI_BASE_URL"] ?? "https://api.openai.com/v1"
+        case .gemini:
+            return env["AGENTO_GEMINI_BASE_URL"] ?? "https://generativelanguage.googleapis.com/v1beta"
+        default:
+            return ""
         }
     }
 
@@ -4909,7 +5135,14 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             return (nil, "OPENAI_API_KEY is missing. Set API key or AGENTO_GPT_COMMAND.")
         }
         let model = currentModel(for: .gpt)
-        guard let url = URL(string: "https://api.openai.com/v1/responses") else {
+        let rawEndpoint = currentEndpoint(for: .gpt).trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedEndpoint: String
+        if rawEndpoint.lowercased().hasSuffix("/responses") {
+            normalizedEndpoint = rawEndpoint
+        } else {
+            normalizedEndpoint = rawEndpoint.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/responses"
+        }
+        guard let url = URL(string: normalizedEndpoint) else {
             return (nil, "Failed to build OpenAI URL")
         }
         let body: [String: Any] = [
@@ -4947,7 +5180,17 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             return (nil, "GEMINI_API_KEY is missing. Set API key or AGENTO_GEMINI_COMMAND.")
         }
         let model = currentModel(for: .gemini)
-        guard let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(model):generateContent?key=\(apiKey)") else {
+        let base = currentEndpoint(for: .gemini).trimmingCharacters(in: .whitespacesAndNewlines)
+        var endpoint = base
+        if endpoint.contains("{model}") {
+            endpoint = endpoint.replacingOccurrences(of: "{model}", with: model)
+        } else if !endpoint.contains(":generateContent") {
+            endpoint = endpoint.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/models/\(model):generateContent"
+        }
+        if !endpoint.contains("key=") {
+            endpoint += endpoint.contains("?") ? "&key=\(apiKey)" : "?key=\(apiKey)"
+        }
+        guard let url = URL(string: endpoint) else {
             return (nil, "Failed to build Gemini URL")
         }
         let body: [String: Any] = [
@@ -4980,30 +5223,135 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         return (text, nil)
     }
 
-    func runProviderSync(_ provider: AIProvider, prompt: String, includeBrainContext: Bool = false) -> String {
+    func runShellWithStatus(_ command: String) -> (status: Int, output: String, error: String?) {
+        let process = Process()
+        let pipe = Pipe()
+        process.executableURL = URL(fileURLWithPath: "/bin/zsh")
+        process.arguments = ["-l", "-c", command]
+        process.standardOutput = pipe
+        process.standardError = pipe
+        var env = ProcessInfo.processInfo.environment
+        env.removeValue(forKey: "CLAUDECODE")
+        env.removeValue(forKey: "CODEX_CLI_SESSION")
+        process.environment = env
+        do {
+            try process.run()
+            process.waitUntilExit()
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            let output = String(data: data, encoding: .utf8) ?? ""
+            return (Int(process.terminationStatus), output, nil)
+        } catch {
+            return (-1, "", error.localizedDescription)
+        }
+    }
+
+    func runProviderSyncDetailed(_ provider: AIProvider, prompt: String, includeBrainContext: Bool = false) -> ProviderSyncResult {
+        let started = Date()
         let rawContext = includeBrainContext ? brain.buildContext(level: pet.level) : nil
         let optimization = tokenOptimizer.optimize(prompt: prompt, brainContext: rawContext, cli: provider.rawValue)
         lastTokenOptimization = optimization
+        let preparedPrompt = optimization.finalPrompt
+        let model = currentModel(for: provider)
 
-        if let cmd = shellCommandForProvider(provider, prompt: optimization.finalPrompt) {
-            return shell(cmd)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if let cmd = shellCommandForProvider(provider, prompt: preparedPrompt) {
+            let shellResult = runShellWithStatus(cmd)
+            let output = shellResult.output.trimmingCharacters(in: .whitespacesAndNewlines)
+            let duration = Int(Date().timeIntervalSince(started) * 1000)
+            if let err = shellResult.error, !err.isEmpty {
+                return ProviderSyncResult(
+                    provider: provider,
+                    output: "",
+                    error: err,
+                    inputChars: preparedPrompt.count,
+                    outputChars: 0,
+                    model: model,
+                    durationMs: duration
+                )
+            }
+            if shellResult.status != 0 && output.isEmpty {
+                return ProviderSyncResult(
+                    provider: provider,
+                    output: "",
+                    error: "Process failed (exit \(shellResult.status))",
+                    inputChars: preparedPrompt.count,
+                    outputChars: 0,
+                    model: model,
+                    durationMs: duration
+                )
+            }
+            return ProviderSyncResult(
+                provider: provider,
+                output: output,
+                error: nil,
+                inputChars: preparedPrompt.count,
+                outputChars: output.count,
+                model: model,
+                durationMs: duration
+            )
         }
+
+        let duration: () -> Int = { Int(Date().timeIntervalSince(started) * 1000) }
         switch provider {
         case .gpt:
-            let result = runGPTViaAPI(prompt: optimization.finalPrompt)
-            if let text = result.text {
-                return text.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+            let result = runGPTViaAPI(prompt: preparedPrompt)
+            if let text = result.text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty {
+                return ProviderSyncResult(
+                    provider: provider,
+                    output: text,
+                    error: nil,
+                    inputChars: preparedPrompt.count,
+                    outputChars: text.count,
+                    model: model,
+                    durationMs: duration()
+                )
             }
-            return ""
+            return ProviderSyncResult(
+                provider: provider,
+                output: "",
+                error: result.error ?? "GPT request failed",
+                inputChars: preparedPrompt.count,
+                outputChars: 0,
+                model: model,
+                durationMs: duration()
+            )
         case .gemini:
-            let result = runGeminiViaAPI(prompt: optimization.finalPrompt)
-            if let text = result.text {
-                return text.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+            let result = runGeminiViaAPI(prompt: preparedPrompt)
+            if let text = result.text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty {
+                return ProviderSyncResult(
+                    provider: provider,
+                    output: text,
+                    error: nil,
+                    inputChars: preparedPrompt.count,
+                    outputChars: text.count,
+                    model: model,
+                    durationMs: duration()
+                )
             }
-            return ""
+            return ProviderSyncResult(
+                provider: provider,
+                output: "",
+                error: result.error ?? "Gemini request failed",
+                inputChars: preparedPrompt.count,
+                outputChars: 0,
+                model: model,
+                durationMs: duration()
+            )
         default:
-            return ""
+            return ProviderSyncResult(
+                provider: provider,
+                output: "",
+                error: "Provider \(provider.rawValue) is not configured",
+                inputChars: preparedPrompt.count,
+                outputChars: 0,
+                model: model,
+                durationMs: duration()
+            )
         }
+    }
+
+    func runProviderSync(_ provider: AIProvider, prompt: String, includeBrainContext: Bool = false) -> String {
+        let result = runProviderSyncDetailed(provider, prompt: prompt, includeBrainContext: includeBrainContext)
+        return result.success ? result.output : ""
     }
 
     func showModelStatus() {
@@ -5019,6 +5367,10 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         appendColored("  /model claude | /model codex | /model gpt | /model gemini | /model ollama\n", color: cGray)
         appendColored("  /models\n", color: cGray)
         appendColored("  /usage [days]\n", color: cGray)
+        if currentProvider == .gpt || currentProvider == .gemini {
+            let endpoint = currentEndpoint(for: currentProvider)
+            appendColored("  Endpoint: \(endpoint)\n", color: cDimGray)
+        }
         appendColored("╰─────────────────────────────────────╯\n\n", color: cCyan)
     }
 
@@ -5030,10 +5382,15 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             let modelText = model.isEmpty ? "default" : model
             appendColored("  \(provider.rawValue.padding(toLength: 8, withPad: " ", startingAt: 0))", color: cYellow)
             appendOutput("→ \(provider.label)  model: \(modelText) \(marker)\n")
+            if provider == .gpt || provider == .gemini {
+                appendColored("           endpoint: \(currentEndpoint(for: provider))\n", color: cDimGray)
+            }
         }
         appendColored("\n  Set provider: /model <provider>\n", color: cGray)
         appendColored("  Set model:    /model <provider> <model-id>\n", color: cGray)
         appendColored("  Clear model:  /model clear <provider>\n\n", color: cGray)
+        appendColored("  Endpoint:     /model endpoint gpt|gemini <url>\n", color: cGray)
+        appendColored("                /model endpoint clear gpt|gemini\n\n", color: cGray)
     }
 
     func showProviderUsage(days: Int) {
@@ -5063,11 +5420,227 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         }
         for (source, row) in sorted {
             let avg = row.count > 0 ? (row.chars / row.count) : 0
+            let estUSD = costTracker.rows[source]?.usd ?? 0
             appendColored("  \(source.padding(toLength: 8, withPad: " ", startingAt: 0))", color: cYellow)
-            appendOutput("→ \(sourceDisplayLabel(source)) | prompts \(row.count), chars \(row.chars), avg \(avg)\n")
+            appendOutput(String(format: "→ %@ | prompts %d, chars %d, avg %d, est:$%.5f\n",
+                                sourceDisplayLabel(source), row.count, row.chars, avg, estUSD))
         }
         appendColored("  total    ", color: cGreen, bold: true)
         appendOutput("→ prompts \(totalPrompts), chars \(totalChars)\n\n")
+    }
+
+    func parseCompareProviders(token: String) -> [AIProvider] {
+        let parts = token
+            .split(separator: ",")
+            .map { String($0).trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+            .filter { !$0.isEmpty }
+        var parsed: [AIProvider] = []
+        for key in parts {
+            if let provider = AIProvider(rawValue: key), !parsed.contains(provider) {
+                parsed.append(provider)
+            }
+        }
+        return parsed
+    }
+
+    func defaultCompareProviders() -> [AIProvider] {
+        var ordered: [AIProvider] = [currentProvider]
+        for provider in AIProvider.allCases where !ordered.contains(provider) {
+            ordered.append(provider)
+        }
+        return ordered
+    }
+
+    func compareProviders(args: String) {
+        let trimmed = args.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            appendColored("❌ Usage: /compare <prompt>\n", color: cRed)
+            appendColored("  Optional: /compare claude,codex <prompt>\n\n", color: cGray)
+            return
+        }
+
+        var providers = defaultCompareProviders()
+        var comparePrompt = trimmed
+        let parts = trimmed.split(separator: " ", maxSplits: 1, omittingEmptySubsequences: true)
+        if parts.count == 2 {
+            let selected = parseCompareProviders(token: String(parts[0]))
+            if !selected.isEmpty {
+                providers = selected
+                comparePrompt = String(parts[1]).trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+        }
+
+        guard !comparePrompt.isEmpty else {
+            appendColored("❌ Missing compare prompt\n\n", color: cRed)
+            return
+        }
+
+        let oldLevel = pet.level
+        pet.onCommandRun()
+        pet.save()
+        refreshStatsDisplay()
+
+        appendColored("🧪 Provider compare started\n", color: cCyan, bold: true)
+        appendColored("  Providers: \(providers.map { $0.rawValue }.joined(separator: ", "))\n", color: cGray)
+        appendColored("  Prompt: \(String(comparePrompt.prefix(120)))\(comparePrompt.count > 120 ? "..." : "")\n\n", color: cDimGray)
+        bubbleLabel.stringValue = speechBubble("Comparing providers...")
+        setState(.thinking)
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
+            self.brain.learn(from: comparePrompt)
+            var results: [ProviderSyncResult] = []
+            for provider in providers {
+                self.promptJournal.record(source: provider.rawValue, prompt: comparePrompt)
+                let result = self.runProviderSyncDetailed(provider, prompt: comparePrompt, includeBrainContext: true)
+                if result.success {
+                    self.costTracker.record(
+                        provider: provider.rawValue,
+                        inputChars: result.inputChars,
+                        outputChars: result.outputChars
+                    )
+                }
+                results.append(result)
+            }
+
+            DispatchQueue.main.async {
+                let successful = results.filter { $0.success }
+                if successful.isEmpty {
+                    self.appendColored("❌ Compare failed: no provider produced output.\n\n", color: self.cRed)
+                    self.setState(.error, duration: 3)
+                    self.playSound("Basso")
+                    return
+                }
+
+                self.appendColored("╭── Compare Results ──────────────────╮\n", color: self.cCyan)
+                for result in results {
+                    let statusIcon = result.success ? "✅" : "❌"
+                    let color = result.success ? self.cGreen : self.cRed
+                    self.appendColored("  \(statusIcon) \(result.provider.rawValue.uppercased())", color: color, bold: true)
+                    self.appendOutput("  \(result.durationMs)ms")
+                    if !result.model.isEmpty {
+                        self.appendOutput("  model: \(result.model)")
+                    }
+                    let runCost = self.costTracker.estimateUSD(
+                        provider: result.provider.rawValue,
+                        inputChars: result.inputChars,
+                        outputChars: result.outputChars
+                    )
+                    self.appendOutput(String(format: "  est:$%.5f\n", runCost))
+
+                    if result.success {
+                        let preview = String(result.output.prefix(280)).replacingOccurrences(of: "\n", with: " ")
+                        self.appendColored("     \(preview)\(result.output.count > 280 ? "..." : "")\n", color: self.cGray)
+                    } else {
+                        self.appendColored("     \(result.error ?? "no output")\n", color: self.cDimGray)
+                    }
+                }
+
+                if let fastest = successful.min(by: { $0.durationMs < $1.durationMs }) {
+                    self.appendColored("  Fastest: \(fastest.provider.rawValue) (\(fastest.durationMs)ms)\n", color: self.cYellow, bold: true)
+                }
+                if let richest = successful.max(by: { $0.outputChars < $1.outputChars }) {
+                    self.appendColored("  Longest output: \(richest.provider.rawValue) (\(richest.outputChars) chars)\n", color: self.cYellow)
+                }
+                let totalCompareCost = successful.reduce(0.0) { sum, row in
+                    sum + self.costTracker.estimateUSD(
+                        provider: row.provider.rawValue,
+                        inputChars: row.inputChars,
+                        outputChars: row.outputChars
+                    )
+                }
+                self.appendColored(String(format: "  Compare est. cost: $%.5f\n", totalCompareCost), color: self.cOrange)
+                self.appendColored("╰─────────────────────────────────────╯\n\n", color: self.cCyan)
+
+                self.checkLevelUp(oldLevel: oldLevel)
+                self.setState(.happy, duration: 3)
+                self.bubbleLabel.stringValue = speechBubble("Compare done")
+                self.playSound("Glass")
+            }
+        }
+    }
+
+    func showCostRates() {
+        appendColored("💲 Cost rates (USD per 1M tokens)\n", color: cCyan, bold: true)
+        for provider in AIProvider.allCases {
+            let rates = costTracker.rates(provider: provider.rawValue)
+            appendColored("  \(provider.rawValue.padding(toLength: 8, withPad: " ", startingAt: 0))", color: cYellow)
+            appendOutput(String(format: "→ in %.3f | out %.3f\n", rates.inputPerM, rates.outputPerM))
+        }
+        appendColored("\n  Override:\n", color: cPurple, bold: true)
+        appendColored("  /cost set <provider> <in_per_m> <out_per_m>\n", color: cGray)
+        appendColored("  /cost clear <provider>\n", color: cGray)
+        appendColored("  /cost reset\n\n", color: cGray)
+    }
+
+    func showCostSummary() {
+        let totalRequests = costTracker.totalRequests()
+        if totalRequests == 0 {
+            appendColored("💲 No cost data yet. Run prompts first.\n", color: cDimGray)
+            appendColored("  Commands: /cost rates, /cost set ..., /cost reset\n\n", color: cGray)
+            return
+        }
+
+        appendColored("╭── Cost Tracker ─────────────────────╮\n", color: cCyan)
+        appendColored("  Estimated tokens use chars/4 heuristic.\n", color: cDimGray)
+        appendColored("  Total requests: \(totalRequests)\n", color: cGreen, bold: true)
+        appendColored(String(format: "  Estimated total: $%.5f\n", costTracker.totalUSD()), color: cOrange, bold: true)
+
+        let sorted = costTracker.rows.sorted { a, b in
+            if a.value.usd == b.value.usd { return a.key < b.key }
+            return a.value.usd > b.value.usd
+        }
+        for (provider, row) in sorted where row.requests > 0 {
+            appendColored("  \(provider.padding(toLength: 8, withPad: " ", startingAt: 0))", color: cYellow)
+            appendOutput(String(format: "→ req:%d inTok:%d outTok:%d est:$%.5f\n",
+                               row.requests, row.inputTokens, row.outputTokens, row.usd))
+        }
+        appendColored("\n  /cost rates  /cost set ...  /cost clear ...  /cost reset\n", color: cGray)
+        appendColored("╰─────────────────────────────────────╯\n\n", color: cCyan)
+    }
+
+    func handleCostCommand(args: String) {
+        let value = args.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if value.isEmpty || value == "status" {
+            showCostSummary()
+            return
+        }
+        if value == "rates" {
+            showCostRates()
+            return
+        }
+        if value == "reset" {
+            costTracker.reset()
+            appendColored("✅ Cost tracker reset\n\n", color: cGreen, bold: true)
+            return
+        }
+        if value.hasPrefix("clear ") {
+            let provider = String(value.dropFirst(6)).trimmingCharacters(in: .whitespacesAndNewlines)
+            guard AIProvider(rawValue: provider) != nil else {
+                appendColored("❌ Unknown provider for /cost clear\n\n", color: cRed)
+                return
+            }
+            costTracker.clearRates(provider: provider)
+            appendColored("✅ Cleared custom rate for \(provider)\n\n", color: cGreen)
+            return
+        }
+        if value.hasPrefix("set ") {
+            let raw = String(value.dropFirst(4))
+            let parts = raw.split(separator: " ", omittingEmptySubsequences: true).map(String.init)
+            guard parts.count == 3, AIProvider(rawValue: parts[0]) != nil,
+                  let inPerM = Double(parts[1]),
+                  let outPerM = Double(parts[2]) else {
+                appendColored("❌ Usage: /cost set <provider> <in_per_m> <out_per_m>\n\n", color: cRed)
+                return
+            }
+            costTracker.setRates(provider: parts[0], inputPerM: inPerM, outputPerM: outPerM)
+            appendColored(
+                "✅ Cost rates for \(parts[0]) set (in \(String(format: "%.3f", inPerM)) / out \(String(format: "%.3f", outPerM)))\n\n",
+                color: cGreen
+            )
+            return
+        }
+        appendColored("❌ Usage: /cost [status|rates|set|clear|reset]\n\n", color: cRed)
     }
 
     func handleModelCommand(args: String) {
@@ -5078,6 +5651,12 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         }
         if value == "list" || value == "ls" || value == "models" {
             showModelCatalog()
+            return
+        }
+
+        if value.hasPrefix("endpoint ") {
+            let endpointArgs = String(value.dropFirst(9)).trimmingCharacters(in: .whitespacesAndNewlines)
+            handleModelEndpointCommand(args: endpointArgs)
             return
         }
 
@@ -5120,6 +5699,50 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         appendColored("✅ Model for \(provider.rawValue): \(model)\n\n", color: cGreen)
     }
 
+    func handleModelEndpointCommand(args: String) {
+        let value = args.trimmingCharacters(in: .whitespacesAndNewlines)
+        if value.isEmpty {
+            appendColored("Usage:\n", color: cRed)
+            appendColored("  /model endpoint gpt <url>\n", color: cGray)
+            appendColored("  /model endpoint gemini <url>\n", color: cGray)
+            appendColored("  /model endpoint clear gpt|gemini\n\n", color: cGray)
+            return
+        }
+
+        if value.hasPrefix("clear ") {
+            let key = String(value.dropFirst(6)).trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            guard key == "gpt" || key == "gemini" else {
+                appendColored("❌ Endpoint clear supports only gpt|gemini\n\n", color: cRed)
+                return
+            }
+            providerEndpointOverrides.removeValue(forKey: key)
+            saveProviderPreferences()
+            appendColored("✅ Cleared custom endpoint for \(key)\n\n", color: cGreen)
+            return
+        }
+
+        let parts = value.split(separator: " ", maxSplits: 1, omittingEmptySubsequences: true)
+        guard parts.count == 2 else {
+            appendColored("❌ Usage: /model endpoint gpt|gemini <url>\n\n", color: cRed)
+            return
+        }
+        let providerKey = String(parts[0]).lowercased()
+        guard providerKey == "gpt" || providerKey == "gemini" else {
+            appendColored("❌ Endpoint set supports only gpt|gemini\n\n", color: cRed)
+            return
+        }
+        let endpoint = String(parts[1]).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard endpoint.hasPrefix("http://") || endpoint.hasPrefix("https://") else {
+            appendColored("❌ Endpoint must start with http:// or https://\n\n", color: cRed)
+            return
+        }
+
+        providerEndpointOverrides[providerKey] = endpoint
+        saveProviderPreferences()
+        appendColored("✅ Custom endpoint set for \(providerKey)\n", color: cGreen, bold: true)
+        appendColored("  \(endpoint)\n\n", color: cGray)
+    }
+
     // MARK: - Run CLI
 
     func runCLI(cli: String, prompt: String, oldLevel: Int = 0) {
@@ -5132,6 +5755,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         let optimization = tokenOptimizer.optimize(prompt: prompt, brainContext: rawContext, cli: provider.rawValue)
         lastTokenOptimization = optimization
         let enhancedPrompt = optimization.finalPrompt
+        let billedInputChars = enhancedPrompt.count
         if tokenOptimizer.isEnabled && optimization.savedChars > 0 {
             appendColored(
                 "🧮 Optimizer \(optimization.mode.rawValue): \(optimization.originalChars) -> \(optimization.optimizedChars) chars (\(optimization.savedPercent)% saved)\n",
@@ -5148,6 +5772,11 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                 }
                 self.appendOutput("\n")
                 if success {
+                    self.costTracker.record(
+                        provider: provider.rawValue,
+                        inputChars: billedInputChars,
+                        outputChars: output.count
+                    )
                     self.pet.onCommandSuccess()
                     self.pet.save()
                     self.refreshStatsDisplay()
@@ -6113,7 +6742,9 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             ("text", "→ send prompt to active provider"),
             ("/model", "→ provider/model status"),
             ("/models", "→ list providers + models"),
+            ("/compare <p>", "→ compare outputs"),
             ("/usage 7", "→ provider usage for 7 days"),
+            ("/cost", "→ token/cost tracker"),
             ("/quests", "→ daily quests"),
             ("/leaderboard", "→ publish to leaderboard"),
         ])
@@ -6147,7 +6778,10 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                 ("/model", "→ current provider/model"),
                 ("/model <p>", "→ set provider"),
                 ("/model <p> <m>", "→ set model override"),
+                ("/model endpoint ...", "→ custom API endpoint"),
+                ("/compare <p>", "→ compare providers"),
                 ("/usage [N]", "→ provider usage"),
+                ("/cost", "→ cost summary"),
             ])
             appendOutput("\n")
         case "tools", "dev":
@@ -6218,7 +6852,10 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             ("/ollama <p>", "→ explicitly to local Ollama"),
             ("/model", "→ active provider + model status"),
             ("/models", "→ list all providers/models"),
+            ("/model endpoint ...", "→ custom GPT/Gemini endpoint"),
+            ("/compare <p>", "→ compare provider answers"),
             ("/usage [N]", "→ provider usage in last N days"),
+            ("/cost", "→ token/cost tracker"),
             ("/paste", "→ analyze clipboard content"),
         ]
         for (cmd, desc) in cliCmds {

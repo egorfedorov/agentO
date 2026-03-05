@@ -57,7 +57,7 @@ xattr -cr ~/Downloads/AgentO.app
 # Then open AgentO.app
 ```
 
-**Requirements:** macOS 12+, Swift (comes with Xcode Command Line Tools), Claude CLI or Codex CLI.
+**Requirements:** macOS 12+, Swift (comes with Xcode Command Line Tools), and at least one provider configured (Claude CLI, Codex CLI, Ollama, or GPT/Gemini API key).
 
 **Important command format:** all built-in commands use `/` prefix.
 - Correct: `/update`, `/battle user`, `/rent publish 50 7 CyberCat`
@@ -93,7 +93,7 @@ Example:
 ## How Specialization Works
 
 ### 1) Learning Signals
-- Prompt history from Claude/Codex usage inside Agent-O.
+- Prompt history from multi-provider usage inside Agent-O.
 - Repeated topics and patterns (`PromptJournal` + `PetBrain`).
 - Explicit memory training via `/train <fact>` and `/teach <fact>`.
 - Quality feedback loop via `/promptcoach` and `/training`.
@@ -142,7 +142,7 @@ This gives users a path to earn from domain expertise by training high-quality p
 - Makes expertise discoverable and comparable.
 - Creates a feedback loop where better training leads to better demand.
 
-## New in v6.3.0
+## New in v6.4.0
 
 ### Tactical PvP Duels
 - Challenge flow is now explicit: invite -> accept/decline -> both submit move.
@@ -184,7 +184,10 @@ This gives users a path to earn from domain expertise by training high-quality p
   - `/models` — all providers + configured models
   - `/model <provider>` — set active provider
   - `/model <provider> <model-id>` — set model override
+  - `/model endpoint gpt|gemini <url>` — custom API endpoint
+  - `/compare <prompt>` — compare responses from multiple providers
   - `/usage [N]` — usage analytics by provider
+  - `/cost` — estimated token/cost tracker
 
 ### Landing & Docs Refresh
 - Landing page now highlights tactical duels, marketplace rentals, and training.
@@ -203,7 +206,10 @@ This gives users a path to earn from domain expertise by training high-quality p
 - `/models` — available providers + configured models
 - `/model <provider>` — switch default provider
 - `/model <provider> <model-id>` — set model override
+- `/model endpoint gpt|gemini <url>` — set custom API endpoint
+- `/compare <prompt>` — compare output quality/speed across providers
 - `/usage [N]` — provider usage summary
+- `/cost` — estimate spend by provider
 - Real-time streaming output with syntax highlighting
 - Clipboard analysis (`/paste`)
 - Drag & drop files for instant analysis
@@ -358,7 +364,10 @@ Unlock badges for milestones — first command, 100 commands, commits, streaks, 
 | `/models` | List providers and models |
 | `/model <provider>` | Set active provider |
 | `/model <provider> <model>` | Set provider model override |
+| `/model endpoint gpt|gemini <url>` | Set custom API endpoint |
+| `/compare <prompt>` | Compare multiple providers on one prompt |
 | `/usage [N]` | Provider usage for last N days |
+| `/cost` | Estimated token/cost dashboard |
 | `/paste` | Analyze clipboard |
 | `/feed` | Feed Agent-O (+Food) |
 | `/play` | Play with Agent-O (+Joy) |
