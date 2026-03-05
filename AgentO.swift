@@ -1477,7 +1477,7 @@ class PetBrain {
 // MARK: - Main App Delegate
 
 class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
-    static let currentVersion = "5.1.0"
+    static let currentVersion = "5.2.0"
     // UI
     var window: NSPanel!
     var miniWindow: NSPanel!
@@ -4869,7 +4869,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                     self.appendColored("🆕 New version: v\(remoteVersion) (current: v\(AgentODelegate.currentVersion))\n", color: self.cYellow, bold: true)
 
                     if let assets = json["assets"] as? [[String: Any]] {
-                        let zipAsset = assets.first(where: { ($0["name"] as? String ?? "").hasSuffix("-macos.zip") })
+                        let zipAsset = assets.first(where: { ($0["name"] as? String ?? "").hasSuffix(".zip") })
                         if let downloadURL = zipAsset?["browser_download_url"] as? String {
                             self.appendColored("⬇️  Downloading...\n", color: self.cCyan)
                             self.downloadAndInstallUpdate(from: downloadURL, version: remoteVersion)
