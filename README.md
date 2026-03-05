@@ -48,6 +48,13 @@ brew install agento
 agento
 ```
 
+**Option 3: Download .app** from [Releases](https://github.com/egorfedorov/agentO/releases)
+```bash
+# After downloading, remove quarantine flag:
+xattr -cr ~/Downloads/AgentO.app
+# Then open AgentO.app
+```
+
 **Requirements:** macOS 12+, Swift (comes with Xcode Command Line Tools), Claude CLI or Codex CLI.
 
 ## Features
