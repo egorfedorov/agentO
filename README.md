@@ -23,7 +23,7 @@ A native macOS floating Tamagotchi that helps you code, learns, evolves, and kee
 ## Quick Start
 
 ```bash
-git clone https://github.com/user/agentO.git
+git clone https://github.com/egorfedorov/agentO.git
 cd agentO
 ./run.sh
 ```
