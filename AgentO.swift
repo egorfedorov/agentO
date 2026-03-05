@@ -1404,6 +1404,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
     var currentTheme = Theme.matrix
     var pomodoro = PomodoroTimer()
     var pomoLabel: NSTextField!
+    var bottomStatsLabel: NSTextField!
 
     // Mini-game state
     var gameActive = false
@@ -1637,8 +1638,8 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
         // Output scroll view
         yPos -= 6
-        let outputH = yPos - 48
-        outputScroll = NSScrollView(frame: NSRect(x: 10, y: 48, width: w - 20, height: outputH))
+        let outputH = yPos - 58
+        outputScroll = NSScrollView(frame: NSRect(x: 10, y: 58, width: w - 20, height: outputH))
         outputScroll.hasVerticalScroller = true
         outputScroll.autohidesScrollers = true
         outputScroll.borderType = .noBorder
@@ -1666,6 +1667,15 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         pomoLabel.isHidden = true
         pomoLabel.autoresizingMask = [.width, .maxYMargin]
         dropContainer.addSubview(pomoLabel)
+
+        // Bottom stats bar (always visible)
+        bottomStatsLabel = NSTextField(labelWithString: "")
+        bottomStatsLabel.frame = NSRect(x: 10, y: 42, width: w - 20, height: 14)
+        bottomStatsLabel.font = NSFont.monospacedSystemFont(ofSize: 10, weight: .medium)
+        bottomStatsLabel.textColor = cDimGray
+        bottomStatsLabel.autoresizingMask = [.width, .maxYMargin]
+        dropContainer.addSubview(bottomStatsLabel)
+        refreshBottomStats()
 
         // Input field
         inputField = NSTextField(frame: NSRect(x: 10, y: 12, width: w - 80, height: 28))
@@ -1811,9 +1821,10 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
         // Output takes the middle
         let outputTop = h - 30 - 105
-        outputScroll.frame = NSRect(x: 10, y: 48, width: w - 20, height: outputTop - 52)
+        outputScroll.frame = NSRect(x: 10, y: 58, width: w - 20, height: outputTop - 62)
 
-        // Input at bottom
+        // Bottom stats + input at bottom
+        bottomStatsLabel.frame = NSRect(x: 10, y: 42, width: w - 20, height: 14)
         inputField.frame = NSRect(x: 10, y: 12, width: w - 80, height: 28)
         sendBtn.frame = NSRect(x: w - 65, y: 10, width: 55, height: 30)
 
@@ -1867,8 +1878,9 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         explainBtn.frame = NSRect(x: 10 + (btnW + btnGap)*2, y: yPos, width: btnW, height: 22)
         reviewBtn.frame = NSRect(x: 10 + (btnW + btnGap)*3, y: yPos, width: btnW, height: 22)
         yPos -= 6
-        let outputH = yPos - 48
-        outputScroll.frame = NSRect(x: 10, y: 48, width: w - 20, height: outputH)
+        let outputH = yPos - 58
+        outputScroll.frame = NSRect(x: 10, y: 58, width: w - 20, height: outputH)
+        bottomStatsLabel.frame = NSRect(x: 10, y: 42, width: w - 20, height: 14)
         inputField.frame = NSRect(x: 10, y: 12, width: w - 80, height: 28)
         sendBtn.frame = NSRect(x: w - 65, y: 10, width: 55, height: 30)
 
@@ -1960,6 +1972,13 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         let eBar = "\(L10n.t("s_nrg")) \(p.statsBar(p.energy)) \(p.energy)%"
         statsLabel.stringValue = "\(lvlBar)  XP:\(p.xp)/\(p.xpForNextLevel)  Streak:\(p.streak)d\n\(hBar)  \(jBar)  \(eBar)"
         statusBarItem.button?.title = "\(currentSkin.mini) Lv.\(p.level) \(p.moodEmoji)"
+        refreshBottomStats()
+    }
+
+    func refreshBottomStats() {
+        guard bottomStatsLabel != nil else { return }
+        let p = pet
+        bottomStatsLabel.stringValue = "Lv.\(p.level) \(p.moodEmoji)  │  Food:\(p.hunger)%  │  Joy:\(p.happiness)%  │  Nrg:\(p.energy)%  │  XP:\(p.xp)/\(p.xpForNextLevel)"
     }
 
     func localizedMood() -> String {
