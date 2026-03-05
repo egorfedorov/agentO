@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent-O Learning Architecture</title>
+    <meta name="description" content="How Agent-O pets learn from real prompts, build specialist profiles, and become rentable in a skill-based marketplace.">
+    <meta property="og:title" content="Agent-O Learning Architecture">
+    <meta property="og:description" content="Prompt signals -> specialization graph -> rental demand. Full learning flow of Agent-O pets.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://egorfedorov.github.io/agentO/learning.html">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --bg: #080b16;
+            --bg-card: #0f1324;
+            --bg-card-2: #14102a;
+            --cyan: #58d9ff;
+            --green: #55f0a1;
+            --purple: #ba9cff;
+            --yellow: #f7cd58;
+            --text: #e8eef9;
+            --text-dim: #8fa1c6;
+            --border: rgba(88, 217, 255, 0.18);
+        }
+
+        body {
+            font-family: 'JetBrains Mono', monospace;
+            background:
+                radial-gradient(circle at 12% 10%, rgba(88, 217, 255, 0.1), transparent 35%),
+                radial-gradient(circle at 86% 86%, rgba(85, 240, 161, 0.08), transparent 34%),
+                var(--bg);
+            color: var(--text);
+            line-height: 1.7;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background:
+                linear-gradient(rgba(88, 217, 255, 0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(88, 217, 255, 0.04) 1px, transparent 1px);
+            background-size: 56px 56px;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        a {
+            color: var(--cyan);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .container {
+            max-width: 1120px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .top-nav {
+            display: flex;
+            align-items: center;
+            gap: 0.9rem;
+            flex-wrap: wrap;
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            margin-bottom: 1.5rem;
+        }
+
+        .hero {
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            background:
+                radial-gradient(circle at 90% 12%, rgba(186, 156, 255, 0.17), transparent 36%),
+                linear-gradient(135deg, #111b33, #141129 60%, #121f24);
+            padding: 2rem;
+        }
+
+        .eyebrow {
+            display: inline-block;
+            color: var(--green);
+            font-size: 0.72rem;
+            letter-spacing: 1.7px;
+            text-transform: uppercase;
+            margin-bottom: 0.8rem;
+        }
+
+        h1 {
+            font-size: clamp(1.7rem, 4.6vw, 3.3rem);
+            line-height: 1.1;
+            letter-spacing: -1px;
+            max-width: 18ch;
+        }
+
+        .hero p {
+            margin-top: 0.9rem;
+            color: var(--text-dim);
+            font-size: 0.95rem;
+            max-width: 70ch;
+        }
+
+        .hero-cta {
+            margin-top: 1.3rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.7rem;
+        }
+
+        .btn {
+            border: 1px solid transparent;
+            border-radius: 10px;
+            padding: 0.65rem 1rem;
+            font-size: 0.76rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 700;
+        }
+
+        .btn-primary {
+            color: #09121b;
+            background: linear-gradient(135deg, var(--cyan), var(--green));
+            box-shadow: 0 10px 24px rgba(85, 240, 161, 0.22);
+        }
+
+        .btn-ghost {
+            color: var(--cyan);
+            border-color: rgba(88, 217, 255, 0.35);
+            background: rgba(8, 11, 22, 0.35);
+        }
+
+        .kpi-row {
+            margin-top: 1.2rem;
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 0.7rem;
+        }
+
+        .kpi {
+            border: 1px solid rgba(88, 217, 255, 0.22);
+            border-radius: 12px;
+            background: rgba(8, 11, 22, 0.55);
+            padding: 0.65rem 0.75rem;
+        }
+
+        .kpi span {
+            display: block;
+            color: var(--text-dim);
+            font-size: 0.68rem;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+        }
+
+        .kpi strong {
+            margin-top: 0.2rem;
+            display: block;
+            color: var(--cyan);
+            font-size: 1rem;
+        }
+
+        section {
+            margin-top: 1.2rem;
+        }
+
+        .card {
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            background: rgba(15, 19, 36, 0.84);
+            padding: 1rem;
+        }
+
+        .card h2 {
+            font-size: 1.2rem;
+            color: var(--cyan);
+        }
+
+        .card p {
+            margin-top: 0.35rem;
+            color: var(--text-dim);
+            font-size: 0.84rem;
+        }
+
+        .pipeline {
+            margin-top: 0.9rem;
+            border: 1px solid rgba(88, 217, 255, 0.18);
+            border-radius: 14px;
+            overflow: hidden;
+            background: #090f1d;
+        }
+
+        .pipeline svg {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .flow-line {
+            fill: none;
+            stroke: var(--cyan);
+            stroke-width: 2;
+            stroke-dasharray: 5 9;
+            animation: flow 1.6s linear infinite;
+        }
+
+        .flow-line.d2 { animation-delay: 0.25s; }
+        .flow-line.d3 { animation-delay: 0.5s; }
+
+        @keyframes flow {
+            to { stroke-dashoffset: -28; }
+        }
+
+        .pulse {
+            fill: var(--green);
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        .pulse.d1 { animation-delay: 0.35s; }
+        .pulse.d2 { animation-delay: 0.7s; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.35; r: 4; }
+            50% { opacity: 1; r: 6; }
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 0.8rem;
+        }
+
+        .mini {
+            border: 1px solid rgba(186, 156, 255, 0.25);
+            border-radius: 12px;
+            background: rgba(20, 16, 42, 0.72);
+            padding: 0.85rem;
+        }
+
+        .mini h3 {
+            font-size: 0.88rem;
+            color: var(--purple);
+        }
+
+        .mini p {
+            margin-top: 0.35rem;
+            color: var(--text-dim);
+            font-size: 0.78rem;
+            line-height: 1.55;
+        }
+
+        .mini code {
+            margin-top: 0.55rem;
+            display: inline-block;
+            color: var(--green);
+            font-size: 0.72rem;
+        }
+
+        .loop {
+            display: grid;
+            grid-template-columns: 1.2fr 1fr;
+            gap: 0.9rem;
+        }
+
+        .list {
+            list-style: none;
+            margin-top: 0.65rem;
+            display: grid;
+            gap: 0.45rem;
+        }
+
+        .list li {
+            border-left: 2px solid rgba(88, 217, 255, 0.46);
+            padding-left: 0.55rem;
+            color: var(--text);
+            font-size: 0.8rem;
+        }
+
+        .pill-row {
+            margin-top: 0.7rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.45rem;
+        }
+
+        .pill {
+            border: 1px solid rgba(247, 205, 88, 0.3);
+            border-radius: 999px;
+            background: rgba(247, 205, 88, 0.08);
+            color: var(--text-dim);
+            font-size: 0.72rem;
+            padding: 0.22rem 0.55rem;
+        }
+
+        .footer {
+            margin-top: 1.4rem;
+            border-top: 1px solid rgba(88, 217, 255, 0.18);
+            padding-top: 1rem;
+            color: var(--text-dim);
+            font-size: 0.76rem;
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 0.55rem;
+        }
+
+        @media (max-width: 900px) {
+            .container {
+                padding: 1rem;
+            }
+
+            .kpi-row {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .grid-3 {
+                grid-template-columns: 1fr;
+            }
+
+            .loop {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="top-nav">
+            <a href="./index.html">&larr; Main Landing</a>
+            <span>•</span>
+            <a href="https://social-coral-five.vercel.app/">Leaderboard</a>
+            <span>•</span>
+            <a href="https://social-coral-five.vercel.app/marketplace">Marketplace</a>
+        </div>
+
+        <header class="hero">
+            <span class="eyebrow">Agent-O Intelligence Layer</span>
+            <h1>How the Pet Learns and Becomes a Specialist</h1>
+            <p>
+                Agent-O transforms your real prompts into learning signals. Those signals shape domain expertise,
+                and expertise becomes market value when renters choose pets by specialization quality.
+            </p>
+            <div class="hero-cta">
+                <a class="btn btn-primary" href="https://github.com/egorfedorov/agentO/releases">Download Agent-O</a>
+                <a class="btn btn-ghost" href="https://social-coral-five.vercel.app/learning">Open Social Learning Page</a>
+                <a class="btn btn-ghost" href="https://social-coral-five.vercel.app/marketplace">See Marketplace</a>
+            </div>
+            <div class="kpi-row">
+                <div class="kpi">
+                    <span>Input</span>
+                    <strong>Daily Prompts</strong>
+                </div>
+                <div class="kpi">
+                    <span>Model</span>
+                    <strong>Specialty Scores</strong>
+                </div>
+                <div class="kpi">
+                    <span>Output</span>
+                    <strong>Rentable Profile</strong>
+                </div>
+                <div class="kpi">
+                    <span>Loop</span>
+                    <strong>Train - Rent - Improve</strong>
+                </div>
+            </div>
+        </header>
+
+        <section class="card">
+            <h2>Learning Pipeline (SVG)</h2>
+            <p>Prompt stream -> signal extraction -> specialty graph -> rental demand.</p>
+            <div class="pipeline">
+                <svg viewBox="0 0 1080 320" role="img" aria-label="Agent-O learning pipeline">
+                    <defs>
+                        <linearGradient id="nodeA" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="#12223f"></stop>
+                            <stop offset="100%" stop-color="#181632"></stop>
+                        </linearGradient>
+                        <linearGradient id="nodeB" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="#14293a"></stop>
+                            <stop offset="100%" stop-color="#1a1a34"></stop>
+                        </linearGradient>
+                    </defs>
+
+                    <rect x="40" y="42" width="220" height="92" rx="16" fill="url(#nodeA)" stroke="rgba(88,217,255,.56)" stroke-width="1.4"></rect>
+                    <text x="62" y="78" fill="#e8eef9" font-size="16" font-weight="700">1. Prompt Stream</text>
+                    <text x="62" y="103" fill="#8fa1c6" font-size="13">Claude + Codex sessions</text>
+
+                    <rect x="300" y="42" width="230" height="92" rx="16" fill="url(#nodeB)" stroke="rgba(88,217,255,.56)" stroke-width="1.4"></rect>
+                    <text x="322" y="78" fill="#e8eef9" font-size="16" font-weight="700">2. Signal Parser</text>
+                    <text x="322" y="103" fill="#8fa1c6" font-size="13">topics, stacks, intent</text>
+
+                    <rect x="570" y="42" width="230" height="92" rx="16" fill="url(#nodeA)" stroke="rgba(88,217,255,.56)" stroke-width="1.4"></rect>
+                    <text x="592" y="78" fill="#e8eef9" font-size="16" font-weight="700">3. Specialty Graph</text>
+                    <text x="592" y="103" fill="#8fa1c6" font-size="13">domain score per pet</text>
+
+                    <rect x="840" y="42" width="200" height="92" rx="16" fill="url(#nodeB)" stroke="rgba(88,217,255,.56)" stroke-width="1.4"></rect>
+                    <text x="862" y="78" fill="#e8eef9" font-size="16" font-weight="700">4. Rent Market</text>
+                    <text x="862" y="103" fill="#8fa1c6" font-size="13">selection + pricing</text>
+
+                    <path d="M260 88 H300" class="flow-line"></path>
+                    <path d="M530 88 H570" class="flow-line d2"></path>
+                    <path d="M800 88 H840" class="flow-line d3"></path>
+
+                    <circle cx="170" cy="220" r="36" fill="rgba(10,16,32,.95)" stroke="rgba(88,217,255,.52)" stroke-width="1.4"></circle>
+                    <text x="134" y="224" fill="#cddaf4" font-size="12" font-weight="600">Game Dev</text>
+
+                    <circle cx="350" cy="252" r="30" fill="rgba(10,16,32,.95)" stroke="rgba(88,217,255,.52)" stroke-width="1.4"></circle>
+                    <text x="325" y="256" fill="#cddaf4" font-size="12" font-weight="600">Art</text>
+
+                    <circle cx="520" cy="220" r="34" fill="rgba(10,16,32,.95)" stroke="rgba(88,217,255,.52)" stroke-width="1.4"></circle>
+                    <text x="482" y="224" fill="#cddaf4" font-size="12" font-weight="600">Frontend</text>
+
+                    <circle cx="700" cy="252" r="30" fill="rgba(10,16,32,.95)" stroke="rgba(88,217,255,.52)" stroke-width="1.4"></circle>
+                    <text x="667" y="256" fill="#cddaf4" font-size="12" font-weight="600">Backend</text>
+
+                    <circle cx="870" cy="220" r="34" fill="rgba(10,16,32,.95)" stroke="rgba(88,217,255,.52)" stroke-width="1.4"></circle>
+                    <text x="838" y="224" fill="#cddaf4" font-size="12" font-weight="600">Automation</text>
+
+                    <path d="M205 205 L320 244" stroke="rgba(88,217,255,.35)" stroke-width="1.2" stroke-dasharray="4 6" fill="none"></path>
+                    <path d="M380 252 L485 226" stroke="rgba(88,217,255,.35)" stroke-width="1.2" stroke-dasharray="4 6" fill="none"></path>
+                    <path d="M555 226 L668 245" stroke="rgba(88,217,255,.35)" stroke-width="1.2" stroke-dasharray="4 6" fill="none"></path>
+                    <path d="M730 246 L836 224" stroke="rgba(88,217,255,.35)" stroke-width="1.2" stroke-dasharray="4 6" fill="none"></path>
+
+                    <circle cx="274" cy="88" r="5" class="pulse"></circle>
+                    <circle cx="544" cy="88" r="5" class="pulse d1"></circle>
+                    <circle cx="815" cy="88" r="5" class="pulse d2"></circle>
+                </svg>
+            </div>
+        </section>
+
+        <section class="grid-3">
+            <article class="mini">
+                <h3>1) Capture and Learn</h3>
+                <p>Every prompt contributes to memory patterns, language/framework hints, and specialization score updates.</p>
+                <code>/training</code>
+            </article>
+            <article class="mini">
+                <h3>2) Inspect and Control</h3>
+                <p>Pet can auto-pick strongest domain or be manually locked to a specialist lane for focused sessions.</p>
+                <code>/specialist set stake_game_dev</code>
+            </article>
+            <article class="mini">
+                <h3>3) Publish and Monetize</h3>
+                <p>When profile is strong, publish listing and rent it to other users who need that exact domain skill.</p>
+                <code>/rent publish 80 7 GameEngineer</code>
+            </article>
+        </section>
+
+        <section class="loop">
+            <article class="card">
+                <h2>Specialist Modes</h2>
+                <p>Current direction is to keep pet learning real and personalized around your daily workflow.</p>
+                <ul class="list">
+                    <li>Auto mode picks strongest domain from accumulated signals.</li>
+                    <li>Manual mode lets owner lock specialist during a project sprint.</li>
+                    <li>Profile is visible in listing description so renters know why to hire this pet.</li>
+                    <li>Training loop ties prompt quality to economy outcomes.</li>
+                </ul>
+                <div class="pill-row">
+                    <span class="pill">/specialist</span>
+                    <span class="pill">/specialist list</span>
+                    <span class="pill">/specialist auto</span>
+                    <span class="pill">/promptstats 7</span>
+                </div>
+            </article>
+
+            <article class="card">
+                <h2>Trust and Fairness Direction</h2>
+                <p>Core product goal: valuable pets should come from real work quality, not fake stats.</p>
+                <ul class="list">
+                    <li>Identity binding protects ownership and profile continuity.</li>
+                    <li>Challenge/accept battle flow blocks instant spam fighting.</li>
+                    <li>Rental economy rewards domain consistency over random leveling.</li>
+                </ul>
+            </article>
+        </section>
+
+        <div class="footer">
+            <div>
+                <a href="./index.html">Main Landing</a>
+                &nbsp;&middot;&nbsp;
+                <a href="https://social-coral-five.vercel.app/">Leaderboard</a>
+                &nbsp;&middot;&nbsp;
+                <a href="https://social-coral-five.vercel.app/marketplace">Marketplace</a>
+            </div>
+            <div>Agent-O Learning Architecture</div>
+        </div>
+    </div>
+</body>
+</html>
