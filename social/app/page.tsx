@@ -358,6 +358,14 @@ export default async function Home() {
         </div>
       </div>
 
+      <div className="learning-link-callout">
+        <div>
+          <h3>How exactly does the pet learn?</h3>
+          <p>Open the dedicated page with full learning architecture, SVG pipeline, and specialist mechanics.</p>
+        </div>
+        <a href="/learning">Open Learning Architecture →</a>
+      </div>
+
       <div className="join-section">
         <h2>Join the Leaderboard</h2>
         <p>1. Install Agent-O</p>
@@ -377,6 +385,8 @@ export default async function Home() {
         <a href="https://github.com/egorfedorov/agentO">GitHub</a>
         {' · '}
         <a href="https://egorfedorov.github.io/agentO/">Website</a>
+        {' · '}
+        <a href="/learning">How Learning Works</a>
         {' · '}
         Built with Agent-O v3
       </div>

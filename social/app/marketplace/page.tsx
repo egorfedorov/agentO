@@ -157,6 +157,14 @@ export default async function MarketplacePage() {
         <p><code>/rent end rental_id</code> to end your active rental as owner</p>
       </div>
 
+      <div className="learning-link-callout">
+        <div>
+          <h3>Need deeper learning mechanics?</h3>
+          <p>See how prompt signals become specialist skills and rental value.</p>
+        </div>
+        <a href="/learning">Open Learning Architecture →</a>
+      </div>
+
       <div className="earn-section">
         <div className="earn-head">
           <h2>Specialist Pet Economy</h2>
@@ -250,6 +258,8 @@ export default async function MarketplacePage() {
 
       <div className="footer">
         <a href="/">Leaderboard</a>
+        {' · '}
+        <a href="/learning">How Learning Works</a>
         {' · '}
         <a href="https://github.com/egorfedorov/agentO">GitHub</a>
         {' · '}
