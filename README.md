@@ -1,24 +1,30 @@
 # Agent-O
 
-**Your ASCII desktop companion for Claude CLI & Codex CLI.**
+<p align="center">
+  <img src="assets/agent-o-banner.svg" alt="Agent-O Banner" width="800"/>
+</p>
 
-A native macOS floating Tamagotchi that helps you code, learns, evolves, and keeps you company. Zero dependencies — just Swift.
+<p align="center">
+  <strong>Your ASCII desktop companion for Claude CLI & Codex CLI.</strong><br>
+  A native macOS floating Tamagotchi that helps you code, learns, evolves, and keeps you company.
+</p>
 
-![Agent-O](https://img.shields.io/badge/macOS-12%2B-blue) ![Swift](https://img.shields.io/badge/Swift-5-orange) ![Dependencies](https://img.shields.io/badge/dependencies-0-green) ![License](https://img.shields.io/badge/license-MIT-purple)
+<p align="center">
+  <img src="https://img.shields.io/badge/macOS-12%2B-blue?style=flat-square" alt="macOS">
+  <img src="https://img.shields.io/badge/Swift-5-orange?style=flat-square" alt="Swift">
+  <img src="https://img.shields.io/badge/dependencies-0-green?style=flat-square" alt="Dependencies">
+  <img src="https://img.shields.io/badge/binary-~50KB-cyan?style=flat-square" alt="Binary Size">
+  <img src="https://img.shields.io/badge/license-MIT-purple?style=flat-square" alt="License">
+</p>
 
-```
-   ╭─────────╮
-   │  ◉   ◉  │
-   │    ▽    │
-   │  ╰───╯  │
-   ╰────┬────╯
-        │
-   ╭────┴────╮
-   │ AGENT-O │
-   ╰─────────╯
-      │   │
-      ╵   ╵
-```
+<p align="center">
+  <a href="https://egorfedorov.github.io/agentO/">Website</a> &middot;
+  <a href="#quick-start">Quick Start</a> &middot;
+  <a href="#features">Features</a> &middot;
+  <a href="#all-commands">Commands</a>
+</p>
+
+---
 
 ## Quick Start
 
@@ -32,7 +38,7 @@ cd agentO
 
 ## Features
 
-### CLI Integration
+### Claude & Codex Integration
 - Send prompts to **Claude CLI** or **Codex CLI** directly
 - Real-time streaming output with syntax highlighting
 - Clipboard analysis (`!paste`)
