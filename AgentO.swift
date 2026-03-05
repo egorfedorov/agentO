@@ -679,7 +679,7 @@ struct AgentArt {
         "Try: claude --resume to continue session",
         "Hint: claude commit for auto-commit",
         "Tip: claude -p 'prompt' for pipe mode",
-        "Try: codex -q for quiet mode",
+        "Try: codex exec for non-interactive mode",
         "Hint: CLAUDE.md file for project instructions",
         "Tip: /cost in claude to check spending",
         "Try: Cmd+Shift+O to show/hide window",
@@ -720,6 +720,107 @@ func speechBubble(_ text: String, maxWidth: Int = 36) -> String {
     return bubble
 }
 
+// MARK: - Localization
+
+enum Lang: String {
+    case en = "en"
+    case ru = "ru"
+}
+
+class L10n {
+    static var lang: Lang = .en
+
+    static let strings: [String: [Lang: String]] = [
+        // General
+        "welcome":          [.en: "Hey! I'm Agent-O v2!", .ru: "Привет! Я Agent-O v2!"],
+        "toggle_hint":      [.en: "Cmd+Shift+O toggle!", .ru: "Cmd+Shift+O показать/скрыть!"],
+        "placeholder":      [.en: "Ask Agent-O anything... (Cmd+Shift+O toggle)", .ru: "Задай вопрос Agent-O... (Cmd+Shift+O toggle)"],
+        "cleared":          [.en: "Cleared!", .ru: "Очищено!"],
+        "done_xp":          [.en: "Done! +XP! What's next?", .ru: "Готово! +XP! Что дальше?"],
+        "done":             [.en: "Done! What's next?", .ru: "Готово! Что дальше?"],
+        "error_exec":       [.en: "Execution error. Try a different approach?", .ru: "Ошибка. Попробуем иначе?"],
+        "error_launch":     [.en: "Oops, can't launch", .ru: "Упс, не могу запустить"],
+        "thinking":         [.en: "Thinking:", .ru: "Думаю:"],
+
+        // Pet
+        "feed_msg":         [.en: "Yum! That was delicious! +25 Food", .ru: "Ням! Вкуснятина! +25 Еда"],
+        "fed":              [.en: "Fed Agent-O! Food:", .ru: "Agent-O накормлен! Еда:"],
+        "play_msg":         [.en: "Wheee! So fun! +20 Joy", .ru: "Ура! Весело! +20 Радость"],
+        "played":           [.en: "Played with Agent-O! Joy:", .ru: "Поиграли с Agent-O! Радость:"],
+        "rest_msg":         [.en: "Zzz... recharging... +30 Energy", .ru: "Zzz... заряжаюсь... +30 Энергия"],
+        "resting":          [.en: "Agent-O is resting! Energy:", .ru: "Agent-O отдыхает! Энергия:"],
+        "hungry":           [.en: "I'm hungry! Type !feed to feed me!", .ru: "Я голоден! Напиши !feed чтобы покормить!"],
+        "sad":              [.en: "I'm sad... Type !play to cheer me up!", .ru: "Мне грустно... Напиши !play!"],
+        "tired":            [.en: "So tired... Type !rest to let me rest!", .ru: "Устал... Напиши !rest чтобы отдохнуть!"],
+        "sleep":            [.en: "Zzz... wake me up with a task...", .ru: "Zzz... разбуди меня задачей..."],
+
+        // Quick actions
+        "prep_commit":      [.en: "Preparing commit...", .ru: "Готовлю коммит..."],
+        "run_tests":        [.en: "Running tests...", .ru: "Запускаю тесты..."],
+        "find_errors":      [.en: "Looking for errors...", .ru: "Ищу ошибки..."],
+        "code_review":      [.en: "Running code review...", .ru: "Делаю код-ревью..."],
+
+        // Claude prompts
+        "prompt_commit":    [.en: "Look at git diff and git status, suggest a commit with a good message. If everything looks good, make the commit.",
+                             .ru: "Посмотри git diff и git status, предложи коммит с хорошим сообщением. Если всё хорошо — сделай коммит."],
+        "prompt_test":      [.en: "Find and run tests in the current project. Show the results.",
+                             .ru: "Найди и запусти тесты в текущем проекте. Покажи результат."],
+        "prompt_explain":   [.en: "Look at recent errors in the terminal or project logs and explain what went wrong and how to fix it.",
+                             .ru: "Посмотри последние ошибки в терминале или логах и объясни что пошло не так и как починить."],
+        "prompt_review":    [.en: "Do a code review of recent changes (git diff). Point out issues, improvements, and bugs.",
+                             .ru: "Сделай код-ревью последних изменений (git diff). Укажи проблемы, улучшения, баги."],
+        "prompt_analyze":   [.en: "Analyze this file and give a brief summary of its contents:",
+                             .ru: "Проанализируй этот файл и дай краткое описание:"],
+        "prompt_clipboard": [.en: "Analyze this code/text and explain what it does. Be brief:",
+                             .ru: "Проанализируй этот код/текст и объясни что он делает. Кратко:"],
+
+        // Games
+        "dance_msg":        [.en: "Dancing! Yooo!", .ru: "Танцую! Йоу!"],
+        "dance_done":       [.en: "Phew! That was fun!", .ru: "Фух! Хорошо потанцевали!"],
+        "game_guess":       [.en: "Let's play! Guess my number 1-100!", .ru: "Играем! Угадай число 1-100!"],
+        "higher":           [.en: "Higher! Try again!", .ru: "Выше! Попробуй ещё!"],
+        "lower":            [.en: "Lower! Try again!", .ru: "Ниже! Попробуй ещё!"],
+        "correct":          [.en: "You win!", .ru: "Ты выиграл!"],
+        "trivia_q":         [.en: "Trivia time! Pick the right answer!", .ru: "Викторина! Выбери правильный ответ!"],
+        "big_brain":        [.en: "Big brain! Correct!", .ru: "Красавчик! Верно!"],
+
+        // Pomodoro
+        "pomo_start":       [.en: "Focus mode!", .ru: "Режим фокуса!"],
+        "pomo_done":        [.en: "Pomodoro done! Great focus!", .ru: "Помодоро завершён! Отличный фокус!"],
+        "break_over":       [.en: "Break's over! Let's go!", .ru: "Перерыв окончен! Поехали!"],
+        "break_msg":        [.en: "Break time! You earned it!", .ru: "Перерыв! Ты заслужил!"],
+
+        // Misc
+        "analyzing":        [.en: "Analyzing", .ru: "Анализирую"],
+        "analyzing_clip":   [.en: "Analyzing clipboard...", .ru: "Анализирую буфер..."],
+        "no_processes":     [.en: "No running claude/codex processes", .ru: "Нет запущенных процессов claude/codex"],
+        "running_proc":     [.en: "Running processes:", .ru: "Запущенные процессы:"],
+        "cmd_history":      [.en: "Command history:", .ru: "История команд:"],
+        "skin_changed":     [.en: "Skin changed to", .ru: "Скин изменён на"],
+        "skins_list":       [.en: "Skins: robot, cat, skull, clippy", .ru: "Скины: robot, cat, skull, clippy"],
+        "themes_list":      [.en: "Themes: matrix, cyberpunk, sunset, ocean, hacker", .ru: "Темы: matrix, cyberpunk, sunset, ocean, hacker"],
+        "theme_changed":    [.en: "Theme:", .ru: "Тема:"],
+        "levelup":          [.en: "LEVEL UP! I'm Level", .ru: "УРОВЕНЬ! Я теперь"],
+        "streak_back":      [.en: "Welcome back! Streak:", .ru: "С возвращением! Стрик:"],
+        "achievement":      [.en: "ACHIEVEMENT UNLOCKED:", .ru: "ДОСТИЖЕНИЕ РАЗБЛОКИРОВАНО:"],
+        "ach_unlocked":     [.en: "unlocked", .ru: "открыто"],
+        "lang_switched":    [.en: "Language: English", .ru: "Язык: Русский"],
+
+        // Stats
+        "s_food":           [.en: "Food", .ru: "Еда "],
+        "s_joy":            [.en: "Joy ", .ru: "Рад."],
+        "s_nrg":            [.en: "Nrg ", .ru: "Энр."],
+        "s_thriving":       [.en: "Thriving!", .ru: "Процветает!"],
+        "s_happy":          [.en: "Happy", .ru: "Доволен"],
+        "s_okay":           [.en: "Okay...", .ru: "Норм..."],
+        "s_sad":            [.en: "Sad", .ru: "Грустит"],
+        "s_critical":       [.en: "Critical!", .ru: "Критично!"],
+    ]
+
+    static func t(_ key: String) -> String {
+        return strings[key]?[lang] ?? strings[key]?[.en] ?? key
+    }
+}
 // MARK: - Agent State
 
 enum AgentState {
@@ -960,6 +1061,7 @@ class PetStats {
     var triedSkins: [String] = ["Robot"]
     var gamesWon: Int = 0
     var pomodorosCompleted: Int = 0
+    var language: String = "en"
 
     var xpForNextLevel: Int { level * 100 }
 
@@ -1100,7 +1202,8 @@ class PetStats {
             "unlockedAchievements": unlockedAchievements,
             "triedSkins": triedSkins,
             "gamesWon": gamesWon,
-            "pomodorosCompleted": pomodorosCompleted
+            "pomodorosCompleted": pomodorosCompleted,
+            "language": language
         ]
         if let jsonData = try? JSONSerialization.data(withJSONObject: data),
            let json = String(data: jsonData, encoding: .utf8) {
@@ -1129,6 +1232,7 @@ class PetStats {
         stats.triedSkins = dict["triedSkins"] as? [String] ?? ["Robot"]
         stats.gamesWon = dict["gamesWon"] as? Int ?? 0
         stats.pomodorosCompleted = dict["pomodorosCompleted"] as? Int ?? 0
+        stats.language = dict["language"] as? String ?? "en"
 
         // Apply time-based decay (1 point per 30 min away)
         let minutesAway = Date().timeIntervalSince(stats.lastFed) / 60
@@ -1231,6 +1335,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
+        L10n.lang = Lang(rawValue: pet.language) ?? .en
         pet.updateStreak()
         setupMenuBar()
         setupMainWindow()
@@ -1548,7 +1653,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             guard let self = self else { return }
             if self.state == .idle && Date().timeIntervalSince(self.lastInteraction) > 120 {
                 self.state = .sleeping
-                self.bubbleLabel.stringValue = speechBubble("Zzz... wake me up with a task...")
+                self.bubbleLabel.stringValue = speechBubble(L10n.t("sleep"))
             }
         }
         // Pet stats decay every 5 minutes
@@ -1559,11 +1664,11 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             self.refreshStatsDisplay()
             // Complain if hungry
             if self.pet.hunger < 20 && self.state == .idle {
-                self.bubbleLabel.stringValue = speechBubble("I'm hungry! Type !feed to feed me!")
+                self.bubbleLabel.stringValue = speechBubble(L10n.t("hungry"))
             } else if self.pet.happiness < 20 && self.state == .idle {
-                self.bubbleLabel.stringValue = speechBubble("I'm sad... Type !play to cheer me up!")
+                self.bubbleLabel.stringValue = speechBubble(L10n.t("sad"))
             } else if self.pet.energy < 20 && self.state == .idle {
-                self.bubbleLabel.stringValue = speechBubble("So tired... Type !rest to let me rest!")
+                self.bubbleLabel.stringValue = speechBubble(L10n.t("tired"))
             }
         }
     }
@@ -1607,20 +1712,30 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
     func refreshStatsDisplay() {
         let p = pet
-        let lvlBar = "Lv.\(p.level) \(p.moodEmoji) \(p.mood)"
-        let hBar = "Food \(p.statsBar(p.hunger)) \(p.hunger)%"
-        let jBar = "Joy  \(p.statsBar(p.happiness)) \(p.happiness)%"
-        let eBar = "Nrg  \(p.statsBar(p.energy)) \(p.energy)%"
+        let mood = localizedMood()
+        let lvlBar = "Lv.\(p.level) \(p.moodEmoji) \(mood)"
+        let hBar = "\(L10n.t("s_food")) \(p.statsBar(p.hunger)) \(p.hunger)%"
+        let jBar = "\(L10n.t("s_joy")) \(p.statsBar(p.happiness)) \(p.happiness)%"
+        let eBar = "\(L10n.t("s_nrg")) \(p.statsBar(p.energy)) \(p.energy)%"
         statsLabel.stringValue = "\(lvlBar)  XP:\(p.xp)/\(p.xpForNextLevel)  Streak:\(p.streak)d\n\(hBar)  \(jBar)  \(eBar)"
         statusBarItem.button?.title = "\(currentSkin.mini) Lv.\(p.level) \(p.moodEmoji)"
+    }
+
+    func localizedMood() -> String {
+        let avg = (pet.hunger + pet.happiness + pet.energy) / 3
+        if avg > 80 { return L10n.t("s_thriving") }
+        if avg > 60 { return L10n.t("s_happy") }
+        if avg > 40 { return L10n.t("s_okay") }
+        if avg > 20 { return L10n.t("s_sad") }
+        return L10n.t("s_critical")
     }
 
     @objc func feedPet() {
         pet.feed()
         pet.save()
         setState(.happy, duration: 2)
-        bubbleLabel.stringValue = speechBubble("Yum! That was delicious! +25 Food")
-        appendColored("🍔 Fed Agent-O! Food: \(pet.hunger)%\n\n", color: cGreen)
+        bubbleLabel.stringValue = speechBubble(L10n.t("feed_msg"))
+        appendColored("🍔 \(L10n.t("fed")) \(pet.hunger)%\n\n", color: cGreen)
         playSound("Pop")
         if let a = pet.unlock("feed_pet") {
             appendColored("🏆 ACHIEVEMENT: \(a.icon) \(a.name)\n\n", color: cYellow, bold: true)
@@ -1633,8 +1748,8 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         pet.play()
         pet.save()
         setState(.dancing, duration: 3)
-        bubbleLabel.stringValue = speechBubble("Wheee! So fun! +20 Joy")
-        appendColored("🎮 Played with Agent-O! Joy: \(pet.happiness)%\n\n", color: cPurple)
+        bubbleLabel.stringValue = speechBubble(L10n.t("play_msg"))
+        appendColored("🎮 \(L10n.t("played")) \(pet.happiness)%\n\n", color: cPurple)
         playSound("Funk")
         if let a = pet.unlock("play_pet") {
             appendColored("🏆 ACHIEVEMENT: \(a.icon) \(a.name)\n\n", color: cYellow, bold: true)
@@ -1647,8 +1762,8 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         pet.rest()
         pet.save()
         setState(.sleeping, duration: 3)
-        bubbleLabel.stringValue = speechBubble("Zzz... recharging... +30 Energy")
-        appendColored("💤 Agent-O is resting! Energy: \(pet.energy)%\n\n", color: cCyan)
+        bubbleLabel.stringValue = speechBubble(L10n.t("rest_msg"))
+        appendColored("💤 \(L10n.t("resting")) \(pet.energy)%\n\n", color: cCyan)
         playSound("Purr")
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
             self?.state = .idle
@@ -2179,7 +2294,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         processAchievements()
 
         setState(.thinking)
-        bubbleLabel.stringValue = speechBubble("Thinking: \(actualPrompt.prefix(28))...")
+        bubbleLabel.stringValue = speechBubble("\(L10n.t("thinking")) \(actualPrompt.prefix(28))...")
         appendColored("⏳ → \(cli)...\n", color: cDimGray)
 
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
@@ -2191,7 +2306,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         switch cmd {
         case "!clear":
             outputText.textStorage?.setAttributedString(NSAttributedString(string: ""))
-            bubbleLabel.stringValue = speechBubble("Cleared!")
+            bubbleLabel.stringValue = speechBubble(L10n.t("cleared"))
             playSound("Pop")
             return true
 
@@ -2215,6 +2330,26 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
         case "!stats":
             showPetStats()
+            return true
+
+        case "!ru":
+            L10n.lang = .ru
+            pet.language = "ru"
+            pet.save()
+            inputField.placeholderString = L10n.t("placeholder")
+            refreshStatsDisplay()
+            appendColored("🌐 Язык: Русский\n\n", color: cPurple, bold: true)
+            bubbleLabel.stringValue = speechBubble(L10n.t("lang_switched"))
+            return true
+
+        case "!en":
+            L10n.lang = .en
+            pet.language = "en"
+            pet.save()
+            inputField.placeholderString = L10n.t("placeholder")
+            refreshStatsDisplay()
+            appendColored("🌐 Language: English\n\n", color: cPurple, bold: true)
+            bubbleLabel.stringValue = speechBubble(L10n.t("lang_switched"))
             return true
 
         case "!dance":
@@ -2377,9 +2512,9 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         refreshStatsDisplay()
         appendColored("❯ !commit\n", color: cCyan, bold: true)
         setState(.thinking)
-        bubbleLabel.stringValue = speechBubble("Preparing commit...")
+        bubbleLabel.stringValue = speechBubble(L10n.t("prep_commit"))
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            self?.runCLI(cli: "claude", prompt: "Look at git diff and git status, suggest a commit with a good message. If everything looks good, make the commit.")
+            self?.runCLI(cli: "claude", prompt: L10n.t("prompt_commit"))
         }
     }
 
@@ -2387,9 +2522,9 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         lastInteraction = Date()
         appendColored("❯ !test\n", color: cCyan, bold: true)
         setState(.thinking)
-        bubbleLabel.stringValue = speechBubble("Running tests...")
+        bubbleLabel.stringValue = speechBubble(L10n.t("run_tests"))
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            self?.runCLI(cli: "claude", prompt: "Find and run tests in the current project. Show the results.")
+            self?.runCLI(cli: "claude", prompt: L10n.t("prompt_test"))
         }
     }
 
@@ -2397,9 +2532,9 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         lastInteraction = Date()
         appendColored("❯ !explain\n", color: cCyan, bold: true)
         setState(.thinking)
-        bubbleLabel.stringValue = speechBubble("Looking for errors...")
+        bubbleLabel.stringValue = speechBubble(L10n.t("find_errors"))
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            self?.runCLI(cli: "claude", prompt: "Look at recent errors in the terminal or project logs and explain what went wrong and how to fix it.")
+            self?.runCLI(cli: "claude", prompt: L10n.t("prompt_explain"))
         }
     }
 
@@ -2407,9 +2542,9 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         lastInteraction = Date()
         appendColored("❯ !review\n", color: cCyan, bold: true)
         setState(.thinking)
-        bubbleLabel.stringValue = speechBubble("Running code review...")
+        bubbleLabel.stringValue = speechBubble(L10n.t("code_review"))
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            self?.runCLI(cli: "claude", prompt: "Do a code review of recent changes (git diff). Point out issues, improvements, and bugs.")
+            self?.runCLI(cli: "claude", prompt: L10n.t("prompt_review"))
         }
     }
 
@@ -2432,11 +2567,11 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
     @objc func doDance() {
         setState(.dancing)
-        bubbleLabel.stringValue = speechBubble("Dancing! Yooo!")
+        bubbleLabel.stringValue = speechBubble(L10n.t("dance_msg"))
         playSound("Funk")
         DispatchQueue.main.asyncAfter(deadline: .now() + 4) { [weak self] in
             self?.state = .idle
-            self?.bubbleLabel.stringValue = speechBubble("Phew! That was fun!")
+            self?.bubbleLabel.stringValue = speechBubble(L10n.t("dance_done"))
         }
     }
 
@@ -2455,7 +2590,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             .replacingOccurrences(of: "`", with: "\\`")
 
         if cli == "codex" {
-            process.arguments = ["-l", "-c", "codex -q \"\(escapedPrompt)\""]
+            process.arguments = ["-l", "-c", "codex exec \"\(escapedPrompt)\""]
         } else {
             process.arguments = ["-l", "-c", "claude -p \"\(escapedPrompt)\""]
         }
@@ -2464,6 +2599,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         process.standardError = pipe
         var env = ProcessInfo.processInfo.environment
         env.removeValue(forKey: "CLAUDECODE")
+        env.removeValue(forKey: "CODEX_CLI_SESSION")
         process.environment = env
         currentProcess = process
 
@@ -2473,7 +2609,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             DispatchQueue.main.async { [weak self] in
                 self?.appendColored("❌ Error: \(error.localizedDescription)\n\n", color: self!.cRed)
                 self?.setState(.error, duration: 3)
-                self?.bubbleLabel.stringValue = speechBubble("Oops, can't launch \(cli)!")
+                self?.bubbleLabel.stringValue = speechBubble("\(L10n.t("error_launch")) \(cli)!")
                 self?.playSound("Basso")
             }
             return
@@ -2507,11 +2643,11 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                 self.refreshStatsDisplay()
                 self.checkLevelUp(oldLevel: oldLevel)
                 self.setState(.happy, duration: 3)
-                self.bubbleLabel.stringValue = speechBubble("Done! +XP! What's next?")
+                self.bubbleLabel.stringValue = speechBubble(L10n.t("done_xp"))
                 self.playSound("Glass")
             } else {
                 self.setState(.error, duration: 3)
-                self.bubbleLabel.stringValue = speechBubble("Execution error. Try a different approach?")
+                self.bubbleLabel.stringValue = speechBubble(L10n.t("error_exec"))
                 self.playSound("Basso")
             }
             self.refreshGitStatus()
@@ -2529,6 +2665,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         process.standardError = pipe
         var env = ProcessInfo.processInfo.environment
         env.removeValue(forKey: "CLAUDECODE")
+        env.removeValue(forKey: "CODEX_CLI_SESSION")
         process.environment = env
         do {
             try process.run()
@@ -2543,7 +2680,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
     // MARK: - Welcome & Help
 
     func showWelcome() {
-        bubbleLabel.stringValue = speechBubble("Hey! I'm Agent-O v2! Cmd+Shift+O toggle!")
+        bubbleLabel.stringValue = speechBubble("\(L10n.t("welcome")) \(L10n.t("toggle_hint"))")
         updateAgentDisplay()
 
         appendColored("╔═══════════════════════════════════════╗\n", color: cCyan)
@@ -2607,6 +2744,8 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         let custCmds: [(String, String)] = [
             ("!skin <name>", "→ robot/cat/skull/clippy"),
             ("!theme <name>", "→ matrix/cyberpunk/sunset/ocean/hacker"),
+            ("!ru", "→ Russian language"),
+            ("!en", "→ English language"),
         ]
         for (cmd, desc) in custCmds {
             appendColored("  \(cmd.padding(toLength: 16, withPad: " ", startingAt: 0))", color: cYellow)
