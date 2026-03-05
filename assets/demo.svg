@@ -1,0 +1,182 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 580" width="800" height="580">
+  <style>
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+
+    @keyframes l1  { 0%, 3%  { opacity: 0; } 4%  { opacity: 1; } }
+    @keyframes l2  { 0%, 7%  { opacity: 0; } 8%  { opacity: 1; } }
+    @keyframes l3  { 0%, 12% { opacity: 0; } 13% { opacity: 1; } }
+    @keyframes l4  { 0%, 18% { opacity: 0; } 19% { opacity: 1; } }
+    @keyframes l5  { 0%, 22% { opacity: 0; } 23% { opacity: 1; } }
+    @keyframes l6  { 0%, 28% { opacity: 0; } 29% { opacity: 1; } }
+    @keyframes l7  { 0%, 33% { opacity: 0; } 34% { opacity: 1; } }
+    @keyframes l8  { 0%, 38% { opacity: 0; } 39% { opacity: 1; } }
+    @keyframes l9  { 0%, 43% { opacity: 0; } 44% { opacity: 1; } }
+    @keyframes l10 { 0%, 48% { opacity: 0; } 49% { opacity: 1; } }
+    @keyframes l11 { 0%, 53% { opacity: 0; } 54% { opacity: 1; } }
+    @keyframes l12 { 0%, 58% { opacity: 0; } 59% { opacity: 1; } }
+    @keyframes l13 { 0%, 63% { opacity: 0; } 64% { opacity: 1; } }
+    @keyframes l14 { 0%, 68% { opacity: 0; } 69% { opacity: 1; } }
+    @keyframes l15 { 0%, 73% { opacity: 0; } 74% { opacity: 1; } }
+    @keyframes l16 { 0%, 78% { opacity: 0; } 79% { opacity: 1; } }
+    @keyframes l17 { 0%, 83% { opacity: 0; } 84% { opacity: 1; } }
+    @keyframes l18 { 0%, 88% { opacity: 0; } 89% { opacity: 1; } }
+
+    .l1  { opacity: 0; animation: l1  20s ease forwards; }
+    .l2  { opacity: 0; animation: l2  20s ease forwards; }
+    .l3  { opacity: 0; animation: l3  20s ease forwards; }
+    .l4  { opacity: 0; animation: l4  20s ease forwards; }
+    .l5  { opacity: 0; animation: l5  20s ease forwards; }
+    .l6  { opacity: 0; animation: l6  20s ease forwards; }
+    .l7  { opacity: 0; animation: l7  20s ease forwards; }
+    .l8  { opacity: 0; animation: l8  20s ease forwards; }
+    .l9  { opacity: 0; animation: l9  20s ease forwards; }
+    .l10 { opacity: 0; animation: l10 20s ease forwards; }
+    .l11 { opacity: 0; animation: l11 20s ease forwards; }
+    .l12 { opacity: 0; animation: l12 20s ease forwards; }
+    .l13 { opacity: 0; animation: l13 20s ease forwards; }
+    .l14 { opacity: 0; animation: l14 20s ease forwards; }
+    .l15 { opacity: 0; animation: l15 20s ease forwards; }
+    .l16 { opacity: 0; animation: l16 20s ease forwards; }
+    .l17 { opacity: 0; animation: l17 20s ease forwards; }
+    .l18 { opacity: 0; animation: l18 20s ease forwards; }
+
+    .cursor { animation: blink 1s step-end infinite; }
+
+    text {
+      font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+      font-size: 13px;
+    }
+
+    .prompt  { fill: #7ee787; }
+    .cmd     { fill: #e6edf3; }
+    .output  { fill: #e6edf3; }
+    .success { fill: #3fb950; }
+    .comment { fill: #6e7681; }
+    .label   { fill: #8b949e; }
+    .blue    { fill: #58a6ff; }
+    .purple  { fill: #d2a8ff; }
+    .pink    { fill: #ff7eb6; }
+    .yellow  { fill: #d29922; }
+    .orange  { fill: #f0883e; }
+    .cyan    { fill: #4dd4e6; }
+    .dim     { fill: #484f58; }
+    .title   { fill: #8b949e; font-size: 13px; }
+    .red     { fill: #f85149; }
+  </style>
+
+  <defs>
+    <clipPath id="clip">
+      <rect x="1" y="1" width="798" height="578" rx="9"/>
+    </clipPath>
+  </defs>
+
+  <!-- Window -->
+  <rect width="800" height="580" rx="10" fill="#0d1117" stroke="#30363d" stroke-width="1"/>
+  <rect width="800" height="36" rx="10" fill="#161b22" clip-path="url(#clip)"/>
+  <rect y="26" width="800" height="10" fill="#161b22"/>
+  <line x1="0" y1="36" x2="800" y2="36" stroke="#30363d" stroke-width="1"/>
+
+  <!-- Dots -->
+  <circle cx="20" cy="18" r="6" fill="#f85149"/>
+  <circle cx="40" cy="18" r="6" fill="#d29922"/>
+  <circle cx="60" cy="18" r="6" fill="#3fb950"/>
+  <text x="400" y="22" text-anchor="middle" class="title">Agent-O v2.0</text>
+
+  <g transform="translate(20, 56)">
+
+    <!-- Install & launch -->
+    <g class="l1">
+      <text x="0" y="0" class="prompt">$</text>
+      <text x="16" y="0" class="cmd">./run.sh</text>
+    </g>
+    <g class="l2">
+      <text x="0" y="20" class="success">&#10003; Agent-O compiled and running!</text>
+    </g>
+
+    <!-- Ask Claude -->
+    <g class="l3">
+      <text x="0" y="52" class="cyan">&#10095;</text>
+      <text x="16" y="52" class="cmd">explain the difference between async and await</text>
+    </g>
+    <g class="l4">
+      <text x="0" y="74" class="dim">&#9203; &#8594; claude...</text>
+    </g>
+    <g class="l5">
+      <text x="0" y="96" class="output">async marks a function as asynchronous, returning a</text>
+      <text x="0" y="114" class="output">Promise. await pauses execution until that Promise</text>
+      <text x="0" y="132" class="output">resolves, allowing non-blocking I/O.</text>
+    </g>
+    <g class="l6">
+      <text x="0" y="154" class="success">&#10003; Done! +15 XP</text>
+      <text x="140" y="154" class="comment">&#8592; every command earns XP</text>
+    </g>
+
+    <!-- Feed pet -->
+    <g class="l7">
+      <text x="0" y="186" class="cyan">&#10095;</text>
+      <text x="16" y="186" class="cmd">!feed</text>
+    </g>
+    <g class="l8">
+      <text x="0" y="208" class="success">&#127828; Fed Agent-O! Food: 100%</text>
+    </g>
+    <g class="l9">
+      <text x="0" y="230" class="yellow">&#127942; ACHIEVEMENT: Caretaker (+30 XP)</text>
+      <text x="0" y="248" class="comment">   Feed Agent-O for the first time</text>
+    </g>
+
+    <!-- Translate -->
+    <g class="l10">
+      <text x="0" y="280" class="cyan">&#10095;</text>
+      <text x="16" y="280" class="cmd">EN &#1087;&#1088;&#1080;&#1074;&#1077;&#1090;, &#1082;&#1072;&#1082; &#1076;&#1077;&#1083;&#1072;? &#1089;&#1077;&#1075;&#1086;&#1076;&#1085;&#1103; &#1087;&#1080;&#1096;&#1091; &#1082;&#1086;&#1076;</text>
+      <text x="500" y="280" class="comment">&#8592; instant translate</text>
+    </g>
+    <g class="l11">
+      <text x="0" y="302" class="success">&#10003; EN: hello, how are you? writing code today</text>
+      <text x="0" y="320" class="comment">&#128203; Copied to clipboard!</text>
+    </g>
+
+    <!-- Stats -->
+    <g class="l12">
+      <text x="0" y="352" class="cyan">&#10095;</text>
+      <text x="16" y="352" class="cmd">!stats</text>
+    </g>
+    <g class="l13">
+      <text x="0" y="374" class="purple">&#9733; Level 5 &#9474; XP: 320/600 &#9474; Stage: Evolved</text>
+    </g>
+    <g class="l14">
+      <text x="0" y="394" class="success">Food: 100%</text>
+      <text x="110" y="394" class="pink">Joy: 85%</text>
+      <text x="210" y="394" class="yellow">Energy: 92%</text>
+      <text x="340" y="394" class="comment">Streak: 3d</text>
+    </g>
+
+    <!-- Clipboard watcher -->
+    <g class="l15">
+      <text x="0" y="426" class="cyan">&#10095;</text>
+      <text x="16" y="426" class="cmd">!watch</text>
+      <text x="100" y="426" class="comment">&#8592; clipboard watcher</text>
+    </g>
+    <g class="l16">
+      <text x="0" y="448" class="success">&#128065; Clipboard watcher ON</text>
+      <text x="0" y="466" class="comment">   Agent-O will detect code &amp; errors</text>
+    </g>
+
+    <!-- Share card -->
+    <g class="l17">
+      <text x="0" y="498" class="cyan">&#10095;</text>
+      <text x="16" y="498" class="cmd">!share</text>
+      <text x="90" y="498" class="comment">&#8592; export pet card</text>
+    </g>
+    <g class="l18">
+      <text x="0" y="518" class="success">&#127924; Share card saved!</text>
+      <text x="0" y="536" class="comment">   ~/Desktop/agento-card.svg</text>
+    </g>
+
+  </g>
+
+  <!-- Cursor -->
+  <rect class="cursor" x="20" y="564" width="8" height="2" fill="#3fb950"/>
+</svg>

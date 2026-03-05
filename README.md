@@ -26,12 +26,26 @@
 
 ---
 
+<p align="center">
+  <img src="assets/demo.svg" alt="Agent-O Demo" width="800"/>
+</p>
+
+---
+
 ## Quick Start
 
+**Option 1: Clone & Run**
 ```bash
 git clone https://github.com/egorfedorov/agentO.git
 cd agentO
 ./run.sh
+```
+
+**Option 2: Homebrew** *(coming soon)*
+```bash
+brew tap egorfedorov/agentO
+brew install agento
+agento
 ```
 
 **Requirements:** macOS 12+, Swift (comes with Xcode Command Line Tools), Claude CLI or Codex CLI.
@@ -71,6 +85,22 @@ Unlock badges for milestones — first command, 100 commands, commits, streaks, 
 - **18 languages** supported: EN, RU, ES, FR, DE, IT, PT, JA, KO, ZH, AR, HI, TR, PL, NL, UK, CS, SV
 - Translation auto-copied to clipboard
 - Powered by Google Translate (no API key needed)
+
+### Clipboard Watcher
+- `!watch` — Agent-O monitors your clipboard every 2 seconds
+- Auto-detects **code** and **errors/stack traces**
+- Suggests `explain` for code, `fix` for errors
+- `!unwatch` to stop
+
+### Code Snippets
+- `!save` — save the last Claude response as a snippet
+- `!snippets` — browse all saved snippets
+- `!search <query>` — fuzzy search through your knowledge base
+
+### Share Card
+- `!share` — export a beautiful SVG pet card to your Desktop
+- Shows level, evolution stage, stats, achievements, streak
+- Share on Twitter/Discord to flex your Agent-O
 
 ### Customization
 - **4 Skins:** Robot, Cat, Skull, Clippy
@@ -112,6 +142,12 @@ Unlock badges for milestones — first command, 100 commands, commits, streaks, 
 | `EN <text>` | Translate to English |
 | `RU <text>` | Translate to Russian |
 | `XX <text>` | Translate to any of 18 languages |
+| `!watch` | Clipboard watcher on |
+| `!unwatch` | Clipboard watcher off |
+| `!save` | Save last response as snippet |
+| `!snippets` | List saved snippets |
+| `!search <q>` | Search snippets |
+| `!share` | Export pet share card (SVG) |
 | `!git` | Git project status |
 | `!ps` | Monitor processes |
 | `!tip` | Random tip |

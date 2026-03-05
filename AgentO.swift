@@ -1407,6 +1407,15 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
     var triviaAnswer = ""
     var triviaActive = false
 
+    // Clipboard watcher state
+    var lastClipboard: String = ""
+    var clipboardTimer: Timer?
+    var isWatchingClipboard: Bool = false
+
+    // Snippets state
+    var savedSnippets: [(title: String, content: String, date: Date)] = []
+    var lastResponse: String = ""
+
     // Colors
     let cGreen = NSColor(red: 0.0, green: 0.9, blue: 0.4, alpha: 1.0)
     let cCyan = NSColor(red: 0.3, green: 0.8, blue: 1.0, alpha: 1.0)
@@ -2537,6 +2546,26 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             showHelp()
             return true
 
+        case "!watch":
+            startClipboardWatch()
+            return true
+
+        case "!unwatch":
+            stopClipboardWatch()
+            return true
+
+        case "!save":
+            saveSnippet()
+            return true
+
+        case "!snippets":
+            listSnippets()
+            return true
+
+        case "!share":
+            generateShareCard()
+            return true
+
         case "!history":
             appendColored("📜 Command history:\n", color: cCyan, bold: true)
             for (i, cmd) in commandHistory.dropLast().enumerated() {
@@ -2546,6 +2575,12 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             return true
 
         default:
+            // Snippet search
+            if cmd.hasPrefix("!search ") {
+                let query = String(cmd.dropFirst(8)).trimmingCharacters(in: .whitespaces)
+                searchSnippets(query)
+                return true
+            }
             // Skin change
             if cmd.hasPrefix("!skin ") {
                 let skinName = String(cmd.dropFirst(6)).lowercased()
@@ -2593,6 +2628,155 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                 if handleGuess(cmd) { return true }
             }
             return false
+        }
+    }
+
+    // MARK: - Clipboard Watcher
+
+    func startClipboardWatch() {
+        isWatchingClipboard = true
+        lastClipboard = NSPasteboard.general.string(forType: .string) ?? ""
+        clipboardTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
+            self?.checkClipboard()
+        }
+        appendColored("👁 Clipboard watcher ON\n", color: cGreen, bold: true)
+        appendColored("  Agent-O will detect code & errors in your clipboard\n", color: cGray)
+        appendColored("  Type !unwatch to stop\n\n", color: cGray)
+        bubbleLabel.stringValue = speechBubble("Watching clipboard...")
+    }
+
+    func stopClipboardWatch() {
+        isWatchingClipboard = false
+        clipboardTimer?.invalidate()
+        clipboardTimer = nil
+        appendColored("👁 Clipboard watcher OFF\n\n", color: cGray)
+        bubbleLabel.stringValue = speechBubble("Stopped watching")
+    }
+
+    func checkClipboard() {
+        guard let content = NSPasteboard.general.string(forType: .string), content != lastClipboard else { return }
+        lastClipboard = content
+        let lower = content.lowercased()
+
+        let codeKeywords = ["func ", "def ", "class ", "=>", "import ", "const ", "let ", "var ", "function ", "return ", "if (", "for (", "while ("]
+        let errorKeywords = ["error", "exception", "traceback", "fatal", "panic", "failed", "undefined", "null pointer", "segfault"]
+
+        let isCode = codeKeywords.contains(where: { lower.contains($0.lowercased()) })
+        let isError = errorKeywords.contains(where: { lower.contains($0) })
+
+        if isError {
+            appendColored("🔴 Error detected in clipboard!\n", color: cRed, bold: true)
+            appendColored("  Type: fix — to get help from Claude\n\n", color: cGray)
+            bubbleLabel.stringValue = speechBubble("Error detected! 🔴")
+            setState(.error)
+        } else if isCode {
+            appendColored("📋 Code detected in clipboard! (\(content.count) chars)\n", color: cCyan, bold: true)
+            appendColored("  Type: explain — to analyze with Claude\n\n", color: cGray)
+            bubbleLabel.stringValue = speechBubble("Code detected! 📋")
+        } else {
+            appendColored("📋 Clipboard updated (\(content.count) chars)\n\n", color: cGray)
+        }
+    }
+
+    // MARK: - Snippets
+
+    func saveSnippet() {
+        guard !lastResponse.isEmpty else {
+            appendColored("❌ Nothing to save. Run a command first.\n\n", color: cRed)
+            return
+        }
+        let title = String(lastResponse.prefix(60)).replacingOccurrences(of: "\n", with: " ")
+        savedSnippets.append((title: title, content: lastResponse, date: Date()))
+        appendColored("💾 Snippet saved! (#\(savedSnippets.count))\n", color: cGreen, bold: true)
+        appendColored("  \(title)...\n\n", color: cGray)
+        bubbleLabel.stringValue = speechBubble("Saved! 💾")
+        playSound("Pop")
+    }
+
+    func listSnippets() {
+        guard !savedSnippets.isEmpty else {
+            appendColored("📝 No saved snippets yet. Use !save after a command.\n\n", color: cGray)
+            return
+        }
+        appendColored("📝 Saved Snippets (\(savedSnippets.count)):\n", color: cCyan, bold: true)
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d, HH:mm"
+        for (i, snippet) in savedSnippets.enumerated() {
+            appendColored("  \(i+1). ", color: cYellow)
+            appendOutput("\(snippet.title)\n")
+            appendColored("     \(formatter.string(from: snippet.date))\n", color: cGray)
+        }
+        appendOutput("\n")
+    }
+
+    func searchSnippets(_ query: String) {
+        let results = savedSnippets.filter { $0.title.localizedCaseInsensitiveContains(query) || $0.content.localizedCaseInsensitiveContains(query) }
+        if results.isEmpty {
+            appendColored("🔍 No snippets matching \"\(query)\"\n\n", color: cGray)
+        } else {
+            appendColored("🔍 Found \(results.count) snippet(s) for \"\(query)\":\n", color: cCyan, bold: true)
+            for (i, snippet) in results.enumerated() {
+                appendColored("  \(i+1). ", color: cYellow)
+                appendOutput("\(snippet.title)\n")
+                if let range = snippet.content.range(of: query, options: .caseInsensitive) {
+                    let safeStart = snippet.content.index(range.lowerBound, offsetBy: -30, limitedBy: snippet.content.startIndex) ?? snippet.content.startIndex
+                    let safeEnd = snippet.content.index(range.upperBound, offsetBy: 30, limitedBy: snippet.content.endIndex) ?? snippet.content.endIndex
+                    appendColored("     ...\(snippet.content[safeStart..<safeEnd])...\n", color: cGray)
+                }
+            }
+            appendOutput("\n")
+        }
+    }
+
+    // MARK: - Share Card
+
+    func generateShareCard() {
+        let evo = Evolution.stage(for: pet.level)
+        let skin = currentSkin.rawValue
+        let svg = """
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 280" width="500" height="280">
+          <style>
+            text { font-family: 'SF Mono', 'Consolas', monospace; }
+          </style>
+          <defs>
+            <linearGradient id="bg" x1="0" y1="0" x2="500" y2="280" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stop-color="#0a0a0f"/>
+              <stop offset="100%" stop-color="#1a1a2e"/>
+            </linearGradient>
+            <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="#4dd4e6"/>
+              <stop offset="100%" stop-color="#b388ff"/>
+            </linearGradient>
+          </defs>
+          <rect width="500" height="280" fill="url(#bg)" rx="16"/>
+          <rect width="500" height="280" fill="none" stroke="#4dd4e633" rx="16" stroke-width="1"/>
+          <text x="30" y="40" font-size="24" font-weight="bold" fill="url(#accent)">Agent-O</text>
+          <text x="30" y="65" font-size="12" fill="#8892b0">ascii desktop companion</text>
+          <text x="30" y="105" font-size="14" fill="#e6f1ff">★ Level \(pet.level)</text>
+          <text x="140" y="105" font-size="14" fill="#b388ff">\(evo)</text>
+          <text x="30" y="135" font-size="12" fill="#8892b0">XP: \(pet.xp)/\(pet.xpForNextLevel)</text>
+          <text x="30" y="165" font-size="12" fill="#00e676">Hunger: \(pet.hunger)%</text>
+          <text x="140" y="165" font-size="12" fill="#ff4081">Happy: \(pet.happiness)%</text>
+          <text x="240" y="165" font-size="12" fill="#ffd740">Energy: \(pet.energy)%</text>
+          <text x="30" y="200" font-size="12" fill="#8892b0">Commands: \(pet.totalCommands) · Streak: \(pet.streak)d</text>
+          <text x="30" y="225" font-size="12" fill="#8892b0">Skin: \(skin) · Achievements: \(pet.unlockedAchievements.count)/23</text>
+          <text x="30" y="260" font-size="10" fill="#484f58">github.com/egorfedorov/agentO</text>
+          <text x="390" y="260" font-size="10" fill="#484f58">🤖 \(evo)</text>
+        </svg>
+        """
+
+        let desktopPath = NSHomeDirectory() + "/Desktop/agento-card.svg"
+        do {
+            try svg.write(toFile: desktopPath, atomically: true, encoding: String.Encoding.utf8)
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(desktopPath, forType: .string)
+            appendColored("🎴 Share card saved!\n", color: cGreen, bold: true)
+            appendColored("  📁 ~/Desktop/agento-card.svg\n", color: cGray)
+            appendColored("  📋 Path copied to clipboard\n\n", color: cGray)
+            bubbleLabel.stringValue = speechBubble("Card exported! 🎴")
+            playSound("Pop")
+        } catch {
+            appendColored("❌ Failed to save: \(error.localizedDescription)\n\n", color: cRed)
         }
     }
 
@@ -2712,6 +2896,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             self?.setState(.typing)
         }
 
+        var accumulatedOutput = ""
         let fileHandle = pipe.fileHandleForReading
         fileHandle.readabilityHandler = { [weak self] handle in
             let data = handle.availableData
@@ -2720,6 +2905,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                 return
             }
             if let str = String(data: data, encoding: .utf8) {
+                accumulatedOutput += str
                 self?.appendOutput(str)
             }
         }
@@ -2729,6 +2915,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
+            self.lastResponse = accumulatedOutput
             self.appendOutput("\n")
             if process.terminationStatus == 0 {
                 self.pet.onCommandSuccess()
@@ -2948,6 +3135,12 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             ("!tip", "→ random tip"),
             ("!history", "→ command history"),
             ("!clear", "→ clear output"),
+            ("!watch", "→ clipboard watcher on"),
+            ("!unwatch", "→ clipboard watcher off"),
+            ("!save", "→ save last response"),
+            ("!snippets", "→ list saved snippets"),
+            ("!search <q>", "→ search snippets"),
+            ("!share", "→ export pet share card"),
         ]
         for (cmd, desc) in toolCmds {
             appendColored("  \(cmd.padding(toLength: 16, withPad: " ", startingAt: 0))", color: cYellow)
