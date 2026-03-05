@@ -137,6 +137,13 @@ Unlock badges for milestones — first command, 100 commands, commits, streaks, 
 - `!brain` — export brain as JSON (share/sell/trade!)
 - `!forget <fact>` — make pet forget
 
+### Pet Battles
+- `!battle <username>` — challenge any player on the leaderboard
+- Stats comparison: Level, Food, Joy, Energy, Streak, Badges
+- Power score with weighted randomness (skill + luck)
+- Winner gets bonus XP, loser gets consolation XP
+- Animated round-by-round battle sequence
+
 ### Leaderboard & Social
 - `!name <username>` — set your display name
 - `!leaderboard` — publish stats to [global leaderboard](https://social-coral-five.vercel.app/)
@@ -210,6 +217,7 @@ Unlock badges for milestones — first command, 100 commands, commits, streaks, 
 | `!forget <fact>` | Make pet forget |
 | `!name <name>` | Set leaderboard name |
 | `!leaderboard` | Publish to leaderboard |
+| `!battle <user>` | Battle another pet! |
 | `!compact` | Minimal UI mode |
 | `!full` | Full UI mode |
 | `!update` | Check for updates |

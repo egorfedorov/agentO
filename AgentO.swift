@@ -1528,6 +1528,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
     var gameGuesses = 0
     var triviaAnswer = ""
     var triviaActive = false
+    var battleActive = false
 
     // Clipboard watcher state
     var lastClipboard: String = ""
@@ -1665,7 +1666,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
     func setupMainWindow() {
         let screen = NSScreen.main!.visibleFrame
         let w: CGFloat = 440
-        let h: CGFloat = 760
+        let h: CGFloat = 680
         let x = screen.maxX - w - 16
         let y = screen.minY + 16
 
@@ -1675,7 +1676,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             backing: .buffered,
             defer: false
         )
-        window.title = "Agent-O v2"
+        window.title = "Agent-O"
         window.isFloatingPanel = true
         window.level = .floating
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
@@ -1714,48 +1715,39 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         agentLabel.autoresizingMask = [.width, .minYMargin]
         dropContainer.addSubview(agentLabel)
 
-        // Pet stats bar
-        yPos -= 48
+        // Hidden stats (kept for compatibility but not shown — bottom bar replaces them)
         statsLabel = NSTextField(labelWithString: "")
-        statsLabel.frame = NSRect(x: 10, y: yPos, width: w - 20, height: 44)
-        statsLabel.font = NSFont.monospacedSystemFont(ofSize: 10, weight: .regular)
-        statsLabel.textColor = cYellow
-        statsLabel.maximumNumberOfLines = 4
-        statsLabel.autoresizingMask = [.width, .minYMargin]
+        statsLabel.frame = NSRect(x: 0, y: 0, width: 0, height: 0)
+        statsLabel.isHidden = true
         dropContainer.addSubview(statsLabel)
-        refreshStatsDisplay()
 
-        // Git status bar
-        yPos -= 16
         gitStatusLabel = NSTextField(labelWithString: "")
-        gitStatusLabel.frame = NSRect(x: 10, y: yPos, width: w - 20, height: 14)
-        gitStatusLabel.font = NSFont.monospacedSystemFont(ofSize: 10, weight: .regular)
-        gitStatusLabel.textColor = cDimGray
-        gitStatusLabel.autoresizingMask = [.width, .minYMargin]
+        gitStatusLabel.frame = NSRect(x: 0, y: 0, width: 0, height: 0)
+        gitStatusLabel.isHidden = true
         dropContainer.addSubview(gitStatusLabel)
 
-        // Divider
-        yPos -= 6
-        dividerView = NSBox(frame: NSRect(x: 16, y: yPos, width: w - 32, height: 1))
-        dividerView.boxType = .separator
-        dividerView.autoresizingMask = [.width, .minYMargin]
+        dividerView = NSBox(frame: NSRect(x: 0, y: 0, width: 0, height: 0))
+        dividerView.isHidden = true
         dropContainer.addSubview(dividerView)
 
-        // Quick action buttons row
-        yPos -= 28
-        let btnW: CGFloat = 95
-        let btnGap: CGFloat = 6
-        let btnY = yPos
+        refreshStatsDisplay()
 
-        commitBtn = makeQuickButton("Commit", x: 10, y: btnY, w: btnW, action: #selector(quickCommit))
-        testBtn = makeQuickButton("Tests", x: 10 + btnW + btnGap, y: btnY, w: btnW, action: #selector(quickTest))
-        explainBtn = makeQuickButton("Explain", x: 10 + (btnW + btnGap)*2, y: btnY, w: btnW, action: #selector(quickExplain))
-        reviewBtn = makeQuickButton("Review", x: 10 + (btnW + btnGap)*3, y: btnY, w: btnW, action: #selector(quickReview))
+        // Quick action buttons — compact icon style
+        yPos -= 4
+        let btnW: CGFloat = (w - 30) / 4 - 3
+        let btnGap: CGFloat = 4
+        let btnY = yPos - 24
+
+        commitBtn = makeQuickButton("⬆ Commit", x: 10, y: btnY, w: btnW, action: #selector(quickCommit))
+        testBtn = makeQuickButton("⚡ Test", x: 10 + (btnW + btnGap), y: btnY, w: btnW, action: #selector(quickTest))
+        explainBtn = makeQuickButton("💡 Explain", x: 10 + (btnW + btnGap)*2, y: btnY, w: btnW, action: #selector(quickExplain))
+        reviewBtn = makeQuickButton("🔍 Review", x: 10 + (btnW + btnGap)*3, y: btnY, w: btnW, action: #selector(quickReview))
 
         for btn in [commitBtn!, testBtn!, explainBtn!, reviewBtn!] {
             btn.autoresizingMask = [.minYMargin]
             dropContainer.addSubview(btn)
         }
+        yPos = btnY
 
         // Output scroll view
         yPos -= 6
@@ -1960,9 +1952,6 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
         // Show elements
         bubbleLabel.isHidden = false
-        statsLabel.isHidden = false
-        gitStatusLabel.isHidden = false
-        dividerView.isHidden = false
         commitBtn.isHidden = false
         testBtn.isHidden = false
         explainBtn.isHidden = false
@@ -1970,42 +1959,37 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
         // Resize back
         let w: CGFloat = 440
-        let h: CGFloat = 760
+        let h: CGFloat = 680
         let screen = NSScreen.main!.visibleFrame
         let x = screen.maxX - w - 16
         let y = screen.minY + 16
 
         window.setFrame(NSRect(x: x, y: y, width: w, height: h), display: true, animate: true)
-        window.minSize = NSSize(width: 360, height: 500)
+        window.minSize = NSSize(width: 360, height: 400)
 
         // Restore layout
         var yPos = h - 30
-        yPos -= 75
-        bubbleLabel.frame = NSRect(x: 10, y: yPos, width: w - 20, height: 75)
+        yPos -= 50
+        bubbleLabel.frame = NSRect(x: 10, y: yPos, width: w - 20, height: 50)
         yPos -= 150
         agentLabel.frame = NSRect(x: 10, y: yPos, width: w - 20, height: 150)
         agentLabel.font = NSFont.monospacedSystemFont(ofSize: 12, weight: .medium)
-        yPos -= 48
-        statsLabel.frame = NSRect(x: 10, y: yPos, width: w - 20, height: 44)
-        yPos -= 16
-        gitStatusLabel.frame = NSRect(x: 10, y: yPos, width: w - 20, height: 14)
-        yPos -= 6
-        dividerView.frame = NSRect(x: 16, y: yPos, width: w - 32, height: 1)
-        yPos -= 28
-        let btnW: CGFloat = 95
-        let btnGap: CGFloat = 6
-        commitBtn.frame = NSRect(x: 10, y: yPos, width: btnW, height: 22)
-        testBtn.frame = NSRect(x: 10 + btnW + btnGap, y: yPos, width: btnW, height: 22)
-        explainBtn.frame = NSRect(x: 10 + (btnW + btnGap)*2, y: yPos, width: btnW, height: 22)
-        reviewBtn.frame = NSRect(x: 10 + (btnW + btnGap)*3, y: yPos, width: btnW, height: 22)
-        yPos -= 6
+        yPos -= 4
+        let btnW: CGFloat = (w - 30) / 4 - 3
+        let btnGap: CGFloat = 4
+        let btnY = yPos - 24
+        commitBtn.frame = NSRect(x: 10, y: btnY, width: btnW, height: 22)
+        testBtn.frame = NSRect(x: 10 + (btnW + btnGap), y: btnY, width: btnW, height: 22)
+        explainBtn.frame = NSRect(x: 10 + (btnW + btnGap)*2, y: btnY, width: btnW, height: 22)
+        reviewBtn.frame = NSRect(x: 10 + (btnW + btnGap)*3, y: btnY, width: btnW, height: 22)
+        yPos = btnY - 6
         let outputH = yPos - 58
         outputScroll.frame = NSRect(x: 10, y: 58, width: w - 20, height: outputH)
         bottomStatsLabel.frame = NSRect(x: 10, y: 42, width: w - 20, height: 14)
         inputField.frame = NSRect(x: 10, y: 12, width: w - 80, height: 28)
         sendBtn.frame = NSRect(x: w - 65, y: 10, width: 55, height: 30)
 
-        window.title = "Agent-O v2"
+        window.title = "Agent-O"
         appendColored("📐 Full mode restored\n\n", color: cGray)
         playSound("Pop")
     }
@@ -3001,6 +2985,12 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             if cmd.hasPrefix("!search ") {
                 let query = String(cmd.dropFirst(8)).trimmingCharacters(in: .whitespaces)
                 searchSnippets(query)
+                return true
+            }
+            // Pet battle
+            if cmd.hasPrefix("!battle ") {
+                let opponent = String(cmd.dropFirst(8)).trimmingCharacters(in: .whitespaces)
+                startBattle(opponent: opponent)
                 return true
             }
             // Set username for leaderboard
@@ -4478,6 +4468,16 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             appendColored("  \(cmd.padding(toLength: 16, withPad: " ", startingAt: 0))", color: cYellow)
             appendOutput("\(desc)\n")
         }
+        appendColored("  Social\n", color: cPurple, bold: true)
+        let socialCmds: [(String, String)] = [
+            ("!name <name>", "→ set leaderboard name"),
+            ("!leaderboard", "→ publish to leaderboard"),
+            ("!battle <user>", "→ battle another pet!"),
+        ]
+        for (cmd, desc) in socialCmds {
+            appendColored("  \(cmd.padding(toLength: 16, withPad: " ", startingAt: 0))", color: cYellow)
+            appendOutput("\(desc)\n")
+        }
         let toolCmds: [(String, String)] = [
             ("!git", "→ git project status"),
             ("!ps", "→ monitor processes"),
@@ -4644,6 +4644,194 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             }
         }
         task.resume()
+    }
+
+    // MARK: - Pet Battles
+
+    func startBattle(opponent: String) {
+        if playerUsername.isEmpty {
+            appendColored("❌ Set your name first: !name YourName\n", color: cRed)
+            appendColored("  Then !leaderboard to publish stats\n\n", color: cGray)
+            return
+        }
+        if opponent.lowercased() == playerUsername.lowercased() {
+            appendColored("❌ You can't battle yourself!\n\n", color: cRed)
+            return
+        }
+
+        battleActive = true
+        setState(.thinking)
+        bubbleLabel.stringValue = speechBubble("Finding \(opponent)...")
+        appendColored("⚔️  Searching for \(opponent)...\n", color: cYellow, bold: true)
+
+        guard let url = URL(string: "\(AgentODelegate.leaderboardURL)/api/player/\(opponent.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? opponent)") else {
+            appendColored("❌ Invalid username\n\n", color: cRed)
+            battleActive = false
+            setState(.error)
+            return
+        }
+
+        let task = URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                if let error = error {
+                    self.appendColored("❌ \(error.localizedDescription)\n\n", color: self.cRed)
+                    self.battleActive = false
+                    self.setState(.error)
+                    return
+                }
+                guard let data = data,
+                      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                      let oppLevel = json["level"] as? Int else {
+                    self.appendColored("❌ Player \"\(opponent)\" not found on leaderboard\n", color: self.cRed)
+                    self.appendColored("  They need to !leaderboard first\n\n", color: self.cGray)
+                    self.battleActive = false
+                    self.setState(.error)
+                    return
+                }
+
+                let oppXP = json["xp"] as? Int ?? 0
+                let oppStreak = json["streak"] as? Int ?? 0
+                let oppAch = json["achievements"] as? Int ?? 0
+                let oppHunger = json["hunger"] as? Int ?? 50
+                let oppHappiness = json["happiness"] as? Int ?? 50
+                let oppEnergy = json["energy"] as? Int ?? 50
+                let oppEvo = json["evolution"] as? String ?? "Baby"
+                let oppSkin = json["skin"] as? String ?? "Robot"
+
+                self.runBattle(
+                    oppName: opponent, oppLevel: oppLevel, oppXP: oppXP,
+                    oppStreak: oppStreak, oppAch: oppAch,
+                    oppHunger: oppHunger, oppHappiness: oppHappiness,
+                    oppEnergy: oppEnergy, oppEvo: oppEvo, oppSkin: oppSkin
+                )
+            }
+        }
+        task.resume()
+    }
+
+    func runBattle(oppName: String, oppLevel: Int, oppXP: Int,
+                   oppStreak: Int, oppAch: Int,
+                   oppHunger: Int, oppHappiness: Int,
+                   oppEnergy: Int, oppEvo: String, oppSkin: String) {
+
+        let myPower = calculatePower(
+            level: pet.level, hunger: pet.hunger, happiness: pet.happiness,
+            energy: pet.energy, streak: pet.streak, achievements: pet.unlockedAchievements.count
+        )
+        let oppPower = calculatePower(
+            level: oppLevel, hunger: oppHunger, happiness: oppHappiness,
+            energy: oppEnergy, streak: oppStreak, achievements: oppAch
+        )
+
+        // Battle header
+        appendColored("\n", color: cGray)
+        appendColored("  ╔══════════════════════════════════════╗\n", color: cCyan)
+        appendColored("  ║         ⚔️  PET BATTLE ⚔️            ║\n", color: cCyan)
+        appendColored("  ╚══════════════════════════════════════╝\n\n", color: cCyan)
+
+        appendColored("  \(playerUsername)", color: cGreen, bold: true)
+        appendColored("  vs  ", color: cGray)
+        appendColored("\(oppName)\n\n", color: cRed, bold: true)
+
+        // Stats comparison
+        let rounds: [(String, Int, Int)] = [
+            ("Level", pet.level, oppLevel),
+            ("Food", pet.hunger, oppHunger),
+            ("Joy", pet.happiness, oppHappiness),
+            ("Energy", pet.energy, oppEnergy),
+            ("Streak", pet.streak, oppStreak),
+            ("Badges", pet.unlockedAchievements.count, oppAch),
+        ]
+
+        setState(.dancing)
+        var step = 0
+
+        func showRound() {
+            guard step < rounds.count else {
+                // All rounds shown, determine winner
+                self.finishBattle(myPower: myPower, oppPower: oppPower, oppName: oppName)
+                return
+            }
+            let (name, myVal, oppVal) = rounds[step]
+            let winner = myVal > oppVal ? ">" : (myVal < oppVal ? "<" : "=")
+            let myColor = myVal >= oppVal ? self.cGreen : self.cRed
+            let oppColor = oppVal >= myVal ? self.cGreen : self.cRed
+
+            self.appendColored("  \(name.padding(toLength: 8, withPad: " ", startingAt: 0))", color: self.cGray)
+            self.appendColored("\(String(myVal).padding(toLength: 5, withPad: " ", startingAt: 0))", color: myColor, bold: true)
+            self.appendColored(" \(winner) ", color: self.cYellow, bold: true)
+            self.appendColored("\(oppVal)\n", color: oppColor, bold: true)
+
+            step += 1
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                showRound()
+            }
+        }
+
+        showRound()
+    }
+
+    func calculatePower(level: Int, hunger: Int, happiness: Int,
+                        energy: Int, streak: Int, achievements: Int) -> Double {
+        let stats = Double(hunger + happiness + energy) / 3.0
+        let base = Double(level) * 100.0 + stats * 2.0
+        let streakBonus = Double(streak) * 15.0
+        let achBonus = Double(achievements) * 20.0
+        // Add some randomness (+-15%)
+        let luck = Double.random(in: 0.85...1.15)
+        return (base + streakBonus + achBonus) * luck
+    }
+
+    func finishBattle(myPower: Double, oppPower: Double, oppName: String) {
+        appendColored("\n  ──────────────────────────────────────\n", color: cGray)
+
+        let myPwr = Int(myPower)
+        let oppPwr = Int(oppPower)
+
+        appendColored("  Power: ", color: cGray)
+        appendColored("\(myPwr)", color: cGreen, bold: true)
+        appendColored(" vs ", color: cGray)
+        appendColored("\(oppPwr)\n\n", color: cRed, bold: true)
+
+        if myPower > oppPower {
+            // Win
+            let xpGain = 50 + Int(Double(abs(myPwr - oppPwr)) * 0.1)
+            appendColored("  🏆 YOU WIN! ", color: cGreen, bold: true)
+            appendColored("+\(xpGain) XP\n\n", color: cYellow, bold: true)
+            pet.gainXP(xpGain)
+            pet.happiness = min(100, pet.happiness + 10)
+            pet.save()
+            refreshBottomStats()
+            setState(.happy)
+            bubbleLabel.stringValue = speechBubble("I beat \(oppName)!")
+            playSound("Glass")
+        } else if oppPower > myPower {
+            // Lose
+            let xpGain = 15
+            appendColored("  💀 YOU LOSE! ", color: cRed, bold: true)
+            appendColored("+\(xpGain) XP (consolation)\n\n", color: cGray)
+            pet.gainXP(xpGain)
+            pet.energy = max(0, pet.energy - 10)
+            pet.save()
+            refreshBottomStats()
+            setState(.error)
+            bubbleLabel.stringValue = speechBubble("\(oppName) was tough...")
+        } else {
+            // Draw
+            let xpGain = 30
+            appendColored("  🤝 DRAW! ", color: cYellow, bold: true)
+            appendColored("+\(xpGain) XP\n\n", color: cYellow)
+            pet.gainXP(xpGain)
+            pet.save()
+            refreshBottomStats()
+            setState(.idle)
+            bubbleLabel.stringValue = speechBubble("Evenly matched!")
+        }
+
+        appendColored("  Battle another: !battle <username>\n\n", color: cGray)
+        battleActive = false
+        processAchievements()
     }
 
     // MARK: - Auto-Update
