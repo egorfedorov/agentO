@@ -31,7 +31,7 @@ type SpecializationMeta = {
 const SPECIALIZATIONS: SpecializationMeta[] = [
   {
     key: 'stake_game_dev',
-    label: 'Game Dev (Stake/RGS)',
+    label: 'GAME DEV',
     keywords: ['stake', 'rgs', 'slot', 'rtp', 'game math', 'freespin', 'reel', 'bonus game'],
   },
   {

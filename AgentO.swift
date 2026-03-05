@@ -1425,7 +1425,7 @@ class PetBrain {
     static let specialtyDefinitions: [(key: String, label: String, keywords: [String])] = [
         (
             key: "stake_game_dev",
-            label: "Game Dev (Stake/RGS)",
+            label: "GAME DEV",
             keywords: ["stake", "rgs", "slot", "rtp", "reel", "freespin", "bonus game", "game math", "paytable"]
         ),
         (

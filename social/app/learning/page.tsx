@@ -233,7 +233,7 @@ export default async function LearningPage() {
           <h3>Specialty Catalog</h3>
           <p>Built-in domains currently tracked by the pet brain:</p>
           <ul className="learning-list">
-            <li>Game Dev (Stake/RGS)</li>
+            <li>GAME DEV</li>
             <li>Image & Prompt Art</li>
             <li>Frontend & UX</li>
             <li>Backend & APIs</li>
