@@ -6024,6 +6024,9 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                             self.appendColored("  View: \(AgentODelegate.leaderboardURL)\n\n", color: self.cCyan)
                             self.setState(.happy)
                         }
+                        if self.onboardingStep == 5 {
+                            self.finishOnboardingFlow()
+                        }
                     }
                 } else if statusCode >= 400 {
                     let msg = "Submit failed (HTTP \(statusCode))"
@@ -6039,6 +6042,9 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                     if !silent {
                         self.appendColored("✅ Submitted!\n\n", color: self.cGreen, bold: true)
                         self.setState(.happy)
+                        if self.onboardingStep == 5 {
+                            self.finishOnboardingFlow()
+                        }
                     }
                 }
             }
@@ -7703,12 +7709,44 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
     var onboardingStep = 0
 
+    func hasLeaderboardProfileBound() -> Bool {
+        return !playerUsername.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+            !playerAuthToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    func showOnboardingNameStep() {
+        appendColored("  Nice! Now set your public pet name.\n", color: cGreen)
+        appendColored("  Type: ", color: cGray)
+        appendColored("/name YourName\n\n", color: cYellow, bold: true)
+        bubbleLabel.stringValue = speechBubble("Set your name with /name")
+    }
+
+    func showOnboardingLeaderboardStep() {
+        appendColored("  Final step: publish to leaderboard.\n", color: cGreen)
+        appendColored("  Type: ", color: cGray)
+        appendColored("/leaderboard\n\n", color: cYellow, bold: true)
+        bubbleLabel.stringValue = speechBubble("Publish with /leaderboard")
+    }
+
+    func finishOnboardingFlow() {
+        onboardingStep = 0
+        pet.hasCompletedOnboarding = true
+        pet.save()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+            self.appendColored("\n  ✅ Onboarding complete! You're ready.\n", color: self.cGreen, bold: true)
+            self.appendColored("  Type /help to see all commands\n", color: self.cGray)
+            self.appendColored("  Type /quests to see daily quests\n\n", color: self.cGray)
+            self.bubbleLabel.stringValue = speechBubble("Let's go! 🚀")
+            self.playSound("Glass")
+        }
+    }
+
     func startOnboarding() {
         onboardingStep = 1
         appendColored("\n", color: cGray)
         appendColored("  ╔══════════════════════════════════════╗\n", color: cCyan)
         appendColored("  ║     Welcome to Agent-O! 🤖           ║\n", color: cCyan)
-        appendColored("  ║     Let's get you started            ║\n", color: cCyan)
+        appendColored("  ║   Feed, play, name, and publish      ║\n", color: cCyan)
         appendColored("  ╚══════════════════════════════════════╝\n\n", color: cCyan)
         appendColored("  Your pet is hungry! Let's feed it.\n", color: cGreen)
         appendColored("  Type: ", color: cGray)
@@ -7742,16 +7780,37 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             }
         case 3:
             if !cmd.hasPrefix("/") {
-                onboardingStep = 0
-                pet.hasCompletedOnboarding = true
-                pet.save()
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                    self.appendColored("\n  ✅ Onboarding complete! You're ready.\n", color: self.cGreen, bold: true)
-                    self.appendColored("  Type /help to see all commands\n", color: self.cGray)
-                    self.appendColored("  Type /quests to see daily quests\n\n", color: self.cGray)
-                    self.bubbleLabel.stringValue = speechBubble("Let's go! 🚀")
-                    self.playSound("Glass")
+                if playerUsername.isEmpty {
+                    onboardingStep = 4
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
+                        self.showOnboardingNameStep()
+                    }
+                    return false
                 }
+                if !hasLeaderboardProfileBound() {
+                    onboardingStep = 5
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
+                        self.showOnboardingLeaderboardStep()
+                    }
+                    return false
+                }
+                finishOnboardingFlow()
+                return false
+            }
+        case 4:
+            if cmd.hasPrefix("/name ") {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                    if !self.playerUsername.isEmpty {
+                        self.onboardingStep = 5
+                        self.showOnboardingLeaderboardStep()
+                    }
+                }
+                return false
+            }
+        case 5:
+            if cmd == "/leaderboard" {
+                appendColored("  Publishing profile... wait for confirmation.\n\n", color: cDimGray)
+                bubbleLabel.stringValue = speechBubble("Publishing profile...")
                 return false
             }
         default:
