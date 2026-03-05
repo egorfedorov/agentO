@@ -4,14 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Agent-O -- Your ASCII Desktop Companion for AI Coding</title>
-    <meta name="description" content="A native macOS floating Tamagotchi for Claude CLI & Codex CLI with tactical pet duels, pet rentals marketplace, and trainable pet brain. Zero dependencies, pure Swift.">
+    <meta name="description" content="A native macOS floating Tamagotchi for Claude CLI & Codex CLI. Train specialist AI pets, rent them in the marketplace, and grow skill-based reputation.">
     <meta property="og:title" content="Agent-O -- ASCII Desktop Companion">
-    <meta property="og:description" content="ASCII coding companion with tactical duels, pet rentals marketplace, and trainable pet brain. Integrates with Claude CLI & Codex CLI.">
+    <meta property="og:description" content="Train specialist AI pets from real prompts, rent them in the marketplace, and build a skill-based AI pet economy.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://egorfedorov.github.io/agentO/">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="Agent-O -- ASCII Desktop Companion">
-    <meta name="twitter:description" content="ASCII coding companion with tactical duels, rentals marketplace, and trainable pet brain.">
+    <meta name="twitter:description" content="Train specialist AI pets from your daily workflow and rent them in a skill-based marketplace.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -313,6 +313,41 @@
         .release-card code {
             color: var(--green);
             font-size: 0.75rem;
+        }
+
+        .vision-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 1rem;
+            margin-top: 1.4rem;
+        }
+
+        .vision-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1.2rem;
+        }
+
+        .vision-card h3 {
+            font-size: 0.92rem;
+            margin-bottom: 0.45rem;
+        }
+
+        .vision-card p {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            line-height: 1.6;
+        }
+
+        .vision-note {
+            margin-top: 1rem;
+            font-size: 0.82rem;
+            color: var(--text-dim);
+        }
+
+        .vision-note strong {
+            color: var(--green);
         }
 
         /* ============================================
@@ -754,6 +789,43 @@
     <div class="hero-scroll">&#9660; scroll to explore</div>
 </div>
 
+<!-- ========== PROJECT VISION ========== -->
+<section>
+    <div class="container">
+        <span class="section-label">Project Vision</span>
+        <h2 class="section-heading">Build a <span class="gradient-text">specialist AI pet</span>, not a generic bot</h2>
+        <p class="section-desc">
+            Agent-O is designed as a skill economy: your pet learns from your real daily prompts and becomes stronger in your domain.
+            Strong specialist pets get rented by other users for focused tasks.
+        </p>
+
+        <div class="vision-grid">
+            <div class="vision-card">
+                <h3>1) Train by Real Work</h3>
+                <p>Each prompt in Claude/Codex usage contributes to pet learning signals: domain, patterns, quality, and consistency.</p>
+            </div>
+            <div class="vision-card">
+                <h3>2) Build Domain DNA</h3>
+                <p>Pets become different: Stake Engine game-dev pet, art-prompt pet, frontend UX pet, debugging pet, and more.</p>
+            </div>
+            <div class="vision-card">
+                <h3>3) Publish &amp; Rent</h3>
+                <p>Owners list pets with <code style="color:var(--green);">/rent publish</code>. Renters pick by specialization and rental history.</p>
+            </div>
+            <div class="vision-card">
+                <h3>4) Earn from Expertise</h3>
+                <p>Rental demand should follow specialization quality. Better domain pets become more valuable in the marketplace.</p>
+            </div>
+        </div>
+
+        <p class="vision-note">
+            <strong>Direction:</strong> skill-based pet economy with transparent profiles, renter trust signals, and payout mechanics.
+        </p>
+    </div>
+</section>
+
+<div class="divider"></div>
+
 <!-- ========== NEW IN V6.2.0 ========== -->
 <section>
     <div class="container">
@@ -892,23 +964,22 @@
             </div>
             <div class="step">
                 <div class="step-number">2</div>
-                <h3>Customize</h3>
-                <p>Pick a skin, choose your theme, name your pet. Make Agent-O uniquely yours with <code style="color:var(--purple);">/skin</code> and <code style="color:var(--purple);">/theme</code>.</p>
+                <h3>Train specialization</h3>
+                <p>Use Claude/Codex daily, add explicit facts with <code style="color:var(--purple);">/train</code>, and check growth in <code style="color:var(--purple);">/training</code>.</p>
                 <div class="step-ascii">
-  /skin cat
-  /theme cyberpunk
-  /name Pixel
+  /train stake engine math
+  /promptcoach
+  /training
                 </div>
             </div>
             <div class="step">
                 <div class="step-number">3</div>
-                <h3>Code with your pet</h3>
-                <p>Ask Claude/Codex, train your pet memory, duel players, publish rentals, and grow your pet's social rank.</p>
+                <h3>Publish and monetize</h3>
+                <p>List your specialist pet on the marketplace, let others rent it, and build reputation around your strongest domain.</p>
                 <div class="step-ascii">
-  > explain this fn
-  /training
-  &#10003; +25 XP
-  &#9733; Level Up!
+  /rent publish 80 7 GameMathPro
+  /market
+  /rent my owner
                 </div>
             </div>
         </div>

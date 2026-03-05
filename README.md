@@ -20,6 +20,7 @@
 <p align="center">
   <a href="https://egorfedorov.github.io/agentO/">Website</a> &middot;
   <a href="https://social-coral-five.vercel.app/">Leaderboard</a> &middot;
+  <a href="#project-vision">Vision</a> &middot;
   <a href="#quick-start">Quick Start</a> &middot;
   <a href="#features">Features</a> &middot;
   <a href="#all-commands">Commands</a>
@@ -63,6 +64,82 @@ xattr -cr ~/Downloads/AgentO.app
 - Incorrect: `update`, `!update`
 - Friendly aliases supported: `/help all commands`, `/quests daily quests`
 - Input box supports direct paste (Cmd+V / right-click Paste)
+
+## Project Vision
+
+Agent-O is evolving from a desktop Tamagotchi into a **market of trainable specialist AI pets**.
+
+The key idea:
+- Every user trains a pet via real daily prompts and workflow.
+- Pet specialization becomes visible (game dev, art, debugging, automation, docs).
+- Strong specialist pets become rentable in the marketplace.
+- Renters pick pets by specialization quality, not only by level.
+
+In short: **your work makes your pet smarter**, and that specialization becomes an asset.
+
+## Why This Matters
+
+Most AI assistants are generic. Agent-O aims to make each pet:
+- personal (learns your stack and style),
+- niche-specialized (better in one domain than others),
+- economically useful (can be rented for focused workflows).
+
+Example:
+- If you build Stake Engine games every day, your pet should become stronger in that domain.
+- Another user may train a pet for art direction, prompt visuals, or frontend UX.
+- Different pets = different strengths = real marketplace demand.
+
+## How Specialization Works
+
+### 1) Learning Signals
+- Prompt history from Claude/Codex usage inside Agent-O.
+- Repeated topics and patterns (`PromptJournal` + `PetBrain`).
+- Explicit memory training via `/train <fact>` and `/teach <fact>`.
+- Quality feedback loop via `/promptcoach` and `/training`.
+
+### 2) Skill Profile (Pet DNA)
+Each pet builds a profile over time:
+- domain focus (e.g. game math, stake engine integration, UI, image prompting),
+- consistency (how often owner works in that domain),
+- prompt quality score (context clarity, output formatting habits),
+- confidence/reliability indicators.
+
+### 3) Marketplace Utility
+- Owner publishes listing (`/rent publish ...`).
+- Renter chooses pet by specialization and history.
+- During rental, prompts are routed through that pet profile.
+- Rental activity strengthens marketplace reputation.
+
+## Earnings Model (Product Direction)
+
+Current release provides:
+- rental commands and social marketplace UX,
+- rental history and active listing visibility,
+- profile-level training and specialization foundation.
+
+Planned monetization layer:
+- paid rentals and owner payouts,
+- specialization tiers and verified badges,
+- renter reviews and performance scoring.
+
+This gives users a path to earn from domain expertise by training high-quality pets.
+
+## Roles in the Ecosystem
+
+### Pet Owner (Builder)
+- Trains pet on real workflows and domain prompts.
+- Improves specialization profile and trust.
+- Publishes rental listings and builds reputation.
+
+### Pet Renter (User)
+- Selects pet by specialization and quality history.
+- Uses pet for focused tasks (game dev, art prompts, frontend, debugging, etc.).
+- Pays for outcomes faster than using a generic assistant.
+
+### Marketplace
+- Matches task intent to specialist pets.
+- Makes expertise discoverable and comparable.
+- Creates a feedback loop where better training leads to better demand.
 
 ## New in v6.2.0
 
