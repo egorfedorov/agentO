@@ -1629,6 +1629,9 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
     var currentProcess: Process?
     var currentSkin: AgentSkin = .robot
     var commandHistory: [String] = []
+    var commandAutocompleteMatches: [String] = []
+    var commandAutocompleteSeed: String = ""
+    var commandAutocompleteIndex: Int = 0
     var historyIndex = -1
     var lastInteraction = Date()
     var isWindowVisible = true
@@ -2694,20 +2697,84 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         return normalizeCommandPrefix(command)
     }
 
+    func resetCommandAutocomplete() {
+        commandAutocompleteMatches = []
+        commandAutocompleteSeed = ""
+        commandAutocompleteIndex = 0
+    }
+
+    func slashAutocompleteCommands() -> [String] {
+        return [
+            "/accept", "/ach", "/achievements", "/ask", "/battle", "/battles", "/brain",
+            "/break", "/calc", "/chat", "/challenges", "/claude", "/clear", "/clipboard",
+            "/codex", "/commit", "/compact", "/daily", "/dance", "/decline", "/diff",
+            "/en", "/evo", "/feed", "/forget", "/full", "/game", "/git", "/guess",
+            "/help", "/history", "/inventory", "/leaderboard", "/memory", "/move",
+            "/name", "/paste", "/play", "/pomo", "/pomo10", "/pomodoro", "/promptcoach",
+            "/promptstats", "/ps", "/quests", "/regex", "/remind", "/reminders", "/rest",
+            "/review", "/ru", "/save", "/screenshot", "/search", "/sh", "/share", "/skin",
+            "/snippets", "/standup", "/stats", "/stoppomo", "/teach", "/theme", "/tip",
+            "/translate", "/trivia", "/typing", "/unwatch", "/update", "/version", "/watch"
+        ]
+    }
+
+    func autocompleteSlashCommand(textView: NSTextView) -> Bool {
+        let originalInput = textView.string
+        let normalizedInput = normalizeCommandPrefix(originalInput)
+
+        let spaceIndex = normalizedInput.firstIndex(of: " ")
+        let commandToken = spaceIndex == nil ? normalizedInput : String(normalizedInput[..<spaceIndex!])
+        let argsSuffix = spaceIndex == nil ? "" : String(normalizedInput[spaceIndex!...])
+
+        guard commandToken.hasPrefix("/") else { return false }
+        let query = commandToken.lowercased()
+        let isCyclingCurrentResult = !commandAutocompleteMatches.isEmpty &&
+            (query == commandAutocompleteSeed || query == commandAutocompleteMatches[commandAutocompleteIndex].lowercased())
+
+        let matches: [String]
+        if isCyclingCurrentResult {
+            matches = commandAutocompleteMatches
+            commandAutocompleteIndex = (commandAutocompleteIndex + 1) % matches.count
+        } else {
+            matches = slashAutocompleteCommands().filter { $0.hasPrefix(query) }
+            guard !matches.isEmpty else {
+                NSSound.beep()
+                return true
+            }
+            commandAutocompleteMatches = matches
+            commandAutocompleteSeed = query
+            commandAutocompleteIndex = 0
+        }
+
+        let completion = matches[commandAutocompleteIndex]
+        let completedText = completion + argsSuffix
+
+        inputField.stringValue = completedText
+        textView.string = completedText
+        textView.setSelectedRange(NSRange(location: completedText.count, length: 0))
+        return true
+    }
+
     func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
         if commandSelector == #selector(NSResponder.insertNewline(_:)) {
+            resetCommandAutocomplete()
             sendPrompt()
             return true
+        }
+        if commandSelector == #selector(NSResponder.insertTab(_:)) {
+            return autocompleteSlashCommand(textView: textView)
         }
         if commandSelector == #selector(NSResponder.selectAll(_:)) {
             textView.selectAll(nil)
             return true
         }
         if commandSelector == #selector(NSResponder.moveUp(_:)) {
+            resetCommandAutocomplete()
             navigateHistory(direction: -1)
             return true
         }
         if commandSelector == #selector(NSResponder.moveDown(_:)) {
+            resetCommandAutocomplete()
             navigateHistory(direction: 1)
             return true
         }
@@ -2801,6 +2868,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
     // MARK: - Send Prompt
 
     @objc func sendPrompt() {
+        resetCommandAutocomplete()
         let prompt = inputField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !prompt.isEmpty else { return }
         let parsedPrompt = normalizeCommandPrefix(prompt)
