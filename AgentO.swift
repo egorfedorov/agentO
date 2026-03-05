@@ -1362,7 +1362,7 @@ class DropView: NSView {
 // MARK: - Main App Delegate
 
 class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
-    static let currentVersion = "2.6.0"
+    static let currentVersion = "3.0.0"
     // UI
     var window: NSPanel!
     var miniWindow: NSPanel!
