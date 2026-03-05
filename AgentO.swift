@@ -1431,6 +1431,10 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
     // Auto-commit detection
     var lastGitChangeCount: Int = 0
 
+    // Leaderboard
+    var playerUsername: String = ""
+    static let leaderboardURL = "https://agento-social.vercel.app"
+
     // Reminders
     var reminders: [(text: String, timer: Timer, fireDate: Date)] = []
 
@@ -1464,6 +1468,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         NSApp.setActivationPolicy(.accessory)
         L10n.lang = Lang(rawValue: pet.language) ?? .en
         pet.updateStreak()
+        playerUsername = UserDefaults.standard.string(forKey: "agento_username") ?? ""
         setupMenuBar()
         setupMainWindow()
         setupMiniWindow()
@@ -2726,6 +2731,10 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             appendColored("Agent-O v\(AgentODelegate.currentVersion)\n\n", color: cCyan, bold: true)
             return true
 
+        case "!leaderboard":
+            submitToLeaderboard()
+            return true
+
         case "!watch":
             startClipboardWatch()
             return true
@@ -2824,6 +2833,20 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             if cmd.hasPrefix("!search ") {
                 let query = String(cmd.dropFirst(8)).trimmingCharacters(in: .whitespaces)
                 searchSnippets(query)
+                return true
+            }
+            // Set username for leaderboard
+            if cmd.hasPrefix("!name ") {
+                let name = String(cmd.dropFirst(6)).trimmingCharacters(in: .whitespaces)
+                if name.isEmpty || name.count > 20 {
+                    appendColored("❌ Name must be 1-20 characters\n\n", color: cRed)
+                } else {
+                    playerUsername = name
+                    UserDefaults.standard.set(name, forKey: "agento_username")
+                    appendColored("✅ Username set: \(name)\n", color: cGreen, bold: true)
+                    appendColored("  Type !leaderboard to publish your stats\n\n", color: cGray)
+                    bubbleLabel.stringValue = speechBubble("I'm \(name)!")
+                }
                 return true
             }
             // Auto-translate toggle: !translate ru, !translate en, !translate off
@@ -4292,6 +4315,71 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         appendOutput("Commit · Tests · Explain · Review\n")
         appendColored("Hotkey: ", color: cPurple, bold: true)
         appendOutput("⌘⇧O toggle, ↑↓ history, Drag&Drop files\n\n")
+    }
+
+    // MARK: - Leaderboard
+
+    func submitToLeaderboard() {
+        if playerUsername.isEmpty {
+            appendColored("❌ Set your name first: !name YourName\n\n", color: cRed)
+            return
+        }
+
+        setState(.thinking)
+        bubbleLabel.stringValue = speechBubble("Publishing to leaderboard...")
+        appendColored("🏆 Submitting to leaderboard...\n", color: cYellow)
+
+        let payload: [String: Any] = [
+            "username": playerUsername,
+            "level": pet.level,
+            "xp": pet.xp,
+            "totalCommands": pet.totalCommands,
+            "streak": pet.streak,
+            "achievements": pet.unlockedAchievements.count,
+            "hunger": pet.hunger,
+            "happiness": pet.happiness,
+            "energy": pet.energy,
+            "skin": currentSkin.rawValue
+        ]
+
+        guard let jsonData = try? JSONSerialization.data(withJSONObject: payload),
+              let url = URL(string: "\(AgentODelegate.leaderboardURL)/api/submit") else {
+            appendColored("❌ Failed to create request\n\n", color: cRed)
+            setState(.error)
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = jsonData
+
+        let task = URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                if let error = error {
+                    self.appendColored("❌ \(error.localizedDescription)\n\n", color: self.cRed)
+                    self.setState(.error)
+                    return
+                }
+
+                if let data = data,
+                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let rank = json["rank"] as? Int {
+                    self.appendColored("✅ Published! ", color: self.cGreen, bold: true)
+                    self.appendColored("Rank: #\(rank)\n", color: self.cYellow, bold: true)
+                    self.appendColored("  View: \(AgentODelegate.leaderboardURL)\n\n", color: self.cCyan)
+                    self.setState(.happy)
+                    self.bubbleLabel.stringValue = speechBubble("Rank #\(rank)! 🏆")
+                    self.playSound("Glass")
+                } else {
+                    self.appendColored("✅ Submitted!\n", color: self.cGreen, bold: true)
+                    self.appendColored("  View: \(AgentODelegate.leaderboardURL)\n\n", color: self.cCyan)
+                    self.setState(.happy)
+                }
+            }
+        }
+        task.resume()
     }
 
     // MARK: - Auto-Update

@@ -1,0 +1,317 @@
+:root {
+  --bg: #0a0a14;
+  --bg2: #111122;
+  --bg3: #1a1a2e;
+  --cyan: #4dd4e6;
+  --green: #00e676;
+  --purple: #b388ff;
+  --pink: #ff4081;
+  --yellow: #ffd740;
+  --orange: #ff6e40;
+  --gray: #8892b0;
+  --dim: #484f58;
+  --white: #e6f1ff;
+  --border: #2a2a4a;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--white);
+  font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  min-height: 100vh;
+}
+
+/* Animated grid background */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    linear-gradient(rgba(77, 212, 230, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(77, 212, 230, 0.03) 1px, transparent 1px);
+  background-size: 60px 60px;
+  z-index: -1;
+}
+
+a { color: var(--cyan); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 40px 20px;
+}
+
+/* Header */
+.header {
+  text-align: center;
+  margin-bottom: 48px;
+}
+
+.header h1 {
+  font-size: 2.5rem;
+  background: linear-gradient(135deg, var(--cyan), var(--purple));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 8px;
+}
+
+.header p {
+  color: var(--gray);
+  font-size: 0.9rem;
+}
+
+.header .subtitle {
+  color: var(--dim);
+  font-size: 0.8rem;
+  margin-top: 4px;
+}
+
+/* Stats row */
+.stats-row {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  margin: 24px 0;
+  flex-wrap: wrap;
+}
+
+.stat-box {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 24px;
+  text-align: center;
+  min-width: 120px;
+}
+
+.stat-box .number {
+  font-size: 1.8rem;
+  font-weight: bold;
+  color: var(--cyan);
+}
+
+.stat-box .label {
+  font-size: 0.7rem;
+  color: var(--dim);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-top: 4px;
+}
+
+/* Leaderboard */
+.leaderboard {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.leaderboard-header {
+  display: grid;
+  grid-template-columns: 60px 1fr 100px 80px 80px 80px;
+  padding: 12px 20px;
+  background: var(--bg3);
+  font-size: 0.75rem;
+  color: var(--dim);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  border-bottom: 1px solid var(--border);
+}
+
+.player-row {
+  display: grid;
+  grid-template-columns: 60px 1fr 100px 80px 80px 80px;
+  padding: 14px 20px;
+  align-items: center;
+  border-bottom: 1px solid rgba(42, 42, 74, 0.5);
+  transition: background 0.2s;
+}
+
+.player-row:hover {
+  background: rgba(77, 212, 230, 0.05);
+}
+
+.player-row:last-child {
+  border-bottom: none;
+}
+
+.rank {
+  font-size: 1.1rem;
+  font-weight: bold;
+}
+
+.rank-1 { color: var(--yellow); }
+.rank-2 { color: var(--gray); }
+.rank-3 { color: var(--orange); }
+
+.player-name {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.player-name .name {
+  font-weight: bold;
+  color: var(--white);
+}
+
+.player-name .skin {
+  font-size: 0.7rem;
+  color: var(--dim);
+}
+
+.level-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(77, 212, 230, 0.15);
+  border: 1px solid rgba(77, 212, 230, 0.3);
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 0.8rem;
+  color: var(--cyan);
+  font-weight: bold;
+  width: fit-content;
+}
+
+.level-badge.epic { background: rgba(179, 136, 255, 0.15); border-color: rgba(179, 136, 255, 0.3); color: var(--purple); }
+.level-badge.mythic { background: rgba(255, 64, 129, 0.15); border-color: rgba(255, 64, 129, 0.3); color: var(--pink); }
+.level-badge.cosmic { background: rgba(255, 215, 64, 0.15); border-color: rgba(255, 215, 64, 0.3); color: var(--yellow); }
+
+.xp-cell, .streak-cell, .ach-cell {
+  font-size: 0.85rem;
+  color: var(--gray);
+  text-align: center;
+}
+
+.streak-cell { color: var(--orange); }
+.ach-cell { color: var(--yellow); }
+
+/* Pet card */
+.pet-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 24px;
+  margin-top: 32px;
+}
+
+.pet-card pre {
+  color: var(--cyan);
+  font-size: 0.8rem;
+  text-align: center;
+  line-height: 1.4;
+  margin: 16px 0;
+}
+
+/* Bars */
+.bar-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0;
+}
+
+.bar-label {
+  font-size: 0.7rem;
+  color: var(--dim);
+  width: 40px;
+}
+
+.bar {
+  flex: 1;
+  height: 6px;
+  background: var(--bg);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.5s ease;
+}
+
+.bar-fill.food { background: var(--green); }
+.bar-fill.joy { background: var(--pink); }
+.bar-fill.energy { background: var(--yellow); }
+
+.bar-value {
+  font-size: 0.7rem;
+  color: var(--gray);
+  width: 30px;
+  text-align: right;
+}
+
+/* How to join */
+.join-section {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 32px;
+  margin-top: 32px;
+  text-align: center;
+}
+
+.join-section h2 {
+  color: var(--cyan);
+  margin-bottom: 16px;
+}
+
+.join-section code {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 24px;
+  display: inline-block;
+  margin: 8px 0;
+  color: var(--green);
+  font-size: 0.9rem;
+}
+
+.join-section p {
+  color: var(--gray);
+  font-size: 0.85rem;
+  margin: 8px 0;
+}
+
+/* Empty state */
+.empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--dim);
+}
+
+.empty .robot {
+  font-size: 3rem;
+  margin-bottom: 16px;
+  color: var(--cyan);
+  opacity: 0.3;
+}
+
+/* Footer */
+.footer {
+  text-align: center;
+  margin-top: 48px;
+  padding: 24px;
+  color: var(--dim);
+  font-size: 0.75rem;
+}
+
+.footer a { color: var(--cyan); }
+
+/* Responsive */
+@media (max-width: 700px) {
+  .leaderboard-header,
+  .player-row {
+    grid-template-columns: 40px 1fr 80px 60px;
+  }
+  .ach-cell, .streak-cell { display: none; }
+  .header h1 { font-size: 1.8rem; }
+  .stats-row { gap: 12px; }
+  .stat-box { min-width: 80px; padding: 12px 16px; }
+  .stat-box .number { font-size: 1.3rem; }
+}
