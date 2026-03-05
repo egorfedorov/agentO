@@ -117,7 +117,7 @@ export default async function Home() {
                   {rank === 1 ? '👑' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`}
                 </span>
                 <div className="player-name">
-                  <span className="name">{getSkinEmoji(player.skin)} {player.username}</span>
+                  <a href={`/player/${player.username}`} className="name">{getSkinEmoji(player.skin)} {player.username}</a>
                   <span className="skin">{player.skin || 'Robot'} &middot; {evolution}</span>
                 </div>
                 <span className={`level-badge ${getBadgeClass(evolution)}`}>

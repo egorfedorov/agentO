@@ -60,6 +60,11 @@ xattr -cr ~/Downloads/AgentO.app
 
 ## Features
 
+### Guided Onboarding
+- First launch walks you through: Feed → Play → Ask Claude
+- Teaches core mechanics step by step
+- Unlocks daily quests after completion
+
 ### Claude & Codex Integration
 - Send prompts to **Claude CLI** or **Codex CLI** directly
 - Real-time streaming output with syntax highlighting
@@ -77,9 +82,20 @@ xattr -cr ~/Downloads/AgentO.app
 ### 23 Achievements
 Unlock badges for milestones — first command, 100 commands, commits, streaks, mini-games, coding at night, and more. Each achievement = +30 XP.
 
+### Daily Quests
+- 3 random quests each day (e.g., "Run 3 commands", "Win a battle", "Feed your pet")
+- Bonus XP for completing all 3
+- `!quests` to check progress
+
+### Inventory
+- Unlock items for milestones: crowns, halos, frames, badges, wings
+- 10 collectible items tied to achievements and stats
+- `!inventory` to browse your collection
+
 ### Mini-Games
 - `!game` — Number guessing (1-100)
 - `!trivia` — Dev trivia questions
+- `!typing` — Typing speed test (WPM + accuracy)
 
 ### Pomodoro Timer
 - `!pomo` — 25 min focus timer
@@ -218,6 +234,10 @@ Unlock badges for milestones — first command, 100 commands, commits, streaks, 
 | `!name <name>` | Set leaderboard name |
 | `!leaderboard` | Publish to leaderboard |
 | `!battle <user>` | Battle another pet! |
+| `!battles` | Battle history |
+| `!quests` | Daily quests |
+| `!inventory` | Your items |
+| `!typing` | Typing speed test |
 | `!compact` | Minimal UI mode |
 | `!full` | Full UI mode |
 | `!update` | Check for updates |

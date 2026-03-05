@@ -1149,6 +1149,14 @@ class PetStats {
     var gamesWon: Int = 0
     var pomodorosCompleted: Int = 0
     var language: String = "en"
+    var battlesWon: Int = 0
+    var battlesLost: Int = 0
+    var battleHistory: [[String: Any]] = []  // last 20 battles
+    var inventory: [String] = []  // unlocked items
+    var dailyQuestsDate: String = ""
+    var dailyQuestsProgress: [String: Int] = [:]  // quest_id -> progress
+    var dailyQuestsCompleted: [String] = []
+    var hasCompletedOnboarding: Bool = false
 
     var xpForNextLevel: Int { level * 100 }
 
@@ -1290,7 +1298,15 @@ class PetStats {
             "triedSkins": triedSkins,
             "gamesWon": gamesWon,
             "pomodorosCompleted": pomodorosCompleted,
-            "language": language
+            "language": language,
+            "battlesWon": battlesWon,
+            "battlesLost": battlesLost,
+            "battleHistory": battleHistory,
+            "inventory": inventory,
+            "dailyQuestsDate": dailyQuestsDate,
+            "dailyQuestsProgress": dailyQuestsProgress,
+            "dailyQuestsCompleted": dailyQuestsCompleted,
+            "hasCompletedOnboarding": hasCompletedOnboarding
         ]
         if let jsonData = try? JSONSerialization.data(withJSONObject: data),
            let json = String(data: jsonData, encoding: .utf8) {
@@ -1320,6 +1336,14 @@ class PetStats {
         stats.gamesWon = dict["gamesWon"] as? Int ?? 0
         stats.pomodorosCompleted = dict["pomodorosCompleted"] as? Int ?? 0
         stats.language = dict["language"] as? String ?? "en"
+        stats.battlesWon = dict["battlesWon"] as? Int ?? 0
+        stats.battlesLost = dict["battlesLost"] as? Int ?? 0
+        stats.battleHistory = dict["battleHistory"] as? [[String: Any]] ?? []
+        stats.inventory = dict["inventory"] as? [String] ?? []
+        stats.dailyQuestsDate = dict["dailyQuestsDate"] as? String ?? ""
+        stats.dailyQuestsProgress = dict["dailyQuestsProgress"] as? [String: Int] ?? [:]
+        stats.dailyQuestsCompleted = dict["dailyQuestsCompleted"] as? [String] ?? []
+        stats.hasCompletedOnboarding = dict["hasCompletedOnboarding"] as? Bool ?? false
 
         // Apply time-based decay (1 point per 30 min away)
         let minutesAway = Date().timeIntervalSince(stats.lastFed) / 60
@@ -1477,7 +1501,7 @@ class PetBrain {
 // MARK: - Main App Delegate
 
 class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
-    static let currentVersion = "5.3.0"
+    static let currentVersion = "6.0.0"
     // UI
     var window: NSPanel!
     var miniWindow: NSPanel!
@@ -2113,8 +2137,10 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         if let a = pet.unlock("feed_pet") {
             appendColored("🏆 ACHIEVEMENT: \(a.icon) \(a.name)\n\n", color: cYellow, bold: true)
         }
+        updateDailyQuest("feed_pet", by: 1)
         refreshStatsDisplay()
         processAchievements()
+        checkInventoryUnlocks()
     }
 
     @objc func playPet() {
@@ -2127,8 +2153,10 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         if let a = pet.unlock("play_pet") {
             appendColored("🏆 ACHIEVEMENT: \(a.icon) \(a.name)\n\n", color: cYellow, bold: true)
         }
+        updateDailyQuest("play_pet", by: 1)
         refreshStatsDisplay()
         processAchievements()
+        checkInventoryUnlocks()
     }
 
     @objc func restPet() {
@@ -2138,6 +2166,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         bubbleLabel.stringValue = speechBubble(L10n.t("rest_msg"))
         appendColored("💤 \(L10n.t("resting")) \(pet.energy)%\n\n", color: cCyan)
         playSound("Purr")
+        updateDailyQuest("rest_pet", by: 1)
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
             self?.state = .idle
         }
@@ -2161,13 +2190,23 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
     func checkLevelUp(oldLevel: Int) {
         if pet.level > oldLevel {
-            appendColored("🎉 LEVEL UP! Agent-O is now Level \(pet.level)!\n\n", color: cYellow, bold: true)
+            let oldEvo = Evolution.stage(for: oldLevel)
+            let newEvo = Evolution.stage(for: pet.level)
+            appendColored("🎉 LEVEL UP! Agent-O is now Level \(pet.level)!\n", color: cYellow, bold: true)
+            if oldEvo != newEvo {
+                appendColored("🧬 EVOLUTION: \(oldEvo) → \(newEvo)!\n", color: cPurple, bold: true)
+                playSound("Hero")
+                sendNotification(title: "Evolution!", body: "\(oldEvo) → \(newEvo)! Level \(pet.level)")
+            } else {
+                playSound("Funk")
+            }
+            appendColored("\n", color: cGray)
             bubbleLabel.stringValue = speechBubble("LEVEL UP! I'm Level \(pet.level) now!")
             setState(.dancing, duration: 3)
-            playSound("Funk")
             DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
                 self?.state = .idle
             }
+            checkInventoryUnlocks()
         }
     }
 
@@ -2291,6 +2330,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         appendColored("   \(game.hint)\n\n", color: cGray)
         bubbleLabel.stringValue = speechBubble("Let's play! Guess my number 1-100!")
         setState(.happy, duration: 2)
+        updateDailyQuest("game_play", by: 1)
     }
 
     func startTriviaGame() {
@@ -2645,12 +2685,24 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
         appendColored("❯ \(prompt)\n", color: cCyan, bold: true)
 
+        // Typing game input
+        if typingGameActive {
+            handleTypingInput(prompt)
+            return
+        }
+
+        // Onboarding step tracking
+        if onboardingStep > 0 {
+            _ = handleOnboardingStep(prompt)
+        }
+
         // Built-in commands
         if handleBuiltinCommand(prompt) { return }
 
         // Translation: EN <text>, RU <text>, etc.
         if let (targetLang, textToTranslate) = parseTranslateCommand(prompt) {
             translateText(textToTranslate, to: targetLang)
+            updateDailyQuest("translate_1", by: 1)
             return
         }
 
@@ -2671,6 +2723,9 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         refreshStatsDisplay()
         checkTimeAchievements()
         processAchievements()
+        updateDailyQuest("cmd_3", by: 1)
+        updateDailyQuest("cmd_10", by: 1)
+        checkInventoryUnlocks()
 
         setState(.thinking)
         bubbleLabel.stringValue = speechBubble("\(L10n.t("thinking")) \(actualPrompt.prefix(28))...")
@@ -2845,6 +2900,22 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
         case "!version":
             appendColored("Agent-O v\(AgentODelegate.currentVersion)\n\n", color: cCyan, bold: true)
+            return true
+
+        case "!battles":
+            showBattleHistory()
+            return true
+
+        case "!quests":
+            showDailyQuests()
+            return true
+
+        case "!inventory":
+            showInventory()
+            return true
+
+        case "!typing":
+            startTypingGame()
             return true
 
         case "!leaderboard":
@@ -3769,6 +3840,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         pet.onCommit()
         pet.save()
         refreshStatsDisplay()
+        updateDailyQuest("commit_1", by: 1)
         appendColored("❯ !commit\n", color: cCyan, bold: true)
         setState(.thinking)
         bubbleLabel.stringValue = speechBubble(L10n.t("prep_commit"))
@@ -3955,9 +4027,15 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         updateAgentDisplay()
 
         appendColored("╔═══════════════════════════════════════╗\n", color: cCyan)
-        appendColored("║      Agent-O v2.0  Terminal           ║\n", color: cCyan)
+        appendColored("║         Agent-O  Terminal              ║\n", color: cCyan)
         appendColored("║  Claude/Codex Assistant + Tamagotchi  ║\n", color: cCyan)
         appendColored("╚═══════════════════════════════════════╝\n\n", color: cCyan)
+
+        if !pet.hasCompletedOnboarding {
+            startOnboarding()
+            return
+        }
+
         if pet.streak > 1 {
             appendColored("🔥 Welcome back! Streak: \(pet.streak) days! +20 XP\n\n", color: cOrange, bold: true)
         }
@@ -3968,7 +4046,16 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         appendColored("  D&D   ", color: cYellow, bold: true)
         appendOutput("drag & drop file to analyze\n\n")
         appendColored("  !help ", color: cGreen, bold: true)
-        appendOutput("all commands\n\n")
+        appendOutput("all commands  ")
+        appendColored("!quests ", color: cYellow, bold: true)
+        appendOutput("daily quests\n\n")
+
+        // Show daily quests reminder
+        _ = getTodayQuests()
+        let done = pet.dailyQuestsCompleted.count
+        if done < 3 {
+            appendColored("📋 Daily quests: \(done)/3 — type !quests\n\n", color: cDimGray)
+        }
     }
 
     // MARK: - Translation
@@ -4401,7 +4488,10 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         let funCmds: [(String, String)] = [
             ("!game", "→ number guessing game"),
             ("!trivia", "→ dev trivia quiz"),
+            ("!typing", "→ typing speed test"),
             ("!dance", "→ let's dance!"),
+            ("!quests", "→ daily quests"),
+            ("!inventory", "→ your items"),
             ("!pomo", "→ 25 min pomodoro timer"),
             ("!pomo10", "→ 10 min pomodoro"),
             ("!break", "→ 5 min break timer"),
@@ -4471,6 +4561,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             ("!name <name>", "→ set leaderboard name"),
             ("!leaderboard", "→ publish to leaderboard"),
             ("!battle <user>", "→ battle another pet!"),
+            ("!battles", "→ battle history"),
         ]
         for (cmd, desc) in socialCmds {
             appendColored("  \(cmd.padding(toLength: 16, withPad: " ", startingAt: 0))", color: cYellow)
@@ -4792,44 +4883,353 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         appendColored(" vs ", color: cGray)
         appendColored("\(oppPwr)\n\n", color: cRed, bold: true)
 
+        let result: String
         if myPower > oppPower {
-            // Win
             let xpGain = 50 + Int(Double(abs(myPwr - oppPwr)) * 0.1)
             appendColored("  🏆 YOU WIN! ", color: cGreen, bold: true)
             appendColored("+\(xpGain) XP\n\n", color: cYellow, bold: true)
             pet.gainXP(xpGain)
             pet.happiness = min(100, pet.happiness + 10)
-            pet.save()
-            refreshBottomStats()
+            pet.battlesWon += 1
+            result = "win"
             setState(.happy)
             bubbleLabel.stringValue = speechBubble("I beat \(oppName)!")
             playSound("Glass")
+            updateDailyQuest("battle_win", by: 1)
         } else if oppPower > myPower {
-            // Lose
             let xpGain = 15
             appendColored("  💀 YOU LOSE! ", color: cRed, bold: true)
             appendColored("+\(xpGain) XP (consolation)\n\n", color: cGray)
             pet.gainXP(xpGain)
             pet.energy = max(0, pet.energy - 10)
-            pet.save()
-            refreshBottomStats()
+            pet.battlesLost += 1
+            result = "loss"
             setState(.error)
             bubbleLabel.stringValue = speechBubble("\(oppName) was tough...")
         } else {
-            // Draw
             let xpGain = 30
             appendColored("  🤝 DRAW! ", color: cYellow, bold: true)
             appendColored("+\(xpGain) XP\n\n", color: cYellow)
             pet.gainXP(xpGain)
-            pet.save()
-            refreshBottomStats()
+            result = "draw"
             setState(.idle)
             bubbleLabel.stringValue = speechBubble("Evenly matched!")
         }
 
+        // Record battle history
+        let entry: [String: Any] = [
+            "opponent": oppName,
+            "result": result,
+            "myPower": myPwr,
+            "oppPower": oppPwr,
+            "date": ISO8601DateFormatter().string(from: Date())
+        ]
+        pet.battleHistory.insert(entry, at: 0)
+        if pet.battleHistory.count > 20 { pet.battleHistory = Array(pet.battleHistory.prefix(20)) }
+        pet.save()
+        refreshStatsDisplay()
+
         appendColored("  Battle another: !battle <username>\n\n", color: cGray)
         battleActive = false
         processAchievements()
+    }
+
+    func showBattleHistory() {
+        if pet.battleHistory.isEmpty {
+            appendColored("No battles yet. Try !battle <username>\n\n", color: cGray)
+            return
+        }
+        appendColored("╭── Battle History ───────────────────╮\n", color: cPurple)
+        appendColored("  W:\(pet.battlesWon) / L:\(pet.battlesLost) / Total:\(pet.battlesWon + pet.battlesLost)\n\n", color: cCyan, bold: true)
+        for (_, b) in pet.battleHistory.prefix(10).enumerated() {
+            let opp = b["opponent"] as? String ?? "?"
+            let res = b["result"] as? String ?? "?"
+            let myP = b["myPower"] as? Int ?? 0
+            let opP = b["oppPower"] as? Int ?? 0
+            let icon = res == "win" ? "🏆" : (res == "loss" ? "💀" : "🤝")
+            let color = res == "win" ? cGreen : (res == "loss" ? cRed : cYellow)
+            appendColored("  \(icon) ", color: color)
+            appendColored("vs \(opp.padding(toLength: 14, withPad: " ", startingAt: 0))", color: cGray)
+            appendColored("\(myP) vs \(opP)\n", color: color)
+        }
+        appendColored("╰────────────────────────────────────╯\n\n", color: cPurple)
+    }
+
+    // MARK: - Daily Quests
+
+    struct DailyQuest {
+        let id: String
+        let desc: String
+        let target: Int
+        let xp: Int
+    }
+
+    static let questPool: [DailyQuest] = [
+        DailyQuest(id: "cmd_3", desc: "Run 3 commands", target: 3, xp: 30),
+        DailyQuest(id: "cmd_10", desc: "Run 10 commands", target: 10, xp: 60),
+        DailyQuest(id: "feed_pet", desc: "Feed your pet", target: 1, xp: 20),
+        DailyQuest(id: "play_pet", desc: "Play with your pet", target: 1, xp: 20),
+        DailyQuest(id: "battle_win", desc: "Win a battle", target: 1, xp: 50),
+        DailyQuest(id: "commit_1", desc: "Make a commit", target: 1, xp: 40),
+        DailyQuest(id: "translate_1", desc: "Translate something", target: 1, xp: 25),
+        DailyQuest(id: "game_play", desc: "Play a mini-game", target: 1, xp: 25),
+        DailyQuest(id: "rest_pet", desc: "Let your pet rest", target: 1, xp: 20),
+    ]
+
+    func getTodayQuests() -> [DailyQuest] {
+        let today = DateFormatter.localizedString(from: Date(), dateStyle: .short, timeStyle: .none)
+        if pet.dailyQuestsDate != today {
+            // New day — pick 3 random quests
+            pet.dailyQuestsDate = today
+            pet.dailyQuestsProgress = [:]
+            pet.dailyQuestsCompleted = []
+            let shuffled = AgentODelegate.questPool.shuffled()
+            let picked = Array(shuffled.prefix(3))
+            // Store which quests were picked
+            pet.dailyQuestsProgress = Dictionary(uniqueKeysWithValues: picked.map { ($0.id, 0) })
+            pet.save()
+        }
+        return AgentODelegate.questPool.filter { pet.dailyQuestsProgress.keys.contains($0.id) }
+    }
+
+    func updateDailyQuest(_ questId: String, by amount: Int) {
+        let quests = getTodayQuests()
+        guard pet.dailyQuestsProgress.keys.contains(questId),
+              !pet.dailyQuestsCompleted.contains(questId) else { return }
+        pet.dailyQuestsProgress[questId] = (pet.dailyQuestsProgress[questId] ?? 0) + amount
+        if let quest = quests.first(where: { $0.id == questId }),
+           (pet.dailyQuestsProgress[questId] ?? 0) >= quest.target {
+            pet.dailyQuestsCompleted.append(questId)
+            pet.gainXP(quest.xp)
+            pet.save()
+            appendColored("\n✅ Quest complete: \(quest.desc) (+\(quest.xp) XP)\n\n", color: cGreen, bold: true)
+            playSound("Hero")
+            refreshStatsDisplay()
+            // Check if all 3 done
+            if pet.dailyQuestsCompleted.count >= 3 {
+                pet.gainXP(50)
+                pet.save()
+                appendColored("🌟 ALL DAILY QUESTS COMPLETE! +50 bonus XP\n\n", color: cYellow, bold: true)
+                playSound("Glass")
+            }
+        } else {
+            pet.save()
+        }
+    }
+
+    func showDailyQuests() {
+        let quests = getTodayQuests()
+        appendColored("╭── Daily Quests ─────────────────────╮\n", color: cYellow)
+        let done = pet.dailyQuestsCompleted.count
+        appendColored("  \(done)/3 completed", color: cCyan, bold: true)
+        if done >= 3 {
+            appendColored("  ✅ All done!\n\n", color: cGreen, bold: true)
+        } else {
+            appendColored("\n\n", color: cGray)
+        }
+        for q in quests {
+            let progress = pet.dailyQuestsProgress[q.id] ?? 0
+            let completed = pet.dailyQuestsCompleted.contains(q.id)
+            let icon = completed ? "✅" : "⬜"
+            let color = completed ? cGreen : cGray
+            appendColored("  \(icon) \(q.desc.padding(toLength: 22, withPad: " ", startingAt: 0))", color: color)
+            if completed {
+                appendColored("+\(q.xp) XP\n", color: cGreen)
+            } else {
+                appendColored("\(progress)/\(q.target)\n", color: cDimGray)
+            }
+        }
+        appendColored("╰────────────────────────────────────╯\n\n", color: cYellow)
+    }
+
+    // MARK: - Inventory
+
+    static let allItems: [(id: String, name: String, icon: String, desc: String)] = [
+        ("hat_crown", "Crown", "👑", "Reach level 10"),
+        ("hat_halo", "Halo", "😇", "Complete 30-day streak"),
+        ("hat_party", "Party Hat", "🎉", "Reach level 5"),
+        ("hat_tophat", "Top Hat", "🎩", "Win 5 battles"),
+        ("frame_gold", "Gold Frame", "🖼", "Unlock 10 achievements"),
+        ("frame_diamond", "Diamond Frame", "💎", "Reach level 20"),
+        ("bg_stars", "Starfield BG", "✨", "Run 100 commands"),
+        ("bg_fire", "Fire BG", "🔥", "7-day streak"),
+        ("badge_og", "OG Badge", "🏅", "Early adopter"),
+        ("pet_wings", "Wings", "🪽", "Win 10 battles"),
+    ]
+
+    func checkInventoryUnlocks() {
+        let checks: [(String, Bool)] = [
+            ("hat_party", pet.level >= 5),
+            ("hat_crown", pet.level >= 10),
+            ("frame_diamond", pet.level >= 20),
+            ("hat_halo", pet.streak >= 30),
+            ("hat_tophat", pet.battlesWon >= 5),
+            ("frame_gold", pet.unlockedAchievements.count >= 10),
+            ("bg_stars", pet.totalCommands >= 100),
+            ("bg_fire", pet.streak >= 7),
+            ("badge_og", pet.totalCommands >= 1),
+            ("pet_wings", pet.battlesWon >= 10),
+        ]
+        for (id, cond) in checks {
+            if cond && !pet.inventory.contains(id) {
+                pet.inventory.append(id)
+                if let item = AgentODelegate.allItems.first(where: { $0.id == id }) {
+                    appendColored("\n🎁 NEW ITEM: \(item.icon) \(item.name)\n", color: cPurple, bold: true)
+                    appendColored("   \(item.desc)\n\n", color: cGray)
+                    playSound("Hero")
+                }
+            }
+        }
+        pet.save()
+    }
+
+    func showInventory() {
+        appendColored("╭── Inventory ────────────────────────╮\n", color: cPurple)
+        appendColored("  \(pet.inventory.count)/\(AgentODelegate.allItems.count) items\n\n", color: cCyan, bold: true)
+        for item in AgentODelegate.allItems {
+            let owned = pet.inventory.contains(item.id)
+            let icon = owned ? item.icon : "🔒"
+            let color = owned ? cPurple : cDimGray
+            appendColored("  \(icon) \(item.name.padding(toLength: 16, withPad: " ", startingAt: 0))", color: color, bold: owned)
+            appendColored("\(item.desc)\n", color: owned ? cGray : cDimGray)
+        }
+        appendColored("╰────────────────────────────────────╯\n\n", color: cPurple)
+    }
+
+    // MARK: - Onboarding
+
+    var onboardingStep = 0
+
+    func startOnboarding() {
+        onboardingStep = 1
+        appendColored("\n", color: cGray)
+        appendColored("  ╔══════════════════════════════════════╗\n", color: cCyan)
+        appendColored("  ║     Welcome to Agent-O! 🤖           ║\n", color: cCyan)
+        appendColored("  ║     Let's get you started            ║\n", color: cCyan)
+        appendColored("  ╚══════════════════════════════════════╝\n\n", color: cCyan)
+        appendColored("  Your pet is hungry! Let's feed it.\n", color: cGreen)
+        appendColored("  Type: ", color: cGray)
+        appendColored("!feed\n\n", color: cYellow, bold: true)
+        bubbleLabel.stringValue = speechBubble("Hi! I'm hungry... Type !feed")
+    }
+
+    func handleOnboardingStep(_ cmd: String) -> Bool {
+        switch onboardingStep {
+        case 1:
+            if cmd == "!feed" {
+                onboardingStep = 2
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                    self.appendColored("  Great! Now let's play together.\n", color: self.cGreen)
+                    self.appendColored("  Type: ", color: self.cGray)
+                    self.appendColored("!play\n\n", color: self.cYellow, bold: true)
+                    self.bubbleLabel.stringValue = speechBubble("Yum! Now play with me!")
+                }
+                return false // let !feed execute normally
+            }
+        case 2:
+            if cmd == "!play" {
+                onboardingStep = 3
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                    self.appendColored("  Awesome! Now try asking Claude a question.\n", color: self.cGreen)
+                    self.appendColored("  Type anything, e.g.: ", color: self.cGray)
+                    self.appendColored("what is swift?\n\n", color: self.cYellow, bold: true)
+                    self.bubbleLabel.stringValue = speechBubble("Fun! Now ask me anything!")
+                }
+                return false
+            }
+        case 3:
+            if !cmd.hasPrefix("!") {
+                onboardingStep = 0
+                pet.hasCompletedOnboarding = true
+                pet.save()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                    self.appendColored("\n  ✅ Onboarding complete! You're ready.\n", color: self.cGreen, bold: true)
+                    self.appendColored("  Type !help to see all commands\n", color: self.cGray)
+                    self.appendColored("  Type !quests to see daily quests\n\n", color: self.cGray)
+                    self.bubbleLabel.stringValue = speechBubble("Let's go! 🚀")
+                    self.playSound("Glass")
+                }
+                return false
+            }
+        default:
+            break
+        }
+        return false
+    }
+
+    // MARK: - Typing Speed Game
+
+    var typingGameActive = false
+    var typingTarget = ""
+    var typingStartTime: Date?
+
+    static let typingPhrases = [
+        "git commit -m fix bug",
+        "let x = array.map { $0 * 2 }",
+        "func hello() -> String",
+        "import Foundation",
+        "for i in 0..<count {",
+        "guard let value = optional else { return }",
+        "struct Point { var x: Int; var y: Int }",
+        "print(Hello World)",
+        "docker compose up -d",
+        "npm install --save-dev",
+        "SELECT * FROM users WHERE id = 1",
+        "curl -X POST localhost:3000",
+    ]
+
+    func startTypingGame() {
+        typingTarget = AgentODelegate.typingPhrases.randomElement()!
+        typingGameActive = true
+        typingStartTime = nil
+        setState(.happy)
+        appendColored("⌨️  TYPING SPEED TEST\n\n", color: cCyan, bold: true)
+        appendColored("  Type this as fast as you can:\n\n", color: cGray)
+        appendColored("  \(typingTarget)\n\n", color: cYellow, bold: true)
+        appendColored("  (Start typing! Timer starts on first key)\n\n", color: cDimGray)
+        bubbleLabel.stringValue = speechBubble("Ready... type!")
+        typingStartTime = Date()
+        updateDailyQuest("game_play", by: 1)
+    }
+
+    func handleTypingInput(_ input: String) {
+        guard typingGameActive, let start = typingStartTime else { return }
+        typingGameActive = false
+        let elapsed = Date().timeIntervalSince(start)
+        let words = Double(typingTarget.split(separator: " ").count)
+        let wpm = Int((words / elapsed) * 60.0)
+        let accuracy = calculateAccuracy(input: input, target: typingTarget)
+
+        appendColored("⏱  Results:\n", color: cCyan, bold: true)
+        appendColored("  Time: \(String(format: "%.1f", elapsed))s\n", color: cGray)
+        appendColored("  Speed: \(wpm) WPM\n", color: wpm > 60 ? cGreen : (wpm > 30 ? cYellow : cRed), bold: true)
+        appendColored("  Accuracy: \(accuracy)%\n\n", color: accuracy >= 90 ? cGreen : (accuracy >= 70 ? cYellow : cRed))
+
+        let xpGain = max(10, min(50, wpm / 2)) * accuracy / 100
+        pet.gainXP(xpGain)
+        pet.save()
+        appendColored("  +\(xpGain) XP\n\n", color: cYellow)
+        refreshStatsDisplay()
+
+        if wpm > 60 && accuracy >= 90 {
+            bubbleLabel.stringValue = speechBubble("Speed demon! 🔥")
+            playSound("Glass")
+        } else {
+            bubbleLabel.stringValue = speechBubble("\(wpm) WPM — keep practicing!")
+        }
+        setState(.idle)
+    }
+
+    func calculateAccuracy(input: String, target: String) -> Int {
+        let inputChars = Array(input)
+        let targetChars = Array(target)
+        let maxLen = max(inputChars.count, targetChars.count)
+        guard maxLen > 0 else { return 100 }
+        var matches = 0
+        for i in 0..<min(inputChars.count, targetChars.count) {
+            if inputChars[i] == targetChars[i] { matches += 1 }
+        }
+        return Int(Double(matches) / Double(maxLen) * 100.0)
     }
 
     // MARK: - Auto-Update
