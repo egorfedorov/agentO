@@ -1362,7 +1362,7 @@ class DropView: NSView {
 // MARK: - Main App Delegate
 
 class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
-    static let currentVersion = "2.4.0"
+    static let currentVersion = "2.6.0"
     // UI
     var window: NSPanel!
     var miniWindow: NSPanel!
@@ -1410,6 +1410,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
     // Clipboard watcher state
     var lastClipboard: String = ""
+    var lastClipboardCount: Int = 0
     var clipboardTimer: Timer?
     var isWatchingClipboard: Bool = false
     var autoTranslateLang: String? = nil
@@ -2702,8 +2703,9 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
     func startClipboardWatch() {
         isWatchingClipboard = true
+        lastClipboardCount = NSPasteboard.general.changeCount
         lastClipboard = NSPasteboard.general.string(forType: .string) ?? ""
-        clipboardTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
+        clipboardTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             self?.checkClipboard()
         }
         appendColored("👁 Clipboard watcher ON\n", color: cGreen, bold: true)
@@ -2739,7 +2741,10 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
     }
 
     func checkClipboard() {
-        guard let content = NSPasteboard.general.string(forType: .string), content != lastClipboard else { return }
+        let currentCount = NSPasteboard.general.changeCount
+        guard currentCount != lastClipboardCount else { return }
+        lastClipboardCount = currentCount
+        guard let content = NSPasteboard.general.string(forType: .string), !content.isEmpty else { return }
         lastClipboard = content
 
         // Auto-translate mode
@@ -3374,6 +3379,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                             NSPasteboard.general.clearContents()
                             NSPasteboard.general.setString(translated, forType: .string)
                             self.lastClipboard = translated
+                            self.lastClipboardCount = NSPasteboard.general.changeCount
                             self.appendColored("📋 Copied to clipboard!\n\n", color: self.cGray)
                             self.bubbleLabel.stringValue = speechBubble("Translated! 📋")
                             self.setState(.happy)
