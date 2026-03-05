@@ -1599,7 +1599,7 @@ struct BattleDuelContext {
 // MARK: - Main App Delegate
 
 class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
-    static let sourceVersion = "6.1.6"
+    static let sourceVersion = "6.2.0"
     static var currentVersion: String {
         if let bundleVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String,
            !bundleVersion.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -2723,12 +2723,12 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             "/break", "/calc", "/chat", "/challenges", "/claude", "/clear", "/clipboard",
             "/codex", "/commit", "/compact", "/daily", "/dance", "/decline", "/diff",
             "/en", "/evo", "/feed", "/forget", "/full", "/game", "/git", "/guess",
-            "/help", "/history", "/inventory", "/leaderboard", "/memory", "/move",
+            "/help", "/history", "/inventory", "/leaderboard", "/market", "/memory", "/move",
             "/name", "/paste", "/play", "/pomo", "/pomo10", "/pomodoro", "/promptcoach",
-            "/promptstats", "/ps", "/quests", "/regex", "/remind", "/reminders", "/rest",
+            "/promptstats", "/ps", "/quests", "/regex", "/remind", "/reminders", "/rent", "/rest",
             "/review", "/ru", "/save", "/screenshot", "/search", "/sh", "/share", "/skin",
             "/snippets", "/standup", "/stats", "/stoppomo", "/teach", "/theme", "/tip",
-            "/translate", "/trivia", "/typing", "/unwatch", "/update", "/version", "/watch"
+            "/train", "/training", "/translate", "/trivia", "/typing", "/unwatch", "/update", "/version", "/watch"
         ]
     }
 
@@ -3138,6 +3138,14 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             submitToLeaderboard()
             return true
 
+        case "/market":
+            showMarketOverview()
+            return true
+
+        case "/rent":
+            showRentHelp()
+            return true
+
         case "/watch":
             startClipboardWatch()
             return true
@@ -3206,22 +3214,32 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             showPromptCoach(days: 1)
             return true
 
+        case "/training", "/train":
+            showTrainingDashboard()
+            return true
+
         case "/clipboard":
             showClipboardHistory("")
             return true
 
         default:
-            // Teach the pet brain
-            if cmd.hasPrefix("/teach ") {
-                let fact = String(cmd.dropFirst(7)).trimmingCharacters(in: .whitespaces)
+            // Teach/train the pet brain
+            if cmd.hasPrefix("/teach ") || cmd.hasPrefix("/train ") {
+                let fact = String(cmd.dropFirst(7)).trimmingCharacters(in: .whitespacesAndNewlines)
                 if fact.isEmpty {
-                    appendColored("Usage: /teach <fact>\n\n", color: cRed)
+                    appendColored("Usage: /teach <fact>\n", color: cRed)
+                    appendColored("   or: /train <fact>\n\n", color: cGray)
+                } else if brain.facts.contains(fact) {
+                    appendColored("Already learned: \"\(fact)\"\n\n", color: cDimGray)
                 } else {
                     brain.facts.append(fact)
                     brain.save()
+                    pet.gainXP(5)
+                    pet.save()
+                    refreshStatsDisplay()
                     appendColored("Learned: \"\(fact)\"\n", color: cGreen, bold: true)
-                    appendColored("  \(brain.facts.count) fact(s) stored\n\n", color: cGray)
-                    bubbleLabel.stringValue = speechBubble("I'll remember that!")
+                    appendColored("  \(brain.facts.count) fact(s) stored  (+5 XP)\n\n", color: cGray)
+                    bubbleLabel.stringValue = speechBubble("Training complete!")
                     playSound("Pop")
                 }
                 return true
@@ -3290,6 +3308,11 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                 let raw = String(cmd.dropFirst(13)).trimmingCharacters(in: .whitespaces)
                 let days = Int(raw) ?? 1
                 showPromptCoach(days: days)
+                return true
+            }
+            if cmd.hasPrefix("/rent ") {
+                let args = String(cmd.dropFirst(6)).trimmingCharacters(in: .whitespacesAndNewlines)
+                handleRentCommand(args: args)
                 return true
             }
             if cmd.hasPrefix("/move ") {
@@ -4914,6 +4937,56 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         appendColored("╰────────────────────────────────────╯\n\n", color: cPurple)
     }
 
+    func showTrainingDashboard(days: Int = 7) {
+        let safeDays = max(1, min(30, days))
+        let entries = promptJournal.entries(forLastDays: safeDays)
+        let promptCount = entries.count
+        let contextCount = entries.filter { promptHasContext($0["text"] as? String ?? "") }.count
+        let formatCount = entries.filter { promptHasOutputFormat($0["text"] as? String ?? "") }.count
+        let contextPct = promptCount > 0 ? (contextCount * 100 / promptCount) : 0
+        let formatPct = promptCount > 0 ? (formatCount * 100 / promptCount) : 0
+
+        let topPatterns = brain.patterns
+            .sorted { a, b in
+                if a.value == b.value { return a.key < b.key }
+                return a.value > b.value
+            }
+            .prefix(3)
+
+        let activityScore = min(40, promptCount * 2)
+        let memoryScore = min(35, brain.facts.count * 5 + brain.languages.count * 3 + brain.frameworks.count * 3)
+        let qualityScore = min(25, (contextPct + formatPct) / 8)
+        let trainScore = min(100, activityScore + memoryScore + qualityScore)
+
+        appendColored("╭── Pet Training ─────────────────────╮\n", color: cCyan)
+        appendColored("  Level: ", color: cGray)
+        appendColored("\(pet.level)\n", color: cGreen, bold: true)
+        appendColored("  Training score: ", color: cGray)
+        appendColored("\(trainScore)/100\n", color: cYellow, bold: true)
+        appendColored("  Prompt window: last \(safeDays) day(s)\n", color: cGray)
+        appendColored("  Prompts analyzed: \(promptCount)\n", color: cGray)
+        appendColored("  Context quality: \(contextPct)%\n", color: cGray)
+        appendColored("  Output clarity: \(formatPct)%\n", color: cGray)
+        appendColored("  Known languages: \(brain.languages.count)\n", color: cGray)
+        appendColored("  Known frameworks: \(brain.frameworks.count)\n", color: cGray)
+        appendColored("  Learned facts: \(brain.facts.count)\n", color: cGray)
+
+        if topPatterns.isEmpty {
+            appendColored("  Top prompt patterns: (not enough data yet)\n", color: cDimGray)
+        } else {
+            appendColored("  Top prompt patterns:\n", color: cPurple, bold: true)
+            for (pattern, count) in topPatterns {
+                appendColored("    • \(pattern)  (\(count)x)\n", color: cDimGray)
+            }
+        }
+
+        appendColored("\n  Improve faster:\n", color: cPurple, bold: true)
+        appendColored("    1) Use /promptcoach for wording feedback\n", color: cDimGray)
+        appendColored("    2) Use /train <fact> for persistent preferences\n", color: cDimGray)
+        appendColored("    3) Add file/error context in each complex prompt\n", color: cDimGray)
+        appendColored("╰────────────────────────────────────╯\n\n", color: cCyan)
+    }
+
     func showHelp() {
         appendColored("╭── Commands ─────────────────────────╮\n", color: cCyan)
         appendColored("  CLI\n", color: cPurple, bold: true)
@@ -5005,6 +5078,8 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             ("/daily", "→ daily activity summary"),
             ("/promptstats [N]", "→ prompt stats for N days"),
             ("/promptcoach [N]", "→ prompt quality feedback"),
+            ("/training", "→ pet training dashboard"),
+            ("/train <fact>", "→ train pet memory (+5 XP)"),
             ("/teach <fact>", "→ teach your pet something"),
             ("/memory", "→ what your pet knows"),
             ("/brain", "→ export pet brain (JSON)"),
@@ -5018,6 +5093,12 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         let socialCmds: [(String, String)] = [
             ("/name <name>", "→ set leaderboard name"),
             ("/leaderboard", "→ publish to leaderboard"),
+            ("/market", "→ pet rental marketplace"),
+            ("/rent help", "→ rental commands help"),
+            ("/rent publish ...", "→ publish your pet"),
+            ("/rent take ...", "→ rent a pet"),
+            ("/rent my [role]", "→ your rentals"),
+            ("/rent end <id>", "→ finish owner rental"),
             ("/battle <user>", "→ send battle challenge"),
             ("/challenges", "→ incoming battle challenges"),
             ("/accept <user>", "→ accept battle challenge"),
@@ -5294,6 +5375,439 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             }
         }
         task.resume()
+    }
+
+    // MARK: - Pet Marketplace
+
+    func boolFromAny(_ value: Any?, default defaultValue: Bool = false) -> Bool {
+        if let v = value as? Bool { return v }
+        if let v = value as? Int { return v != 0 }
+        if let v = value as? Double { return v != 0 }
+        if let v = value as? String {
+            let s = v.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            if s == "true" || s == "1" || s == "yes" || s == "on" { return true }
+            if s == "false" || s == "0" || s == "no" || s == "off" { return false }
+        }
+        return defaultValue
+    }
+
+    func queryEncoded(_ value: String) -> String {
+        return value.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? value
+    }
+
+    func socialJSONRequest(
+        path: String,
+        method: String = "GET",
+        payload: [String: Any]? = nil,
+        completion: @escaping (_ statusCode: Int, _ json: [String: Any]?, _ errorText: String?) -> Void
+    ) {
+        guard let url = URL(string: "\(AgentODelegate.leaderboardURL)\(path)") else {
+            completion(0, nil, "Failed to build request URL")
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        if let payload = payload {
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = try? JSONSerialization.data(withJSONObject: payload)
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion((response as? HTTPURLResponse)?.statusCode ?? 0, nil, error.localizedDescription)
+                    return
+                }
+
+                let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
+                var json: [String: Any]?
+                if let data = data {
+                    json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+                }
+
+                if statusCode >= 400 {
+                    let serverError = json?["error"] as? String
+                    completion(statusCode, json, serverError ?? "HTTP \(statusCode)")
+                    return
+                }
+
+                completion(statusCode, json, nil)
+            }
+        }.resume()
+    }
+
+    func ensureRentIdentity() -> Bool {
+        if playerUsername.isEmpty {
+            appendColored("❌ Set your name first: /name YourName\n", color: cRed)
+            appendColored("  Then publish once: /leaderboard\n\n", color: cGray)
+            return false
+        }
+        if playerAuthToken.isEmpty {
+            appendColored("❌ Missing owner token. Publish once first: /leaderboard\n\n", color: cRed)
+            return false
+        }
+        return true
+    }
+
+    func showRentHelp() {
+        appendColored("╭── Pet Rent Commands ────────────────╮\n", color: cPurple)
+        appendColored("  /market\n", color: cYellow)
+        appendColored("    show marketplace summary + listings\n", color: cGray)
+        appendColored("  /rent publish <pricePerDay> <maxDays> <title>\n", color: cYellow)
+        appendColored("    publish or update your pet listing\n", color: cGray)
+        appendColored("  /rent off\n", color: cYellow)
+        appendColored("    disable your listing\n", color: cGray)
+        appendColored("  /rent take <ownerUsername> <days>\n", color: cYellow)
+        appendColored("    rent another player's pet\n", color: cGray)
+        appendColored("  /rent my [owner|renter|both]\n", color: cYellow)
+        appendColored("    show your rental history\n", color: cGray)
+        appendColored("  /rent end <rentalId>\n", color: cYellow)
+        appendColored("    finish your active rental as owner\n", color: cGray)
+        appendColored("╰────────────────────────────────────╯\n\n", color: cPurple)
+    }
+
+    func handleRentCommand(args: String) {
+        let trimmed = args.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            showRentHelp()
+            return
+        }
+
+        let lower = trimmed.lowercased()
+        if lower == "help" {
+            showRentHelp()
+            return
+        }
+        if lower == "off" {
+            rentDisableListing()
+            return
+        }
+        if lower.hasPrefix("publish ") {
+            let payload = String(trimmed.dropFirst(8)).trimmingCharacters(in: .whitespacesAndNewlines)
+            rentPublish(args: payload)
+            return
+        }
+        if lower.hasPrefix("take ") {
+            let payload = String(trimmed.dropFirst(5)).trimmingCharacters(in: .whitespacesAndNewlines)
+            rentTake(args: payload)
+            return
+        }
+        if lower == "my" {
+            rentMy(role: "both")
+            return
+        }
+        if lower.hasPrefix("my ") {
+            let role = String(trimmed.dropFirst(3)).trimmingCharacters(in: .whitespacesAndNewlines)
+            rentMy(role: role)
+            return
+        }
+        if lower.hasPrefix("end ") {
+            let rentalId = String(trimmed.dropFirst(4)).trimmingCharacters(in: .whitespacesAndNewlines)
+            rentEnd(rentalId: rentalId)
+            return
+        }
+
+        appendColored("❌ Unknown /rent command\n", color: cRed)
+        showRentHelp()
+    }
+
+    func showMarketOverview() {
+        setState(.thinking)
+        bubbleLabel.stringValue = speechBubble("Loading pet marketplace...")
+        appendColored("🏪 Marketplace snapshot\n", color: cCyan, bold: true)
+
+        socialJSONRequest(path: "/api/pets/market/summary?limit=6") { [weak self] _, summaryJson, summaryError in
+            guard let self = self else { return }
+            if let summaryError = summaryError {
+                self.appendColored("❌ \(summaryError)\n\n", color: self.cRed)
+                self.setState(.error)
+                return
+            }
+
+            let counts = summaryJson?["counts"] as? [String: Any]
+            let activeListings = self.intFromAny(counts?["activeListings"], default: 0)
+            let activeRentals = self.intFromAny(counts?["activeRentals"], default: 0)
+            let totalRentals = self.intFromAny(counts?["totalRentals"], default: 0)
+
+            self.appendColored("  Listings: \(activeListings) | Active rentals: \(activeRentals) | Total rentals: \(totalRentals)\n", color: self.cGray)
+            self.appendColored("  Web: \(AgentODelegate.leaderboardURL)/marketplace\n\n", color: self.cCyan)
+
+            self.socialJSONRequest(path: "/api/pets/market/listings?limit=8") { [weak self] _, listingsJson, listingsError in
+                guard let self = self else { return }
+                if let listingsError = listingsError {
+                    self.appendColored("❌ \(listingsError)\n\n", color: self.cRed)
+                    self.setState(.error)
+                    return
+                }
+
+                let listings = listingsJson?["listings"] as? [[String: Any]] ?? []
+                if listings.isEmpty {
+                    self.appendColored("No public listings yet.\n", color: self.cDimGray)
+                    self.appendColored("  Publish yours: /rent publish 50 7 CyberPet\n\n", color: self.cGray)
+                    self.setState(.idle)
+                    return
+                }
+
+                self.appendColored("Top listings:\n", color: self.cYellow, bold: true)
+                for row in listings.prefix(8) {
+                    let owner = row["ownerUsername"] as? String ?? "?"
+                    let title = (row["title"] as? String ?? "\(owner)'s Pet").trimmingCharacters(in: .whitespacesAndNewlines)
+                    let pricePerDay = self.intFromAny(row["pricePerDay"], default: 0)
+                    let minDays = max(1, self.intFromAny(row["minDays"], default: 1))
+                    let maxDays = max(minDays, self.intFromAny(row["maxDays"], default: minDays))
+                    let rented = self.boolFromAny(row["rented"], default: false)
+                    let active = self.boolFromAny(row["active"], default: false)
+                    let status = rented ? "rented" : (active ? "available" : "offline")
+
+                    self.appendColored("  • \(owner)", color: self.cCyan, bold: true)
+                    self.appendColored("  \(title)  [\(status)]\n", color: self.cGray)
+                    self.appendColored("    \(pricePerDay) XP/day | \(minDays)-\(maxDays)d | /rent take \(owner) \(minDays)\n", color: self.cDimGray)
+                }
+                self.appendOutput("\n")
+                self.setState(.idle)
+            }
+        }
+    }
+
+    func rentPublish(args: String) {
+        guard ensureRentIdentity() else { return }
+        let parts = args.split(maxSplits: 2, whereSeparator: { $0.isWhitespace || $0.isNewline }).map(String.init)
+        guard parts.count >= 2 else {
+            appendColored("❌ Usage: /rent publish <pricePerDay> <maxDays> <title>\n", color: cRed)
+            appendColored("  Example: /rent publish 50 7 CyberCat\n\n", color: cGray)
+            return
+        }
+
+        guard let pricePerDay = Int(parts[0]), pricePerDay > 0 else {
+            appendColored("❌ pricePerDay must be a positive number\n\n", color: cRed)
+            return
+        }
+        guard let maxDays = Int(parts[1]), maxDays > 0 else {
+            appendColored("❌ maxDays must be a positive number\n\n", color: cRed)
+            return
+        }
+
+        let titleRaw = parts.count > 2 ? parts[2] : "\(playerUsername)'s Pet"
+        let title = titleRaw.trimmingCharacters(in: .whitespacesAndNewlines)
+        let finalTitle = title.isEmpty ? "\(playerUsername)'s Pet" : title
+
+        let payload: [String: Any] = [
+            "username": playerUsername,
+            "token": playerAuthToken,
+            "title": finalTitle,
+            "description": "Lv.\(pet.level) \(currentSkin.rawValue) companion from Agent-O",
+            "pricePerDay": pricePerDay,
+            "minDays": 1,
+            "maxDays": maxDays,
+            "active": true,
+        ]
+
+        setState(.thinking)
+        appendColored("📤 Publishing listing...\n", color: cYellow)
+
+        socialJSONRequest(path: "/api/pets/market/listings", method: "POST", payload: payload) { [weak self] _, json, errorText in
+            guard let self = self else { return }
+            if let errorText = errorText {
+                self.appendColored("❌ \(errorText)\n\n", color: self.cRed)
+                self.setState(.error)
+                return
+            }
+
+            let listing = json?["listing"] as? [String: Any]
+            let savedTitle = listing?["title"] as? String ?? finalTitle
+            let savedPrice = self.intFromAny(listing?["pricePerDay"], default: pricePerDay)
+            let savedMaxDays = self.intFromAny(listing?["maxDays"], default: maxDays)
+            let savedMinDays = self.intFromAny(listing?["minDays"], default: 1)
+            let note = json?["note"] as? String
+
+            self.appendColored("✅ Listing published\n", color: self.cGreen, bold: true)
+            self.appendColored("  \(savedTitle) | \(savedPrice) XP/day | \(savedMinDays)-\(savedMaxDays)d\n", color: self.cGray)
+            if let note = note, !note.isEmpty {
+                self.appendColored("  \(note)\n", color: self.cDimGray)
+            }
+            self.appendColored("  View: \(AgentODelegate.leaderboardURL)/marketplace\n\n", color: self.cCyan)
+            self.bubbleLabel.stringValue = speechBubble("Listing is live!")
+            self.setState(.happy)
+        }
+    }
+
+    func rentDisableListing() {
+        guard ensureRentIdentity() else { return }
+        let payload: [String: Any] = [
+            "username": playerUsername,
+            "token": playerAuthToken,
+            "active": false,
+        ]
+
+        setState(.thinking)
+        appendColored("⏸️  Disabling listing...\n", color: cYellow)
+
+        socialJSONRequest(path: "/api/pets/market/listings", method: "POST", payload: payload) { [weak self] _, _, errorText in
+            guard let self = self else { return }
+            if let errorText = errorText {
+                self.appendColored("❌ \(errorText)\n\n", color: self.cRed)
+                self.setState(.error)
+                return
+            }
+
+            self.appendColored("✅ Listing disabled\n", color: self.cGreen, bold: true)
+            self.appendColored("  Enable again with /rent publish <price> <maxDays> <title>\n\n", color: self.cGray)
+            self.setState(.idle)
+        }
+    }
+
+    func rentTake(args: String) {
+        guard ensureRentIdentity() else { return }
+        let parts = args.split(whereSeparator: { $0.isWhitespace || $0.isNewline }).map(String.init)
+        guard parts.count >= 2 else {
+            appendColored("❌ Usage: /rent take <ownerUsername> <days>\n\n", color: cRed)
+            return
+        }
+
+        let ownerUsername = parts[0].trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !ownerUsername.isEmpty else {
+            appendColored("❌ Missing owner username\n\n", color: cRed)
+            return
+        }
+        if ownerUsername.lowercased() == playerUsername.lowercased() {
+            appendColored("❌ You can't rent your own pet\n\n", color: cRed)
+            return
+        }
+        guard let days = Int(parts[1]), days > 0 else {
+            appendColored("❌ days must be a positive number\n\n", color: cRed)
+            return
+        }
+
+        setState(.thinking)
+        appendColored("🧾 Creating rental...\n", color: cYellow)
+
+        let payload: [String: Any] = [
+            "ownerUsername": ownerUsername,
+            "renterUsername": playerUsername,
+            "token": playerAuthToken,
+            "days": days,
+        ]
+
+        socialJSONRequest(path: "/api/pets/market/rent", method: "POST", payload: payload) { [weak self] _, json, errorText in
+            guard let self = self else { return }
+            if let errorText = errorText {
+                self.appendColored("❌ \(errorText)\n\n", color: self.cRed)
+                self.setState(.error)
+                return
+            }
+
+            let rental = json?["rental"] as? [String: Any]
+            let rentalId = rental?["id"] as? String ?? "unknown"
+            let title = rental?["title"] as? String ?? "\(ownerUsername)'s Pet"
+            let pricePerDay = self.intFromAny(rental?["pricePerDay"], default: 0)
+            let actualDays = self.intFromAny(rental?["days"], default: days)
+            let totalPrice = self.intFromAny(rental?["totalPrice"], default: max(1, actualDays) * max(1, pricePerDay))
+            let endAt = rental?["endAt"] as? String ?? "-"
+
+            self.appendColored("✅ Rental started\n", color: self.cGreen, bold: true)
+            self.appendColored("  ID: \(rentalId)\n", color: self.cCyan)
+            self.appendColored("  \(title) from \(ownerUsername)\n", color: self.cGray)
+            self.appendColored("  \(actualDays)d × \(pricePerDay) XP = \(totalPrice) XP\n", color: self.cGray)
+            self.appendColored("  Ends at: \(endAt)\n\n", color: self.cDimGray)
+            self.bubbleLabel.stringValue = speechBubble("Rental confirmed!")
+            self.setState(.happy)
+        }
+    }
+
+    func rentMy(role rawRole: String) {
+        guard ensureRentIdentity() else { return }
+        let normalizedRole = rawRole.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let role: String
+        if normalizedRole.isEmpty || normalizedRole == "both" {
+            role = "both"
+        } else if normalizedRole == "owner" || normalizedRole == "renter" {
+            role = normalizedRole
+        } else {
+            appendColored("❌ role must be owner, renter, or both\n\n", color: cRed)
+            return
+        }
+
+        setState(.thinking)
+        let safeUser = queryEncoded(playerUsername)
+        let safeToken = queryEncoded(playerAuthToken)
+        socialJSONRequest(path: "/api/pets/market/rentals?username=\(safeUser)&token=\(safeToken)&role=\(role)&limit=20") { [weak self] _, json, errorText in
+            guard let self = self else { return }
+            if let errorText = errorText {
+                self.appendColored("❌ \(errorText)\n\n", color: self.cRed)
+                self.setState(.error)
+                return
+            }
+
+            let counts = json?["counts"] as? [String: Any]
+            let active = self.intFromAny(counts?["active"], default: 0)
+            let ownerCount = self.intFromAny(counts?["owner"], default: 0)
+            let renterCount = self.intFromAny(counts?["renter"], default: 0)
+            let rentals = json?["rentals"] as? [[String: Any]] ?? []
+
+            self.appendColored("╭── My Rentals (\(role)) ───────────────╮\n", color: self.cPurple)
+            self.appendColored("  Active: \(active) | Owner: \(ownerCount) | Renter: \(renterCount)\n\n", color: self.cCyan, bold: true)
+
+            if rentals.isEmpty {
+                self.appendColored("  No rentals found.\n", color: self.cDimGray)
+                self.appendColored("╰────────────────────────────────────╯\n\n", color: self.cPurple)
+                self.setState(.idle)
+                return
+            }
+
+            for row in rentals.prefix(10) {
+                let rentalId = row["id"] as? String ?? "?"
+                let owner = row["ownerUsername"] as? String ?? "?"
+                let renter = row["renterUsername"] as? String ?? "?"
+                let status = (row["status"] as? String ?? "unknown").lowercased()
+                let days = self.intFromAny(row["days"], default: 0)
+                let totalPrice = self.intFromAny(row["totalPrice"], default: 0)
+                let createdAt = row["createdAt"] as? String ?? "-"
+                self.appendColored("  • \(rentalId)\n", color: self.cYellow, bold: true)
+                self.appendColored("    \(renter) -> \(owner) | \(status) | \(days)d | \(totalPrice) XP\n", color: self.cGray)
+                self.appendColored("    \(createdAt)\n", color: self.cDimGray)
+            }
+            self.appendColored("╰────────────────────────────────────╯\n\n", color: self.cPurple)
+            self.setState(.idle)
+        }
+    }
+
+    func rentEnd(rentalId: String) {
+        guard ensureRentIdentity() else { return }
+        let cleanId = rentalId.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanId.isEmpty else {
+            appendColored("❌ Usage: /rent end <rentalId>\n\n", color: cRed)
+            return
+        }
+
+        setState(.thinking)
+        appendColored("🛑 Finishing rental \(cleanId)...\n", color: cYellow)
+
+        let payload: [String: Any] = [
+            "ownerUsername": playerUsername,
+            "token": playerAuthToken,
+            "rentalId": cleanId,
+        ]
+
+        socialJSONRequest(path: "/api/pets/market/rent/finish", method: "POST", payload: payload) { [weak self] _, json, errorText in
+            guard let self = self else { return }
+            if let errorText = errorText {
+                self.appendColored("❌ \(errorText)\n\n", color: self.cRed)
+                self.setState(.error)
+                return
+            }
+
+            let rental = json?["rental"] as? [String: Any]
+            let status = rental?["status"] as? String ?? "ended"
+            let endedAt = rental?["endedAt"] as? String ?? rental?["updatedAt"] as? String ?? "-"
+            let note = json?["note"] as? String
+            self.appendColored("✅ Rental \(cleanId) -> \(status)\n", color: self.cGreen, bold: true)
+            if let note = note, !note.isEmpty {
+                self.appendColored("  \(note)\n", color: self.cDimGray)
+            }
+            self.appendColored("  Finished at: \(endedAt)\n\n", color: self.cGray)
+            self.setState(.idle)
+        }
     }
 
     // MARK: - Pet Battles

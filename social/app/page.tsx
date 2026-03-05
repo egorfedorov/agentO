@@ -35,6 +35,14 @@ interface BattleEntry {
   createdAt: string
 }
 
+interface MarketSummary {
+  counts: {
+    activeListings: number
+    activeRentals: number
+    totalRentals: number
+  }
+}
+
 function getEvolution(level: number): string {
   if (level >= 20) return 'Cosmic'
   if (level >= 15) return 'Mythic'
@@ -103,8 +111,45 @@ async function getBattles(): Promise<BattleEntry[]> {
   }
 }
 
+async function getMarketSummary(): Promise<MarketSummary> {
+  try {
+    const res = await fetch(`${getBaseUrl()}/api/pets/market/summary?limit=6`, {
+      cache: 'no-store',
+    })
+    if (!res.ok) {
+      return {
+        counts: {
+          activeListings: 0,
+          activeRentals: 0,
+          totalRentals: 0,
+        },
+      }
+    }
+    const data = await res.json()
+    return {
+      counts: {
+        activeListings: Number(data?.counts?.activeListings || 0),
+        activeRentals: Number(data?.counts?.activeRentals || 0),
+        totalRentals: Number(data?.counts?.totalRentals || 0),
+      },
+    }
+  } catch {
+    return {
+      counts: {
+        activeListings: 0,
+        activeRentals: 0,
+        totalRentals: 0,
+      },
+    }
+  }
+}
+
 export default async function Home() {
-  const [players, battles] = await Promise.all([getLeaderboard(), getBattles()])
+  const [players, battles, market] = await Promise.all([
+    getLeaderboard(),
+    getBattles(),
+    getMarketSummary(),
+  ])
   const totalXP = players.reduce((sum, p) => sum + p.xp, 0)
   const totalCommands = players.reduce((sum, p) => sum + p.totalCommands, 0)
   const topStreak = players.reduce((max, p) => Math.max(max, p.streak), 0)
@@ -222,6 +267,22 @@ export default async function Home() {
             })}
           </div>
         )}
+      </div>
+
+      <div className="market-preview">
+        <div className="market-preview-head">
+          <h2>Pet Marketplace</h2>
+          <a href="/marketplace">Open Marketplace →</a>
+        </div>
+        <div className="market-preview-stats">
+          <span>Listings: {market.counts.activeListings}</span>
+          <span>Active rentals: {market.counts.activeRentals}</span>
+          <span>Total rentals: {market.counts.totalRentals}</span>
+        </div>
+        <p>
+          Publish your pet for rent with <code>/rent publish &lt;pricePerDay&gt; &lt;maxDays&gt; &lt;title&gt;</code>
+          {' '}in Agent-O.
+        </p>
       </div>
 
       <div className="join-section">

@@ -58,6 +58,10 @@ xattr -cr ~/Downloads/AgentO.app
 
 **Requirements:** macOS 12+, Swift (comes with Xcode Command Line Tools), Claude CLI or Codex CLI.
 
+**Important command format:** all built-in commands use `/` prefix.
+- Correct: `/update`, `/battle user`, `/rent publish 50 7 CyberCat`
+- Incorrect: `update`, `!update`
+
 ## Features
 
 ### Guided Onboarding
@@ -149,9 +153,19 @@ Unlock badges for milestones — first command, 100 commands, commits, streaks, 
 - **Lv.15+** — tracks recent topics for continuity
 - **Lv.20+** — full prompt engineering, expert-level assistance
 - `/teach <fact>` — teach your pet something
+- `/train <fact>` — training alias (+XP)
+- `/training` — learning quality dashboard
 - `/memory` — see what your pet knows
 - `/brain` — export brain as JSON (share/sell/trade!)
 - `/forget <fact>` — make pet forget
+
+### Pet Marketplace (Rentals)
+- `/market` — view pet rental market snapshot
+- `/rent publish <pricePerDay> <maxDays> <title>` — list your pet
+- `/rent take <owner> <days>` — rent someone else's pet
+- `/rent my [owner|renter|both]` — show rental history
+- `/rent end <rentalId>` — finish active rental (owner side)
+- Web view: [Marketplace](https://social-coral-five.vercel.app/marketplace)
 
 ### Pet Battles
 - `/battle <username>` — send challenge (battle starts only after accept)
@@ -229,12 +243,19 @@ Unlock badges for milestones — first command, 100 commands, commits, streaks, 
 | `/calc <expr>` | Currency/unit/timezone calc |
 | `/regex <desc>` | AI regex builder |
 | `/daily` | Daily activity summary |
+| `/training` | Pet training dashboard |
+| `/train <fact>` | Train pet memory (+XP) |
 | `/teach <fact>` | Teach your pet |
 | `/memory` | What your pet knows |
 | `/brain` | Export pet brain JSON |
 | `/forget <fact>` | Make pet forget |
 | `/name <name>` | Set leaderboard name |
 | `/leaderboard` | Publish to leaderboard |
+| `/market` | Marketplace snapshot |
+| `/rent publish <price> <days> <title>` | Publish pet rental listing |
+| `/rent take <owner> <days>` | Rent a pet |
+| `/rent my [role]` | My rentals (owner/renter/both) |
+| `/rent end <rentalId>` | Finish owner rental |
 | `/battle <user>` | Battle another pet! |
 | `/challenges` | Incoming battle challenges |
 | `/accept <user>` | Accept battle challenge |
@@ -253,6 +274,15 @@ Unlock badges for milestones — first command, 100 commands, commits, streaks, 
 | `/history` | Command history |
 | `/clear` | Clear output |
 | `/help` | Help |
+
+## Pre-Release Checklist
+
+- Verify slash commands: `/version`, `/update`, `/leaderboard`, `/battle`, `/market`
+- Run social build: `cd social && npm run build`
+- Verify app command text/docs use `/update` (not `update` or `!update`)
+- Publish social to Vercel and check:
+  - `https://social-coral-five.vercel.app/`
+  - `https://social-coral-five.vercel.app/marketplace`
 
 ## Tech
 
