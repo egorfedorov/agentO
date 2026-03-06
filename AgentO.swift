@@ -3140,7 +3140,7 @@ struct ProviderSyncResult {
 // MARK: - Main App Delegate
 
 class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWindowDelegate {
-    static let sourceVersion = "7.4.1"
+    static let sourceVersion = "7.5.0"
     static func parseVersion(_ version: String) -> [Int] {
         return version
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -3292,6 +3292,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
     let cGray = NSColor(red: 0.75, green: 0.75, blue: 0.75, alpha: 1.0)
     let cDimGray = NSColor(red: 0.5, green: 0.5, blue: 0.5, alpha: 1.0)
     let cOrange = NSColor(red: 1.0, green: 0.6, blue: 0.2, alpha: 1.0)
+    let cPink = NSColor(red: 1.0, green: 0.45, blue: 0.7, alpha: 1.0)
     let bgColor = NSColor(red: 0.08, green: 0.08, blue: 0.12, alpha: 0.95)
     let monoFont = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
     let monoBold = NSFont.monospacedSystemFont(ofSize: 11, weight: .bold)
@@ -3580,6 +3581,8 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
     var miniWalkSpeed: CGFloat = 1.2
     var miniIsWalking = false
     var miniBubbleHideTimer: Timer?
+    var miniChaseMode = false  // cursor chase (Neko mode)
+    var miniTripCooldown = 0   // frames until next trip chance
 
     // MARK: - Mini Window (Minimized Mode)
 
@@ -3734,6 +3737,15 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
             showMiniBubble(["So tired...", "Need rest...", "*yawn* sleepy...", "Zzz..."].randomElement()!)
             return
         }
+        // Mood-based phrases
+        if pet.happiness < 30 {
+            showMiniBubble(["*sighs*", "lonely...", "I'm sad...", "Play with me?", "*mopes*", "Anyone there?"].randomElement()!)
+            return
+        }
+        if pet.happiness >= 80 {
+            showMiniBubble(["Yay!", "So happy!", "Best day!", "Love coding!", "Wheee!", "*dances*", "Life is good!"].randomElement()!)
+            return
+        }
         if miniIsWalking {
             showMiniBubble(AgentODelegate.miniWalkPhrases.randomElement() ?? "...")
         } else {
@@ -3755,8 +3767,39 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
         guard let screen = NSScreen.main?.frame else { return }
         var frame = miniWindow.frame
 
-        // Horizontal movement
-        frame.origin.x += miniWalkSpeed * miniWalkDirection
+        // Mood affects walk speed
+        let moodSpeed: CGFloat
+        if pet.happiness >= 80 {
+            moodSpeed = 1.6  // happy = bouncy fast
+        } else if pet.happiness < 30 {
+            moodSpeed = 0.6  // sad = slow droopy
+        } else {
+            moodSpeed = 1.2  // normal
+        }
+
+        // Happy pet: occasional random jumps
+        if pet.happiness >= 80 && !miniIsJumping && miniStepCount % 90 == 0 && Int.random(in: 0..<4) == 0 {
+            miniIsJumping = true
+            miniJumpVelocity = 4.0
+        }
+
+        // Cursor chase mode (Neko): walk toward mouse cursor
+        if miniChaseMode {
+            let mousePos = NSEvent.mouseLocation
+            let petCenterX = frame.midX
+            let dx = mousePos.x - petCenterX
+            if abs(dx) > 20 {
+                // Chase the cursor
+                miniWalkDirection = dx > 0 ? 1 : -1
+                frame.origin.x += moodSpeed * 1.5 * miniWalkDirection
+            } else {
+                // Reached cursor — sit still briefly
+                // Don't move, just chill
+            }
+        } else {
+            // Normal horizontal movement
+            frame.origin.x += moodSpeed * miniWalkDirection
+        }
 
         // Bounce off edges
         if frame.origin.x <= screen.minX {
@@ -3773,6 +3816,18 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
             miniIsJumping = true
             miniJumpVelocity = 6.0
             showMiniBubble(["Wheee!", "Boing!", "Jump!", "*hops*", "Yay!"].randomElement()!)
+        }
+
+        // Trip and fall — ~1% chance per minute (1 in 1800 frames)
+        miniTripCooldown = max(0, miniTripCooldown - 1)
+        if miniTripCooldown == 0 && !miniIsJumping && Int.random(in: 0..<1800) == 0 {
+            miniTripCooldown = 1800  // cooldown: ~1 minute
+            showMiniBubble(["Oops!", "I'm okay!", "*stumbles*", "Whoa!", "*trips*"].randomElement()!)
+            // Small bounce as "fall"
+            miniIsJumping = true
+            miniJumpVelocity = 2.0
+            // Reverse direction after stumble
+            miniWalkDirection *= -1
         }
 
         // Jump physics
@@ -3862,6 +3917,57 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
         showMiniBubble(skinReaction)
         pet.happiness = min(100, pet.happiness + 5)
         pet.save()
+        spawnHeartParticles()
+    }
+
+    func spawnHeartParticles() {
+        guard let win = miniWindow, win.isVisible else { return }
+        let baseFrame = win.frame
+        for i in 0..<3 {
+            let heart = NSTextField(labelWithString: "💖")
+            heart.font = NSFont.systemFont(ofSize: 14)
+            heart.isBezeled = false
+            heart.drawsBackground = false
+            heart.sizeToFit()
+
+            let heartWin = NSPanel(
+                contentRect: NSRect(
+                    x: baseFrame.midX - 7 + CGFloat(i - 1) * 15,
+                    y: baseFrame.maxY + CGFloat(i * 5),
+                    width: 24, height: 24
+                ),
+                styleMask: [.borderless, .nonactivatingPanel],
+                backing: .buffered, defer: false
+            )
+            heartWin.isFloatingPanel = true
+            heartWin.level = .floating
+            heartWin.backgroundColor = .clear
+            heartWin.hasShadow = false
+            heartWin.isOpaque = false
+            heartWin.contentView = heart
+            heartWin.orderFront(nil)
+            heartWin.alphaValue = 1.0
+
+            // Animate float up and fade
+            let startY = heartWin.frame.origin.y
+            let delay = Double(i) * 0.15
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                var tick = 0
+                Timer.scheduledTimer(withTimeInterval: 0.033, repeats: true) { timer in
+                    tick += 1
+                    let progress = CGFloat(tick) / 30.0  // ~1 second
+                    heartWin.setFrameOrigin(NSPoint(
+                        x: heartWin.frame.origin.x + CGFloat.random(in: -0.5...0.5),
+                        y: startY + progress * 40
+                    ))
+                    heartWin.alphaValue = max(0, 1.0 - progress)
+                    if tick >= 30 {
+                        timer.invalidate()
+                        heartWin.orderOut(nil)
+                    }
+                }
+            }
+        }
     }
 
     func syncMiniBubble() {
@@ -4841,6 +4947,17 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
 
         case "/full":
             switchToFullMode()
+            return true
+
+        case "/chase":
+            miniChaseMode.toggle()
+            if miniChaseMode {
+                appendColored("🐱 Chase mode ON — pet follows your cursor!\n\n", color: cGreen, bold: true)
+                bubbleLabel.stringValue = speechBubble("I'll follow you!")
+            } else {
+                appendColored("🐱 Chase mode OFF — back to free roam\n\n", color: cGray)
+                bubbleLabel.stringValue = speechBubble("Free roam!")
+            }
             return true
 
         case "/tip":
@@ -7329,13 +7446,41 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
     // MARK: - Welcome & Help
 
     func showWelcome() {
-        bubbleLabel.stringValue = speechBubble("\(L10n.t("welcome")) \(L10n.t("toggle_hint"))")
+        // Time-of-day greeting
+        let hour = Calendar.current.component(.hour, from: Date())
+        let timeGreeting: String
+        switch hour {
+        case 0..<6: timeGreeting = "Late night hacker! 🌙"
+        case 6..<12: timeGreeting = "Good morning! ☀️"
+        case 12..<18: timeGreeting = "Good afternoon! 👋"
+        default: timeGreeting = "Evening session? 🌆"
+        }
+        bubbleLabel.stringValue = speechBubble(timeGreeting)
         updateAgentDisplay()
 
         appendColored("╔═══════════════════════════════════════╗\n", color: cCyan)
         appendColored("║         Agent-O  Terminal              ║\n", color: cCyan)
         appendColored("║   Multi-Model Assistant + Tamagotchi  ║\n", color: cCyan)
         appendColored("╚═══════════════════════════════════════╝\n\n", color: cCyan)
+
+        // Return-after-absence greeting
+        let lastSession = UserDefaults.standard.double(forKey: "agento_last_session")
+        let now = Date().timeIntervalSince1970
+        UserDefaults.standard.set(now, forKey: "agento_last_session")
+        if lastSession > 0 {
+            let hours = (now - lastSession) / 3600
+            if hours > 72 {
+                appendColored("💕 You're BACK!!! I missed you so much! *jumps excitedly*\n\n", color: cPink, bold: true)
+                bubbleLabel.stringValue = speechBubble("You're BACK!!! 💕💕💕")
+            } else if hours > 24 {
+                appendColored("💖 I missed you! Welcome back!\n\n", color: cPink, bold: true)
+                bubbleLabel.stringValue = speechBubble("I missed you! 💖")
+            } else {
+                appendColored("\(timeGreeting)\n\n", color: cGreen)
+            }
+        } else {
+            appendColored("\(timeGreeting)\n\n", color: cGreen)
+        }
 
         if !pet.hasCompletedOnboarding {
             startOnboarding()
