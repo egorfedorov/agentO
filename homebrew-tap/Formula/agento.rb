@@ -2,8 +2,8 @@ class Agento < Formula
   desc "ASCII desktop companion for Claude CLI & Codex CLI"
   homepage "https://github.com/egorfedorov/agentO"
   url "https://github.com/egorfedorov/agentO.git",
-      tag: "v6.5.0",
-      revision: "62c1be0149055169d668c480a20bc5ebe1e20488"
+      tag: "v6.6.0",
+      revision: "86bf3466d8a8c85fdb18bcad04746a0523f7e5f1"
   license "MIT"
 
   depends_on xcode: ["14.0", :build]
