@@ -2898,7 +2898,7 @@ struct ProviderSyncResult {
 // MARK: - Main App Delegate
 
 class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWindowDelegate {
-    static let sourceVersion = "7.2.0"
+    static let sourceVersion = "7.3.0"
     static func parseVersion(_ version: String) -> [Int] {
         return version
             .trimmingCharacters(in: .whitespacesAndNewlines)
