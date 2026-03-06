@@ -513,6 +513,236 @@ struct PixelSprite {
         ]
     }()
 
+    // ========== EATING SPRITES (open mouth + food) ==========
+
+    static let robotEating: [[UInt32]] = {
+        let T = C, B: UInt32 = 0x1A1A2E, W: UInt32 = 0xFFFFFF, CY: UInt32 = 0x4ECDC4, CD: UInt32 = 0x3AA89F, G: UInt32 = 0x56E39F
+        let F: UInt32 = 0xFF6B6B  // food red
+        return [
+            [T,T,T,T,T,T,T,B,B,T,T,T,T,T,T,T],
+            [T,T,T,T,T,T,B,G,G,B,T,T,T,T,T,T],
+            [T,T,T,T,B,B,B,B,B,B,B,B,T,T,T,T],
+            [T,T,T,B,CY,CY,CY,CY,CY,CY,CY,CY,B,T,T,T],
+            [T,T,B,CY,W,W,W,W,W,W,W,W,CY,B,T,T],
+            [T,T,B,CY,W,B,B,W,W,B,B,W,CY,B,T,T],
+            [T,T,B,CY,W,B,B,W,W,B,B,W,CY,B,T,T],
+            [T,T,B,CY,W,W,W,W,W,W,W,W,CY,B,T,T],
+            [T,T,B,CY,W,W,B,B,B,B,W,W,CY,B,T,T],
+            [T,T,T,B,CY,CY,B,F,F,B,CY,CY,B,T,T,T],
+            [T,T,T,B,CD,CD,B,F,F,B,CD,CD,B,T,T,T],
+            [T,T,T,B,CY,CY,CY,CY,CY,CY,CY,CY,B,T,T,T],
+            [T,T,T,B,CY,CY,CY,CY,CY,CY,CY,CY,B,T,T,T],
+            [T,T,T,T,B,CY,CY,CY,CY,CY,CY,B,T,T,T,T],
+            [T,T,T,T,B,CY,B,T,T,B,CY,B,T,T,T,T],
+            [T,T,T,B,CY,CY,B,T,T,B,CY,CY,B,T,T,T],
+        ]
+    }()
+
+    static let catEating: [[UInt32]] = {
+        let T = C, B: UInt32 = 0x1A1A2E, O: UInt32 = 0xF0A040, OL: UInt32 = 0xD08830, W: UInt32 = 0xFFFFFF, P: UInt32 = 0xFF6B8A
+        let F: UInt32 = 0xFF6B6B
+        return [
+            [T,T,T,B,T,T,T,T,T,T,T,T,B,T,T,T],
+            [T,T,B,O,B,T,T,T,T,T,T,B,O,B,T,T],
+            [T,T,B,O,O,B,B,B,B,B,B,O,O,B,T,T],
+            [T,T,B,O,O,O,O,O,O,O,O,O,O,B,T,T],
+            [T,B,O,O,B,B,O,O,O,O,B,B,O,O,B,T],
+            [T,B,O,O,B,B,O,O,O,O,B,B,O,O,B,T],
+            [T,B,O,O,O,O,O,P,P,O,O,O,O,O,B,T],
+            [T,B,O,O,O,O,B,F,F,B,O,O,O,O,B,T],
+            [T,T,B,O,O,O,B,F,F,B,O,O,O,B,T,T],
+            [T,T,B,O,O,O,O,O,O,O,O,O,O,B,T,T],
+            [T,T,T,B,O,O,O,O,O,O,O,O,B,T,T,T],
+            [T,T,T,B,O,O,O,O,O,O,O,O,B,T,T,T],
+            [T,T,T,T,B,OL,O,O,O,OL,B,T,T,T,T,T],
+            [T,T,T,T,B,O,B,T,T,B,O,B,T,T,T,T],
+            [T,T,T,B,O,O,B,T,T,B,O,O,B,T,T,T],
+            [T,T,T,T,T,T,T,T,T,T,T,T,T,T,T,T],
+        ]
+    }()
+
+    static let skullEating: [[UInt32]] = {
+        let T = C, B: UInt32 = 0x1A1A2E, W: UInt32 = 0xFFFFFF, WG: UInt32 = 0xDDDDDD, P: UInt32 = 0x8E44AD, R: UInt32 = 0xFF4444
+        let F: UInt32 = 0xFF6B6B
+        return [
+            [T,T,T,T,T,T,T,T,T,T,T,T,T,T,T,T],
+            [T,T,T,T,B,B,B,B,B,B,B,B,T,T,T,T],
+            [T,T,T,B,W,W,W,W,W,W,W,W,B,T,T,T],
+            [T,T,B,W,W,W,W,W,W,W,W,W,W,B,T,T],
+            [T,T,B,W,B,B,B,W,W,B,B,B,W,B,T,T],
+            [T,T,B,W,B,P,B,W,W,B,P,B,W,B,T,T],
+            [T,T,B,W,B,B,B,W,W,B,B,B,W,B,T,T],
+            [T,T,B,W,W,W,W,WG,WG,W,W,W,W,B,T,T],
+            [T,T,B,W,W,B,B,F,F,B,B,W,W,B,T,T],
+            [T,T,T,B,W,B,F,F,F,F,B,W,B,T,T,T],
+            [T,T,T,T,B,B,B,B,B,B,B,B,T,T,T,T],
+            [T,T,T,T,B,W,W,W,W,W,W,B,T,T,T,T],
+            [T,T,T,T,B,W,W,W,W,W,W,B,T,T,T,T],
+            [T,T,T,T,T,B,W,W,W,W,B,T,T,T,T,T],
+            [T,T,T,T,T,B,W,B,B,W,B,T,T,T,T,T],
+            [T,T,T,T,B,W,W,B,B,W,W,B,T,T,T,T],
+        ]
+    }()
+
+    static let minionEating: [[UInt32]] = {
+        let T = C, B: UInt32 = 0x1A1A2E, Y: UInt32 = 0xFDD835, W: UInt32 = 0xFFFFFF, G: UInt32 = 0x999999, BL: UInt32 = 0x1565C0
+        let F: UInt32 = 0xFF6B6B
+        return [
+            [T,T,T,T,T,T,T,T,T,T,T,T,T,T,T,T],
+            [T,T,T,T,T,B,B,B,B,B,B,T,T,T,T,T],
+            [T,T,T,T,B,Y,Y,Y,Y,Y,Y,B,T,T,T,T],
+            [T,T,T,B,Y,Y,Y,Y,Y,Y,Y,Y,B,T,T,T],
+            [T,T,T,B,Y,G,G,Y,Y,G,G,Y,B,T,T,T],
+            [T,T,T,B,G,W,W,G,G,W,W,G,B,T,T,T],
+            [T,T,T,B,G,W,B,G,G,B,W,G,B,T,T,T],
+            [T,T,T,B,Y,G,G,Y,Y,G,G,Y,B,T,T,T],
+            [T,T,T,T,B,Y,B,F,F,B,Y,B,T,T,T,T],
+            [T,T,T,T,T,B,B,F,F,B,B,T,T,T,T,T],
+            [T,T,T,B,BL,BL,BL,BL,BL,BL,BL,B,T,T,T,T],
+            [T,T,B,Y,B,BL,BL,BL,BL,BL,B,Y,B,T,T,T],
+            [T,T,T,T,B,BL,BL,BL,BL,BL,B,T,T,T,T,T],
+            [T,T,T,T,B,BL,B,B,B,BL,B,T,T,T,T,T],
+            [T,T,T,T,B,BL,BL,T,BL,BL,B,T,T,T,T,T],
+            [T,T,T,T,T,B,B,T,T,B,B,T,T,T,T,T],
+        ]
+    }()
+
+    static let claudeEating: [[UInt32]] = {
+        let T = C, B: UInt32 = 0x1A1A2E, O: UInt32 = 0xE07C4C, D: UInt32 = 0xC06838
+        let F: UInt32 = 0xFF6B6B
+        return [
+            [T,T,T,T,T,T,T,T,T,T,T,T,T,T,T,T],
+            [T,T,T,O,O,T,T,T,T,T,T,O,O,T,T,T],
+            [T,T,T,O,O,T,T,T,T,T,T,O,O,T,T,T],
+            [T,T,D,D,D,D,D,D,D,D,D,D,D,D,T,T],
+            [T,T,O,O,O,O,O,O,O,O,O,O,O,O,T,T],
+            [T,T,O,O,B,B,O,O,O,O,B,B,O,O,T,T],
+            [T,T,O,O,B,B,O,O,O,O,B,B,O,O,T,T],
+            [T,T,O,O,O,O,O,O,O,O,O,O,O,O,T,T],
+            [T,T,O,O,O,O,B,F,F,B,O,O,O,O,T,T],
+            [T,T,O,O,O,O,B,F,F,B,O,O,O,O,T,T],
+            [T,T,O,O,O,O,O,O,O,O,O,O,O,O,T,T],
+            [T,T,T,T,T,T,T,T,T,T,T,T,T,T,T,T],
+            [T,T,T,O,O,T,O,O,T,O,O,T,O,O,T,T],
+            [T,T,T,O,O,T,O,O,T,O,O,T,O,O,T,T],
+            [T,T,T,D,D,T,D,D,T,D,D,T,D,D,T,T],
+            [T,T,T,T,T,T,T,T,T,T,T,T,T,T,T,T],
+        ]
+    }()
+
+    // ========== HAPPY/DANCING SPRITES (arms up, jumping) ==========
+
+    static let robotHappy: [[UInt32]] = {
+        let T = C, B: UInt32 = 0x1A1A2E, W: UInt32 = 0xFFFFFF, CY: UInt32 = 0x4ECDC4, CD: UInt32 = 0x3AA89F, G: UInt32 = 0x56E39F
+        let H: UInt32 = 0xFF6B8A  // heart pink
+        return [
+            [T,T,T,T,T,T,T,B,B,T,T,T,T,T,T,T],
+            [T,T,T,T,T,T,B,G,G,B,T,T,T,T,T,T],
+            [T,B,T,T,B,B,B,B,B,B,B,B,T,T,B,T],
+            [B,CY,B,B,CY,CY,CY,CY,CY,CY,CY,CY,B,B,CY,B],
+            [T,B,T,B,CY,W,W,W,W,W,W,W,CY,B,T,B],
+            [T,T,T,B,CY,W,B,B,W,B,B,W,CY,B,T,T],
+            [T,T,T,B,CY,W,B,B,W,B,B,W,CY,B,T,T],
+            [T,T,T,B,CY,W,W,W,W,W,W,W,CY,B,T,T],
+            [T,T,T,B,CY,W,W,B,B,W,W,W,CY,B,T,T],
+            [T,T,T,T,B,CY,CY,CY,CY,CY,CY,B,T,T,T,T],
+            [T,T,T,B,CY,CY,CY,CY,CY,CY,CY,CY,B,T,T,T],
+            [T,T,T,B,CY,CY,CY,CY,CY,CY,CY,CY,B,T,T,T],
+            [T,T,T,T,B,CY,CY,CY,CY,CY,CY,B,T,T,T,T],
+            [T,T,T,T,T,B,CY,T,T,CY,B,T,T,T,T,T],
+            [T,T,T,T,B,CY,T,T,T,T,CY,B,T,T,T,T],
+            [T,T,T,T,T,B,T,T,T,T,B,T,T,T,T,T],
+        ]
+    }()
+
+    static let catHappy: [[UInt32]] = {
+        let T = C, B: UInt32 = 0x1A1A2E, O: UInt32 = 0xF0A040, OL: UInt32 = 0xD08830, W: UInt32 = 0xFFFFFF, P: UInt32 = 0xFF6B8A
+        return [
+            [T,T,T,B,T,T,T,T,T,T,T,T,B,T,T,T],
+            [T,T,B,O,B,T,T,T,T,T,T,B,O,B,T,T],
+            [T,T,B,O,O,B,B,B,B,B,B,O,O,B,T,T],
+            [T,T,B,O,O,O,O,O,O,O,O,O,O,B,T,T],
+            [T,B,O,O,T,B,O,O,O,O,B,T,O,O,B,T],
+            [T,B,O,O,T,B,O,O,O,O,B,T,O,O,B,T],
+            [T,B,O,O,O,O,O,P,P,O,O,O,O,O,B,T],
+            [T,B,O,O,O,B,B,B,B,B,B,O,O,O,B,T],
+            [T,T,B,O,O,O,O,O,O,O,O,O,O,B,T,T],
+            [B,O,B,O,O,O,O,O,O,O,O,O,O,B,O,B],
+            [T,B,T,B,O,O,O,O,O,O,O,O,B,T,B,T],
+            [T,T,T,B,O,O,O,O,O,O,O,O,B,T,T,T],
+            [T,T,T,T,B,OL,O,O,O,OL,B,T,T,T,T,T],
+            [T,T,T,T,T,B,O,T,T,O,B,T,T,T,T,T],
+            [T,T,T,T,B,O,T,T,T,T,O,B,T,T,T,T],
+            [T,T,T,T,T,B,T,T,T,T,B,T,T,T,T,T],
+        ]
+    }()
+
+    static let skullHappy: [[UInt32]] = {
+        let T = C, B: UInt32 = 0x1A1A2E, W: UInt32 = 0xFFFFFF, WG: UInt32 = 0xDDDDDD, P: UInt32 = 0x8E44AD, R: UInt32 = 0xFF4444
+        return [
+            [T,T,T,T,T,T,T,T,T,T,T,T,T,T,T,T],
+            [T,T,T,T,B,B,B,B,B,B,B,B,T,T,T,T],
+            [T,T,T,B,W,W,W,W,W,W,W,W,B,T,T,T],
+            [T,B,T,B,W,W,W,W,W,W,W,W,B,T,B,T],
+            [B,W,B,B,W,B,B,W,W,B,B,W,B,B,W,B],
+            [T,B,T,B,W,B,P,W,W,P,B,W,B,T,B,T],
+            [T,T,T,B,W,B,B,W,W,B,B,W,B,T,T,T],
+            [T,T,T,B,W,W,W,WG,WG,W,W,W,B,T,T,T],
+            [T,T,T,B,W,W,B,B,B,B,W,W,B,T,T,T],
+            [T,T,T,T,B,W,W,W,W,W,W,B,T,T,T,T],
+            [T,T,T,T,T,B,B,B,B,B,B,T,T,T,T,T],
+            [T,T,T,T,B,W,W,W,W,W,W,B,T,T,T,T],
+            [T,T,T,T,B,W,W,W,W,W,W,B,T,T,T,T],
+            [T,T,T,T,T,B,W,T,T,W,B,T,T,T,T,T],
+            [T,T,T,T,B,W,T,T,T,T,W,B,T,T,T,T],
+            [T,T,T,T,T,B,T,T,T,T,B,T,T,T,T,T],
+        ]
+    }()
+
+    static let minionHappy: [[UInt32]] = {
+        let T = C, B: UInt32 = 0x1A1A2E, Y: UInt32 = 0xFDD835, W: UInt32 = 0xFFFFFF, G: UInt32 = 0x999999, BL: UInt32 = 0x1565C0
+        return [
+            [T,T,T,T,T,T,T,T,T,T,T,T,T,T,T,T],
+            [T,T,T,T,T,B,B,B,B,B,B,T,T,T,T,T],
+            [T,T,T,T,B,Y,Y,Y,Y,Y,Y,B,T,T,T,T],
+            [T,T,T,B,Y,Y,Y,Y,Y,Y,Y,Y,B,T,T,T],
+            [T,T,T,B,Y,G,G,Y,Y,G,G,Y,B,T,T,T],
+            [T,T,T,B,G,W,W,G,G,W,W,G,B,T,T,T],
+            [T,T,T,B,G,W,B,G,G,B,W,G,B,T,T,T],
+            [T,T,T,B,Y,G,G,Y,Y,G,G,Y,B,T,T,T],
+            [T,T,T,T,B,Y,B,B,B,B,Y,B,T,T,T,T],
+            [T,T,T,T,T,B,B,B,B,B,B,T,T,T,T,T],
+            [T,B,Y,B,BL,BL,BL,BL,BL,BL,BL,B,Y,B,T,T],
+            [T,T,B,Y,B,BL,BL,BL,BL,BL,B,Y,B,T,T,T],
+            [T,T,T,T,B,BL,BL,BL,BL,BL,B,T,T,T,T,T],
+            [T,T,T,T,T,B,BL,T,BL,B,T,T,T,T,T,T],
+            [T,T,T,T,B,BL,T,T,T,BL,B,T,T,T,T,T],
+            [T,T,T,T,T,B,T,T,T,T,B,T,T,T,T,T],
+        ]
+    }()
+
+    static let claudeHappy: [[UInt32]] = {
+        let T = C, B: UInt32 = 0x1A1A2E, O: UInt32 = 0xE07C4C, D: UInt32 = 0xC06838
+        return [
+            [T,T,T,T,T,T,T,T,T,T,T,T,T,T,T,T],
+            [T,T,T,O,O,T,T,T,T,T,T,O,O,T,T,T],
+            [T,T,T,O,O,T,T,T,T,T,T,O,O,T,T,T],
+            [T,T,D,D,D,D,D,D,D,D,D,D,D,D,T,T],
+            [T,T,O,O,O,O,O,O,O,O,O,O,O,O,T,T],
+            [T,T,O,O,B,B,O,O,O,O,B,B,O,O,T,T],
+            [T,T,O,O,B,B,O,O,O,O,B,B,O,O,T,T],
+            [T,T,O,O,O,O,O,O,O,O,O,O,O,O,T,T],
+            [T,T,O,O,O,O,O,O,O,O,O,O,O,O,T,T],
+            [T,T,O,O,O,O,O,O,O,O,O,O,O,O,T,T],
+            [T,T,O,O,O,O,O,O,O,O,O,O,O,O,T,T],
+            [T,T,T,T,T,T,T,T,T,T,T,T,T,T,T,T],
+            [T,O,O,T,T,T,T,T,T,T,T,T,T,O,O,T],
+            [T,O,O,T,T,T,T,T,T,T,T,T,T,O,O,T],
+            [T,D,D,T,T,T,T,T,T,T,T,T,T,D,D,T],
+            [T,T,T,T,T,T,T,T,T,T,T,T,T,T,T,T],
+        ]
+    }()
+
     // ========== POOP SPRITE ==========
     static let poop: [[UInt32]] = {
         let T: UInt32 = 0x00000000  // transparent
@@ -820,6 +1050,26 @@ extension AgentSkin {
         case .skull: return PixelSprite.skullSleep
         case .minion: return PixelSprite.minionSleep
         case .claude: return PixelSprite.claudeSleep
+        }
+    }
+
+    var pixelEating: [[UInt32]] {
+        switch self {
+        case .robot: return PixelSprite.robotEating
+        case .cat: return PixelSprite.catEating
+        case .skull: return PixelSprite.skullEating
+        case .minion: return PixelSprite.minionEating
+        case .claude: return PixelSprite.claudeEating
+        }
+    }
+
+    var pixelHappy: [[UInt32]] {
+        switch self {
+        case .robot: return PixelSprite.robotHappy
+        case .cat: return PixelSprite.catHappy
+        case .skull: return PixelSprite.skullHappy
+        case .minion: return PixelSprite.minionHappy
+        case .claude: return PixelSprite.claudeHappy
         }
     }
 }
@@ -1873,7 +2123,7 @@ struct MiniGame {
             ("What does RAM stand for?", "Random Access Memory",
              ["Random Access Memory", "Read And Modify", "Rapid Application Memory"]),
         ]
-        let q = questions.randomElement()!
+        let q = questions.randomElement() ?? ("?", "?", ["?"])
         return (q.0, q.1, q.2)
     }
 }
@@ -2134,6 +2384,7 @@ class MiniPetView: NSView {
     var onDoubleClick: (() -> Void)?
     var onSingleClick: (() -> Void)?
     var onPetStroke: (() -> Void)?
+    var onRightClick: ((NSPoint) -> Void)?
     private var isDragging = false
     private var dragStartOrigin: NSPoint = .zero
 
@@ -2176,6 +2427,11 @@ class MiniPetView: NSView {
             options: [.mouseMoved, .activeAlways],
             owner: self, userInfo: nil
         ))
+    }
+
+    override func rightMouseDown(with event: NSEvent) {
+        let screenPoint = window?.convertPoint(toScreen: event.locationInWindow) ?? .zero
+        onRightClick?(screenPoint)
     }
 
     override func mouseDown(with event: NSEvent) {
@@ -3343,7 +3599,7 @@ struct ProviderSyncResult {
 // MARK: - Main App Delegate
 
 class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWindowDelegate {
-    static let sourceVersion = "7.7.0"
+    static let sourceVersion = "7.8.0"
     static func parseVersion(_ version: String) -> [Int] {
         return version
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -3600,7 +3856,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
     // MARK: - Main Window
 
     func setupMainWindow() {
-        let screen = NSScreen.main!.visibleFrame
+        let screen = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
         let w: CGFloat = 440
         let h: CGFloat = 640
         let x = screen.maxX - w - 16
@@ -3794,11 +4050,12 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
     var miniTripCooldown = 0   // frames until next trip chance
     var miniPoopCooldown = 0   // frames until next poop chance
     var poopWindows: [(panel: NSPanel, stinkFrame: Int, stinkTimer: Timer?)] = []
+    var quickActionPanel: NSPanel?
 
     // MARK: - Mini Window (Minimized Mode)
 
     func setupMiniWindow() {
-        let visible = NSScreen.main!.visibleFrame
+        let visible = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
         let spriteSize: CGFloat = 96   // 16px * 6 scale
         let mw: CGFloat = spriteSize + 8
         let bubbleH: CGFloat = 22
@@ -3823,6 +4080,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
         container.onDoubleClick = { [weak self] in self?.toggleWindow() }
         container.onSingleClick = { [weak self] in self?.toggleMiniWalk() }
         container.onPetStroke = { [weak self] in self?.onMiniPetStroked() }
+        container.onRightClick = { [weak self] point in self?.showQuickActions(at: point) }
 
         // Speech bubble above character
         miniBubbleLabel = NSTextField(labelWithString: "")
@@ -3947,20 +4205,20 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
     func miniSayRandom() {
         // Contextual status bubbles take priority
         if pet.hunger < 20 {
-            showMiniBubble(["I'm hungry...", "Feed me!", "So hungry...", "*stomach growls*"].randomElement()!)
+            showMiniBubble(["I'm hungry...", "Feed me!", "So hungry...", "*stomach growls*"].randomElement() ?? "")
             return
         }
         if pet.energy < 20 {
-            showMiniBubble(["So tired...", "Need rest...", "*yawn* sleepy...", "Zzz..."].randomElement()!)
+            showMiniBubble(["So tired...", "Need rest...", "*yawn* sleepy...", "Zzz..."].randomElement() ?? "")
             return
         }
         // Mood-based phrases
         if pet.happiness < 30 {
-            showMiniBubble(["*sighs*", "lonely...", "I'm sad...", "Play with me?", "*mopes*", "Anyone there?"].randomElement()!)
+            showMiniBubble(["*sighs*", "lonely...", "I'm sad...", "Play with me?", "*mopes*", "Anyone there?"].randomElement() ?? "")
             return
         }
         if pet.happiness >= 80 {
-            showMiniBubble(["Yay!", "So happy!", "Best day!", "Love coding!", "Wheee!", "*dances*", "Life is good!"].randomElement()!)
+            showMiniBubble(["Yay!", "So happy!", "Best day!", "Love coding!", "Wheee!", "*dances*", "Life is good!"].randomElement() ?? "")
             return
         }
         if miniIsWalking {
@@ -3982,6 +4240,11 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
 
     func stepMiniWalk() {
         guard let screen = NSScreen.main?.frame else { return }
+        // Pause walking when AI is working — pet sits at desk
+        if state == .thinking || state == .typing {
+            updateMiniAgent()
+            return
+        }
         var frame = miniWindow.frame
 
         // Mood affects walk speed
@@ -4032,14 +4295,14 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
         if !miniIsJumping && miniStepCount % 120 == 0 && Int.random(in: 0..<3) == 0 {
             miniIsJumping = true
             miniJumpVelocity = 6.0
-            showMiniBubble(["Wheee!", "Boing!", "Jump!", "*hops*", "Yay!"].randomElement()!)
+            showMiniBubble(["Wheee!", "Boing!", "Jump!", "*hops*", "Yay!"].randomElement() ?? "")
         }
 
         // Trip and fall — ~1% chance per minute (1 in 1800 frames)
         miniTripCooldown = max(0, miniTripCooldown - 1)
         if miniTripCooldown == 0 && !miniIsJumping && Int.random(in: 0..<1800) == 0 {
             miniTripCooldown = 1800  // cooldown: ~1 minute
-            showMiniBubble(["Oops!", "I'm okay!", "*stumbles*", "Whoa!", "*trips*"].randomElement()!)
+            showMiniBubble(["Oops!", "I'm okay!", "*stumbles*", "Whoa!", "*trips*"].randomElement() ?? "")
             // Small bounce as "fall"
             miniIsJumping = true
             miniJumpVelocity = 2.0
@@ -4052,7 +4315,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
         if miniPoopCooldown == 0 && !miniIsJumping && Int.random(in: 0..<3600) == 0 {
             miniPoopCooldown = 3600  // cooldown ~2 min
             dropPoop(at: frame.origin.x + frame.width / 2)
-            showMiniBubble(["Oops...", "*blushes*", "Sorry!", "Hehe...", "Nature calls!"].randomElement()!)
+            showMiniBubble(["Oops...", "*blushes*", "Sorry!", "Hehe...", "Nature calls!"].randomElement() ?? "")
             pet.happiness = max(0, pet.happiness - 5)
         }
 
@@ -4087,7 +4350,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
         }
 
         // Breathing counter (for idle/parked)
-        if !miniIsWalking && state != .thinking {
+        if !miniIsWalking && state != .thinking && state != .typing {
             miniBreathCounter += 1
             if miniBreathCounter >= 30 {  // ~1 sec toggle
                 miniBreathCounter = 0
@@ -4102,8 +4365,12 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
 
         // Choose sprite based on context
         var sprite: [[UInt32]]
-        if state == .thinking {
+        if state == .thinking || state == .typing {
             sprite = currentSkin.pixelWorking
+        } else if state == .eating {
+            sprite = currentSkin.pixelEating
+        } else if state == .happy || state == .dancing {
+            sprite = currentSkin.pixelHappy
         } else if pet.energy < 20 && !miniIsWalking && miniParkedTicks > 90 {
             // Sleeping after parked a while and tired
             sprite = currentSkin.pixelSleep
@@ -4111,6 +4378,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
             sprite = currentSkin.pixelBlink
         } else {
             let pixFrames = currentSkin.pixelFrames
+            guard !pixFrames.isEmpty else { return }
             miniAnimFrame = (miniAnimFrame + 1) % pixFrames.count
             sprite = pixFrames[miniAnimFrame]
         }
@@ -4135,16 +4403,203 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
         // Pet was stroked! Show love reaction
         let skinReaction: String
         switch currentSkin {
-        case .cat: skinReaction = ["Purrrr~", "*purrs*", "Nyaa~", "Mrrrow~"].randomElement()!
-        case .robot: skinReaction = ["*happy beeps*", "Beep boop!", "*whirrs happily*", "< 3"].randomElement()!
-        case .skull: skinReaction = ["Hehe~", "*rattles happily*", "Spooky love!", "Ehhehe~"].randomElement()!
-        case .minion: skinReaction = ["Banana!", "Hehehe!", "*giggles*", "Bello!"].randomElement()!
-        case .claude: skinReaction = ["*happy hum*", "Thanks!", "That's nice~", "Claude approved!"].randomElement()!
+        case .cat: skinReaction = ["Purrrr~", "*purrs*", "Nyaa~", "Mrrrow~"].randomElement() ?? ""
+        case .robot: skinReaction = ["*happy beeps*", "Beep boop!", "*whirrs happily*", "< 3"].randomElement() ?? ""
+        case .skull: skinReaction = ["Hehe~", "*rattles happily*", "Spooky love!", "Ehhehe~"].randomElement() ?? ""
+        case .minion: skinReaction = ["Banana!", "Hehehe!", "*giggles*", "Bello!"].randomElement() ?? ""
+        case .claude: skinReaction = ["*happy hum*", "Thanks!", "That's nice~", "Claude approved!"].randomElement() ?? ""
         }
         showMiniBubble(skinReaction)
         pet.happiness = min(100, pet.happiness + 5)
         pet.save()
         spawnHeartParticles()
+    }
+
+    func showQuickActions(at screenPoint: NSPoint) {
+        // Dismiss if already showing
+        quickActionPanel?.orderOut(nil)
+        quickActionPanel = nil
+
+        let actions: [(emoji: String, label: String, action: () -> Void)] = [
+            ("🍕", "Feed", { [weak self] in self?.quickFeed() }),
+            ("💜", "Pet", { [weak self] in self?.onMiniPetStroked() }),
+            ("🎮", "Play", { [weak self] in self?.quickPlay() }),
+            ("💤", "Sleep", { [weak self] in self?.quickSleep() }),
+            ("🍬", "Treat", { [weak self] in self?.quickTreat() }),
+            ("🧹", "Clean", { [weak self] in self?.quickCleanAll() }),
+        ]
+
+        let btnSize: CGFloat = 56
+        let padding: CGFloat = 6
+        let cols = 3
+        let rows = 2
+        let panelW = CGFloat(cols) * (btnSize + padding) + padding
+        let panelH = CGFloat(rows) * (btnSize + padding) + padding
+
+        let panel = NSPanel(
+            contentRect: NSRect(x: screenPoint.x - panelW / 2, y: screenPoint.y + 10, width: panelW, height: panelH),
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered, defer: false
+        )
+        panel.isFloatingPanel = true
+        panel.level = .popUpMenu
+        panel.backgroundColor = NSColor(red: 0.1, green: 0.1, blue: 0.15, alpha: 0.95)
+        panel.hasShadow = true
+        panel.isOpaque = false
+
+        let contentView = NSView(frame: NSRect(x: 0, y: 0, width: panelW, height: panelH))
+        contentView.wantsLayer = true
+        contentView.layer?.cornerRadius = 12
+
+        for (i, act) in actions.enumerated() {
+            let col = i % cols
+            let row = rows - 1 - i / cols
+            let x = padding + CGFloat(col) * (btnSize + padding)
+            let y = padding + CGFloat(row) * (btnSize + padding)
+
+            let btn = NSButton(frame: NSRect(x: x, y: y, width: btnSize, height: btnSize))
+            btn.bezelStyle = .regularSquare
+            btn.isBordered = false
+            btn.wantsLayer = true
+            btn.layer?.cornerRadius = 10
+            btn.layer?.backgroundColor = NSColor(white: 0.2, alpha: 0.8).cgColor
+
+            let label = NSMutableAttributedString()
+            label.append(NSAttributedString(string: "\(act.emoji)\n", attributes: [
+                .font: NSFont.systemFont(ofSize: 20),
+                .paragraphStyle: { let p = NSMutableParagraphStyle(); p.alignment = .center; return p }()
+            ]))
+            label.append(NSAttributedString(string: act.label, attributes: [
+                .font: NSFont.systemFont(ofSize: 9, weight: .medium),
+                .foregroundColor: NSColor.white,
+                .paragraphStyle: { let p = NSMutableParagraphStyle(); p.alignment = .center; return p }()
+            ]))
+            btn.attributedTitle = label
+
+            btn.tag = i
+            btn.target = self
+            btn.action = #selector(quickActionTapped(_:))
+            contentView.addSubview(btn)
+        }
+
+        panel.contentView = contentView
+        panel.orderFront(nil)
+        quickActionPanel = panel
+
+        // Store actions for callback
+        objc_setAssociatedObject(panel, "quickActions", actions.map { $0.action }, .OBJC_ASSOCIATION_RETAIN)
+
+        // Auto-dismiss after 5 seconds
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
+            self?.quickActionPanel?.orderOut(nil)
+            self?.quickActionPanel = nil
+        }
+    }
+
+    @objc func quickActionTapped(_ sender: NSButton) {
+        guard let panel = quickActionPanel,
+              let actions = objc_getAssociatedObject(panel, "quickActions") as? [() -> Void],
+              sender.tag < actions.count else { return }
+        actions[sender.tag]()
+        quickActionPanel?.orderOut(nil)
+        quickActionPanel = nil
+    }
+
+    func quickFeed() {
+        pet.hunger = min(100, pet.hunger + 25)
+        pet.happiness = min(100, pet.happiness + 5)
+        pet.save()
+        setState(.eating, duration: 2)
+        showMiniBubble(["Yummy!", "Nom nom!", "Delicious!", "Thanks!"].randomElement() ?? "Yum!")
+        spawnFoodParticle()
+        playSound("Pop")
+        refreshStatsDisplay()
+    }
+
+    func quickPlay() {
+        pet.happiness = min(100, pet.happiness + 15)
+        pet.energy = max(0, pet.energy - 10)
+        pet.xp += 5
+        pet.save()
+        setState(.happy, duration: 3)
+        showMiniBubble(["Wheee!", "So fun!", "Yay!", "Again!"].randomElement() ?? "Fun!")
+        // Happy jump
+        if !miniIsJumping {
+            miniIsJumping = true
+            miniJumpVelocity = 6.0
+        }
+        playSound("Pop")
+        refreshStatsDisplay()
+    }
+
+    func quickSleep() {
+        pet.energy = min(100, pet.energy + 30)
+        pet.save()
+        setState(.sleeping, duration: 5)
+        showMiniBubble(["Zzz...", "So sleepy...", "Good night~", "Nap time!"].randomElement() ?? "Zzz")
+        playSound("Purr")
+        refreshStatsDisplay()
+    }
+
+    func quickTreat() {
+        pet.happiness = min(100, pet.happiness + 20)
+        pet.hunger = min(100, pet.hunger + 10)
+        pet.save()
+        setState(.happy, duration: 2)
+        showMiniBubble(["Treat!", "Yay candy!", "Sweet!", "Love it!"].randomElement() ?? "Treat!")
+        spawnHeartParticles()
+        playSound("Pop")
+        refreshStatsDisplay()
+    }
+
+    func quickCleanAll() {
+        if poopWindows.isEmpty {
+            showMiniBubble(["All clean!", "Spotless!", "Nothing to clean~"].randomElement() ?? "Clean!")
+        } else {
+            for poop in poopWindows {
+                poop.stinkTimer?.invalidate()
+                poop.panel.orderOut(nil)
+            }
+            poopWindows.removeAll()
+            pet.happiness = min(100, pet.happiness + 5)
+            pet.save()
+            showMiniBubble(["All clean!", "Sparkle!", "Fresh!"].randomElement() ?? "Clean!")
+            refreshStatsDisplay()
+        }
+        playSound("Pop")
+    }
+
+    func spawnFoodParticle() {
+        guard let win = miniWindow, win.isVisible else { return }
+        let baseFrame = win.frame
+        let food = ["🍕", "🍔", "🍎", "🍪", "🧁"].randomElement() ?? "🍕"
+        let label = NSTextField(labelWithString: food)
+        label.font = NSFont.systemFont(ofSize: 16)
+        label.sizeToFit()
+        let foodWin = NSPanel(
+            contentRect: NSRect(x: baseFrame.midX - 8, y: baseFrame.maxY, width: 24, height: 24),
+            styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false
+        )
+        foodWin.isFloatingPanel = true
+        foodWin.level = .floating
+        foodWin.backgroundColor = .clear
+        foodWin.hasShadow = false
+        foodWin.isOpaque = false
+        foodWin.contentView = label
+        foodWin.orderFront(nil)
+        // Animate float down toward pet
+        let startY = foodWin.frame.origin.y
+        var tick = 0
+        Timer.scheduledTimer(withTimeInterval: 0.033, repeats: true) { timer in
+            tick += 1
+            let progress = CGFloat(tick) / 20.0
+            foodWin.setFrameOrigin(NSPoint(x: foodWin.frame.origin.x, y: startY - progress * 30))
+            foodWin.alphaValue = max(0, 1.0 - progress * 0.8)
+            if tick >= 20 {
+                timer.invalidate()
+                foodWin.orderOut(nil)
+            }
+        }
     }
 
     func spawnHeartParticles() {
@@ -4241,7 +4696,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
 
     func cleanPoop(_ panel: NSPanel) {
         // Poof effect then remove
-        showMiniBubble(["Clean!", "All tidy!", "*scrubs*", "Sparkle~"].randomElement()!)
+        showMiniBubble(["Clean!", "All tidy!", "*scrubs*", "Sparkle~"].randomElement() ?? "")
         pet.happiness = min(100, pet.happiness + 3)
 
         // Quick poof animation
@@ -4318,7 +4773,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
         // Resize: ASCII (100) + output (flexible) + input (40) + padding
         let w: CGFloat = 380
         let h: CGFloat = 420
-        let screen = NSScreen.main!.visibleFrame
+        let screen = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
         let x = screen.maxX - w - 16
         let y = screen.minY + 16
 
@@ -4357,7 +4812,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
         // Resize back
         let w: CGFloat = 440
         let h: CGFloat = 640
-        let screen = NSScreen.main!.visibleFrame
+        let screen = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
         let x = screen.maxX - w - 16
         let y = screen.minY + 16
 
@@ -4401,7 +4856,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
             if Int.random(in: 0..<3) == 0, let suggestion = self.bestSuggestionLine() {
                 self.bubbleLabel.stringValue = speechBubble(suggestion)
             } else {
-                let tip = AgentArt.tips.randomElement()!
+                let tip = AgentArt.tips.randomElement() ?? ""
                 self.bubbleLabel.stringValue = speechBubble(tip)
             }
         }
@@ -4440,6 +4895,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
     func animate() {
         // Pixel art in main window
         let pixFrames = currentSkin.pixelFrames
+        guard !pixFrames.isEmpty else { return }
         animFrame = (animFrame + 1) % pixFrames.count
         if agentImageView != nil {
             agentImageView.image = PixelSprite.render(pixFrames[animFrame], scale: 8)
@@ -4459,7 +4915,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
         animate()
         // Show contextual bubble in mini pet
         if newState == .thinking && miniWindow != nil && miniWindow.isVisible {
-            showMiniBubble(["Working...", "Processing...", "Thinking...", "On it!"].randomElement()!)
+            showMiniBubble(["Working...", "Processing...", "Thinking...", "On it!"].randomElement() ?? "")
         }
         if let d = duration {
             DispatchQueue.main.asyncAfter(deadline: .now() + d) { [weak self] in
@@ -5128,16 +5584,17 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
     func monitorProcesses() {
         DispatchQueue.global(qos: .utility).async { [weak self] in
             let result = self?.shell("ps aux | grep -E '(claude|codex|ollama|gemini)' | grep -v grep | awk '{print $11, $12, $13}' 2>/dev/null") ?? ""
-            DispatchQueue.main.async {
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
                 let lines = result.trimmingCharacters(in: .whitespacesAndNewlines)
                 if lines.isEmpty {
-                    self?.appendColored("📊 No running AI CLI processes\n\n", color: self!.cDimGray)
+                    self.appendColored("📊 No running AI CLI processes\n\n", color: self.cDimGray)
                 } else {
-                    self?.appendColored("📊 Running processes:\n", color: self!.cCyan, bold: true)
+                    self.appendColored("📊 Running processes:\n", color: self.cCyan, bold: true)
                     for line in lines.components(separatedBy: "\n") {
-                        self?.appendColored("  → \(line)\n", color: self!.cGray)
+                        self.appendColored("  → \(line)\n", color: self.cGray)
                     }
-                    self?.appendOutput("\n")
+                    self.appendOutput("\n")
                 }
             }
         }
@@ -5250,7 +5707,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
             return true
 
         case "/tip":
-            let tip = AgentArt.tips.randomElement()!
+            let tip = AgentArt.tips.randomElement() ?? ""
             bubbleLabel.stringValue = speechBubble(tip)
             appendColored("💡 \(tip)\n\n", color: cYellow)
             return true
@@ -6607,13 +7064,14 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
             let status = self?.shell("cd ~ && git status 2>/dev/null || echo 'Not a git repository'") ?? "N/A"
             let branch = self?.shell("cd ~ && git branch --show-current 2>/dev/null") ?? "N/A"
             let log = self?.shell("cd ~ && git log --oneline -5 2>/dev/null") ?? "N/A"
-            DispatchQueue.main.async {
-                self?.appendColored("📂 Git Status\n", color: self!.cCyan, bold: true)
-                self?.appendColored("Branch: \(branch.trimmingCharacters(in: .whitespacesAndNewlines))\n", color: self!.cYellow)
-                self?.appendOutput(status)
-                self?.appendColored("\n📜 Recent commits:\n", color: self!.cCyan, bold: true)
-                self?.appendOutput(log + "\n\n")
-                self?.refreshGitStatus()
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                self.appendColored("📂 Git Status\n", color: self.cCyan, bold: true)
+                self.appendColored("Branch: \(branch.trimmingCharacters(in: .whitespacesAndNewlines))\n", color: self.cYellow)
+                self.appendOutput(status)
+                self.appendColored("\n📜 Recent commits:\n", color: self.cCyan, bold: true)
+                self.appendOutput(log + "\n\n")
+                self.refreshGitStatus()
             }
         }
     }
@@ -7634,12 +8092,12 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
             )
         }
 
-        let finalize: (_ success: Bool, _ output: String, _ errorMessage: String?) -> Void = { [weak self] success, output, errorMessage in
+        let finalize: (_ success: Bool, _ output: String, _ errorMessage: String?, _ alreadyStreamed: Bool) -> Void = { [weak self] success, output, errorMessage, alreadyStreamed in
             DispatchQueue.main.async {
                 guard let self = self else { return }
                 self.lastResponse = output
                 self.personality.recordRun(provider: provider.rawValue, success: success)
-                if !output.isEmpty {
+                if !alreadyStreamed && !output.isEmpty {
                     self.appendOutput(output)
                 }
                 self.appendOutput("\n")
@@ -7684,7 +8142,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
             do {
                 try process.run()
             } catch {
-                finalize(false, "", "\(L10n.t("error_launch")) \(provider.rawValue): \(error.localizedDescription)")
+                finalize(false, "", "\(L10n.t("error_launch")) \(provider.rawValue): \(error.localizedDescription)", false)
                 return
             }
 
@@ -7708,7 +8166,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
 
             process.waitUntilExit()
             currentProcess = nil
-            finalize(process.terminationStatus == 0, accumulatedOutput, nil)
+            finalize(process.terminationStatus == 0, accumulatedOutput, nil, true)
             return
         }
 
@@ -7720,19 +8178,19 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
         case .gpt:
             let result = runGPTViaAPI(prompt: enhancedPrompt)
             if let output = result.text {
-                finalize(true, output, nil)
+                finalize(true, output, nil, false)
             } else {
-                finalize(false, "", result.error ?? "GPT request failed")
+                finalize(false, "", result.error ?? "GPT request failed", false)
             }
         case .gemini:
             let result = runGeminiViaAPI(prompt: enhancedPrompt)
             if let output = result.text {
-                finalize(true, output, nil)
+                finalize(true, output, nil, false)
             } else {
-                finalize(false, "", result.error ?? "Gemini request failed")
+                finalize(false, "", result.error ?? "Gemini request failed", false)
             }
         default:
-            finalize(false, "", "Provider \(provider.rawValue) is not configured")
+            finalize(false, "", "Provider \(provider.rawValue) is not configured", false)
         }
     }
 
@@ -7765,12 +8223,13 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
         let cal = Calendar.current
         var d = start
         let now = Date()
-        // Advance until next occurrence is in the future
-        while d < now {
+        var safety = 0
+        while d < now && safety < 5000 {
+            safety += 1
             switch cycle {
-            case "weekly": d = cal.date(byAdding: .weekOfYear, value: 1, to: d)!
-            case "yearly": d = cal.date(byAdding: .year, value: 1, to: d)!
-            default: d = cal.date(byAdding: .month, value: 1, to: d)! // monthly
+            case "weekly": d = cal.date(byAdding: .weekOfYear, value: 1, to: d) ?? now
+            case "yearly": d = cal.date(byAdding: .year, value: 1, to: d) ?? now
+            default: d = cal.date(byAdding: .month, value: 1, to: d) ?? now
             }
         }
         return d
@@ -7780,27 +8239,36 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
         let cal = Calendar.current
         var d = start
         var days: [Int] = []
-        // Go forward until past this month
-        let now = cal.date(from: DateComponents(year: year, month: month, day: 1))!
-        let endOfMonth = cal.date(byAdding: .month, value: 1, to: now)!
-        // First advance start to be near this month
-        while d < cal.date(byAdding: .year, value: -2, to: now)! {
+        guard let monthStart = cal.date(from: DateComponents(year: year, month: month, day: 1)),
+              let endOfMonth = cal.date(byAdding: .month, value: 1, to: monthStart) else { return [] }
+        // Advance start date to near target month (safe loop with iteration cap)
+        var safetyCounter = 0
+        while d < monthStart && safetyCounter < 5000 {
+            safetyCounter += 1
             switch cycle {
-            case "weekly": d = cal.date(byAdding: .weekOfYear, value: 52, to: d)!
-            case "yearly": d = cal.date(byAdding: .year, value: 1, to: d)!
-            default: d = cal.date(byAdding: .month, value: 12, to: d)!
+            case "weekly": guard let next = cal.date(byAdding: .weekOfYear, value: 1, to: d) else { return [] }; d = next
+            case "yearly": guard let next = cal.date(byAdding: .year, value: 1, to: d) else { return [] }; d = next
+            default: guard let next = cal.date(byAdding: .month, value: 1, to: d) else { return [] }; d = next
             }
         }
-        while d < endOfMonth {
+        // Walk back one step to not miss the first day of month
+        switch cycle {
+        case "weekly": d = cal.date(byAdding: .weekOfYear, value: -1, to: d) ?? d
+        case "yearly": d = cal.date(byAdding: .year, value: -1, to: d) ?? d
+        default: d = cal.date(byAdding: .month, value: -1, to: d) ?? d
+        }
+        // Collect days within this month
+        safetyCounter = 0
+        while d < endOfMonth && safetyCounter < 200 {
+            safetyCounter += 1
             let comps = cal.dateComponents([.year, .month, .day], from: d)
-            if comps.year == year && comps.month == month {
-                days.append(comps.day!)
+            if comps.year == year && comps.month == month, let day = comps.day {
+                if !days.contains(day) { days.append(day) }
             }
-            if d >= endOfMonth { break }
             switch cycle {
-            case "weekly": d = cal.date(byAdding: .weekOfYear, value: 1, to: d)!
-            case "yearly": d = cal.date(byAdding: .year, value: 1, to: d)!
-            default: d = cal.date(byAdding: .month, value: 1, to: d)!
+            case "weekly": guard let next = cal.date(byAdding: .weekOfYear, value: 1, to: d) else { break }; d = next
+            case "yearly": guard let next = cal.date(byAdding: .year, value: 1, to: d) else { break }; d = next
+            default: guard let next = cal.date(byAdding: .month, value: 1, to: d) else { break }; d = next
             }
         }
         return days
@@ -7949,15 +8417,14 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
         let cal = Calendar.current
         let now = Date()
         let comps = cal.dateComponents([.year, .month], from: now)
-        let year = comps.year!
-        let month = comps.month!
+        guard let year = comps.year, let month = comps.month else { return }
         let today = cal.component(.day, from: now)
 
         let fmt = DateFormatter()
         fmt.dateFormat = "MMMM yyyy"
-        let firstOfMonth = cal.date(from: DateComponents(year: year, month: month, day: 1))!
+        guard let firstOfMonth = cal.date(from: DateComponents(year: year, month: month, day: 1)) else { return }
         let weekday = (cal.component(.weekday, from: firstOfMonth) + 5) % 7  // Mon=0
-        let daysInMonth = cal.range(of: .day, in: .month, for: firstOfMonth)!.count
+        let daysInMonth = cal.range(of: .day, in: .month, for: firstOfMonth)?.count ?? 30
 
         // Build map: day -> [sub names]
         var dayMap: [Int: [String]] = [:]
@@ -11365,7 +11832,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
     ]
 
     func startTypingGame() {
-        typingTarget = AgentODelegate.typingPhrases.randomElement()!
+        typingTarget = AgentODelegate.typingPhrases.randomElement() ?? ""
         typingGameActive = true
         typingStartTime = nil
         setState(.happy)
