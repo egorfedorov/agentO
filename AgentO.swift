@@ -1620,6 +1620,41 @@ class PetStats {
 
 // MARK: - Drop View
 
+class MiniPetView: NSView {
+    var onDoubleClick: (() -> Void)?
+    private var isDragging = false
+
+    override var acceptsFirstResponder: Bool { true }
+    override var mouseDownCanMoveWindow: Bool { false }
+
+    override func mouseDown(with event: NSEvent) {
+        if event.clickCount >= 2 {
+            onDoubleClick?()
+            return
+        }
+        isDragging = false
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        isDragging = true
+        guard let win = window else { return }
+        var origin = win.frame.origin
+        origin.x += event.deltaX
+        origin.y -= event.deltaY
+        win.setFrameOrigin(origin)
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        if !isDragging && event.clickCount == 1 {
+            // Single click — show a random phrase
+            if let delegate = NSApp.delegate as? AgentODelegate {
+                delegate.miniSayRandom()
+            }
+        }
+        isDragging = false
+    }
+}
+
 class DropView: NSView {
     var onDrop: (([String]) -> Void)?
 
@@ -2751,8 +2786,8 @@ struct ProviderSyncResult {
 
 // MARK: - Main App Delegate
 
-class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
-    static let sourceVersion = "7.0.0"
+class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWindowDelegate {
+    static let sourceVersion = "7.1.0"
     static func parseVersion(_ version: String) -> [Int] {
         return version
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -3024,6 +3059,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         window.isOpaque = false
         window.backgroundColor = NSColor(red: 0.1, green: 0.1, blue: 0.14, alpha: 1.0)
         window.minSize = NSSize(width: 360, height: 500)
+        window.delegate = self
 
         // Drop-aware container
         let dropContainer = DropView(frame: NSRect(x: 0, y: 0, width: w, height: h))
@@ -3209,14 +3245,15 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         miniWindow.isFloatingPanel = true
         miniWindow.level = .floating
         miniWindow.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        miniWindow.isMovableByWindowBackground = true
+        miniWindow.isMovableByWindowBackground = false
         miniWindow.backgroundColor = .clear
         miniWindow.hasShadow = false
         miniWindow.isOpaque = false
 
-        let container = NSView(frame: NSRect(x: 0, y: 0, width: mw, height: mh))
+        let container = MiniPetView(frame: NSRect(x: 0, y: 0, width: mw, height: mh))
         container.wantsLayer = true
         container.layer?.backgroundColor = NSColor.clear.cgColor
+        container.onDoubleClick = { [weak self] in self?.toggleWindow() }
 
         // Speech bubble above character
         miniBubbleLabel = NSTextField(labelWithString: "")
@@ -3239,14 +3276,8 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         miniImageView.imageScaling = .scaleNone
         miniImageView.wantsLayer = true
 
-        let clickArea = NSButton(frame: NSRect(x: 0, y: 0, width: mw, height: mh))
-        clickArea.isTransparent = true
-        clickArea.target = self
-        clickArea.action = #selector(toggleWindow)
-
         container.addSubview(miniImageView)
         container.addSubview(miniBubbleLabel)
-        container.addSubview(clickArea)
         miniWindow.contentView = container
 
         updateMiniAgent()
@@ -6882,10 +6913,14 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
+
+            // Detect source language for MyMemory API
+            let sourceLang = self.detectSourceLang(text, target: targetLang)
             var allowed = CharacterSet.urlQueryAllowed
             allowed.remove(charactersIn: "&+=")
             let encoded = text.addingPercentEncoding(withAllowedCharacters: allowed) ?? text
-            let urlString = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=\(targetLang)&dt=t&q=\(encoded)"
+            let langPair = "\(sourceLang)|\(targetLang)"
+            let urlString = "https://api.mymemory.translated.net/get?q=\(encoded)&langpair=\(langPair)"
             guard let url = URL(string: urlString) else {
                 DispatchQueue.main.async {
                     self.appendColored("❌ Translation error\n\n", color: self.cRed)
@@ -6907,33 +6942,14 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                         return
                     }
 
-                    // Parse Google Translate JSON response
-                    // Format: [[["translated text","original text",null,null,10]],null,"ru",...]
+                    // Parse MyMemory JSON: {"responseData":{"translatedText":"..."},...}
                     var translated = ""
-                    if let json = try? JSONSerialization.jsonObject(with: data) {
-                        if let arr = json as? [Any], let sentences = arr.first as? [Any] {
-                            for item in sentences {
-                                if let sentence = item as? [Any], let text = sentence.first as? String {
-                                    translated += text
-                                }
-                            }
-                        }
-                        // Fallback: try to extract any string from nested arrays
-                        if translated.isEmpty, let arr = json as? [Any] {
-                            func extractStrings(_ value: Any) -> String {
-                                if let s = value as? String { return s }
-                                if let a = value as? [Any] {
-                                    for item in a {
-                                        let s = extractStrings(item)
-                                        if !s.isEmpty { return s }
-                                    }
-                                }
-                                return ""
-                            }
-                            translated = extractStrings(arr)
-                        }
+                    if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                       let responseData = json["responseData"] as? [String: Any],
+                       let text = responseData["translatedText"] as? String {
+                        translated = text
                     }
-                    if !translated.isEmpty {
+                    if !translated.isEmpty && translated.uppercased() != text.uppercased() {
                         self.appendColored("✅ \(targetLang.uppercased()): ", color: self.cGreen, bold: true)
                         self.appendOutput("\(translated)\n")
                         // Copy to clipboard
@@ -6964,6 +6980,27 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             }
             task.resume()
         }
+    }
+
+    func detectSourceLang(_ text: String, target: String) -> String {
+        // Simple heuristic: if target is "en" and text has Cyrillic → "ru"
+        // If target is "ru" and text is Latin → "en"
+        let hasCyrillic = text.unicodeScalars.contains { $0.value >= 0x0400 && $0.value <= 0x04FF }
+        let hasLatin = text.unicodeScalars.contains { ($0.value >= 0x0041 && $0.value <= 0x005A) || ($0.value >= 0x0061 && $0.value <= 0x007A) }
+        let hasCJK = text.unicodeScalars.contains { $0.value >= 0x4E00 && $0.value <= 0x9FFF }
+
+        if target == "en" {
+            if hasCyrillic { return "ru" }
+            if hasCJK { return "zh" }
+            return "auto"
+        }
+        if target == "ru" {
+            if hasLatin { return "en" }
+            return "auto"
+        }
+        if hasCyrillic { return "ru" }
+        if hasLatin { return "en" }
+        return "auto"
     }
 
     // MARK: - Quick Calc & Conversions
@@ -10299,6 +10336,15 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         return false // keep running in menu bar
+    }
+
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        if sender === window {
+            // Don't close — switch to walking pet mode
+            toggleWindow()
+            return false
+        }
+        return true
     }
 }
 
