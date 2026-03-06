@@ -3140,7 +3140,7 @@ struct ProviderSyncResult {
 // MARK: - Main App Delegate
 
 class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWindowDelegate {
-    static let sourceVersion = "7.4.0"
+    static let sourceVersion = "7.4.1"
     static func parseVersion(_ version: String) -> [Int] {
         return version
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -7393,72 +7393,110 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
 
-            // Detect source language for MyMemory API
             let sourceLang = self.detectSourceLang(text, target: targetLang)
-            let langPair = "\(sourceLang)|\(targetLang)"
-            var components = URLComponents(string: "https://api.mymemory.translated.net/get")!
-            components.queryItems = [
-                URLQueryItem(name: "q", value: text),
-                URLQueryItem(name: "langpair", value: langPair),
-            ]
-            guard let url = components.url else {
-                DispatchQueue.main.async {
-                    self.appendColored("❌ Translation error\n\n", color: self.cRed)
-                    self.setState(.error)
+
+            // Try Lingva first (POST-based, no URI length limit), fallback to MyMemory
+            self.translateViaLingva(text, source: sourceLang, target: targetLang) { result in
+                if let translated = result {
+                    self.handleTranslationResult(translated, targetLang: targetLang, originalText: text)
+                } else {
+                    // Fallback: MyMemory
+                    self.translateViaMyMemory(text, source: sourceLang, target: targetLang) { result2 in
+                        if let translated = result2 {
+                            self.handleTranslationResult(translated, targetLang: targetLang, originalText: text)
+                        } else {
+                            DispatchQueue.main.async {
+                                self.appendColored("❌ Translation failed (both APIs)\n\n", color: self.cRed)
+                                self.setState(.error)
+                            }
+                        }
+                    }
                 }
+            }
+        }
+    }
+
+    func translateViaLingva(_ text: String, source: String, target: String, completion: @escaping (String?) -> Void) {
+        // Lingva Translate — free Google Translate frontend, POST supported via URL path
+        let src = source == "auto" ? "auto" : source
+        let encodedText = text.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? text
+        let urlStr = "https://lingva.ml/api/v1/\(src)/\(target)/\(encodedText)"
+
+        // For long text, use alternative instance or chunk
+        guard let url = URL(string: urlStr) else {
+            completion(nil)
+            return
+        }
+
+        let task = URLSession.shared.dataTask(with: url) { data, response, error in
+            guard let data = data, error == nil,
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let translated = json["translation"] as? String,
+                  !translated.isEmpty else {
+                completion(nil)
                 return
             }
+            completion(translated)
+        }
+        task.resume()
+    }
 
-            let task = URLSession.shared.dataTask(with: url) { data, response, error in
-                DispatchQueue.main.async {
-                    if let error = error {
-                        self.appendColored("❌ \(error.localizedDescription)\n\n", color: self.cRed)
-                        self.setState(.error)
-                        return
-                    }
-                    guard let data = data else {
-                        self.appendColored("❌ No response\n\n", color: self.cRed)
-                        self.setState(.error)
-                        return
-                    }
+    func translateViaMyMemory(_ text: String, source: String, target: String, completion: @escaping (String?) -> Void) {
+        // MyMemory — use POST to avoid URI length limit
+        let langPair = "\(source)|\(target)"
+        let url = URL(string: "https://api.mymemory.translated.net/get")!
 
-                    // Parse MyMemory JSON: {"responseData":{"translatedText":"..."},...}
-                    var translated = ""
-                    if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                       let responseData = json["responseData"] as? [String: Any],
-                       let text = responseData["translatedText"] as? String {
-                        translated = text
-                    }
-                    if !translated.isEmpty && translated.uppercased() != text.uppercased() {
-                        self.appendColored("✅ \(targetLang.uppercased()): ", color: self.cGreen, bold: true)
-                        self.appendOutput("\(translated)\n")
-                        // Copy to clipboard
-                        NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(translated, forType: .string)
-                        self.lastClipboard = translated
-                        self.lastClipboardCount = NSPasteboard.general.changeCount
-                        self.appendColored("📋 Copied to clipboard!\n\n", color: self.cGray)
-                        self.bubbleLabel.stringValue = speechBubble("Translated! 📋")
-                        self.setState(.happy)
-                        self.playSound("Pop")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
 
-                        // XP for translation
-                        let oldLevel = self.pet.level
-                        self.pet.onCommandRun()
-                        self.pet.save()
-                        self.refreshStatsDisplay()
-                        if self.pet.level > oldLevel {
-                            self.appendColored("⭐ LEVEL UP! → \(self.pet.level)!\n", color: self.cYellow, bold: true)
-                        }
-                    } else {
-                        let preview = String(data: data.prefix(300), encoding: .utf8) ?? "binary"
-                        self.appendColored("❌ Could not parse translation\n", color: self.cRed)
-                        self.appendColored("  Response: \(preview)\n\n", color: self.cDimGray)
-                        self.setState(.error)
-                    }
-                }
+        var bodyComponents = URLComponents()
+        bodyComponents.queryItems = [
+            URLQueryItem(name: "q", value: text),
+            URLQueryItem(name: "langpair", value: langPair),
+        ]
+        request.httpBody = bodyComponents.query?.data(using: .utf8)
+
+        let task = URLSession.shared.dataTask(with: request) { data, response, error in
+            guard let data = data, error == nil,
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let responseData = json["responseData"] as? [String: Any],
+                  let translated = responseData["translatedText"] as? String,
+                  !translated.isEmpty else {
+                completion(nil)
+                return
             }
-            task.resume()
+            completion(translated)
+        }
+        task.resume()
+    }
+
+    func handleTranslationResult(_ translated: String, targetLang: String, originalText: String) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            if translated.uppercased() != originalText.uppercased() {
+                self.appendColored("✅ \(targetLang.uppercased()): ", color: self.cGreen, bold: true)
+                self.appendOutput("\(translated)\n")
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(translated, forType: .string)
+                self.lastClipboard = translated
+                self.lastClipboardCount = NSPasteboard.general.changeCount
+                self.appendColored("📋 Copied to clipboard!\n\n", color: self.cGray)
+                self.bubbleLabel.stringValue = speechBubble("Translated! 📋")
+                self.setState(.happy)
+                self.playSound("Pop")
+
+                let oldLevel = self.pet.level
+                self.pet.onCommandRun()
+                self.pet.save()
+                self.refreshStatsDisplay()
+                if self.pet.level > oldLevel {
+                    self.appendColored("⭐ LEVEL UP! → \(self.pet.level)!\n", color: self.cYellow, bold: true)
+                }
+            } else {
+                self.appendColored("❌ Could not parse translation\n\n", color: self.cRed)
+                self.setState(.error)
+            }
         }
     }
 
