@@ -1622,7 +1622,9 @@ class PetStats {
 
 class MiniPetView: NSView {
     var onDoubleClick: (() -> Void)?
+    var onSingleClick: (() -> Void)?
     private var isDragging = false
+    private var dragStartOrigin: NSPoint = .zero
 
     override var acceptsFirstResponder: Bool { true }
     override var mouseDownCanMoveWindow: Bool { false }
@@ -1633,22 +1635,27 @@ class MiniPetView: NSView {
             return
         }
         isDragging = false
+        dragStartOrigin = window?.frame.origin ?? .zero
     }
 
     override func mouseDragged(with event: NSEvent) {
-        isDragging = true
         guard let win = window else { return }
         var origin = win.frame.origin
         origin.x += event.deltaX
         origin.y -= event.deltaY
         win.setFrameOrigin(origin)
+        let dist = abs(origin.x - dragStartOrigin.x) + abs(origin.y - dragStartOrigin.y)
+        if dist > 3 { isDragging = true }
     }
 
     override func mouseUp(with event: NSEvent) {
         if !isDragging && event.clickCount == 1 {
-            // Single click — show a random phrase
+            onSingleClick?()
+        }
+        if isDragging {
+            // After drag — update base Y so walk stays at this height
             if let delegate = NSApp.delegate as? AgentODelegate {
-                delegate.miniSayRandom()
+                delegate.miniBaseY = delegate.miniWindow.frame.origin.y
             }
         }
         isDragging = false
@@ -2787,7 +2794,7 @@ struct ProviderSyncResult {
 // MARK: - Main App Delegate
 
 class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWindowDelegate {
-    static let sourceVersion = "7.1.1"
+    static let sourceVersion = "7.2.0"
     static func parseVersion(_ version: String) -> [Int] {
         return version
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -3231,13 +3238,13 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
     // MARK: - Mini Window (Minimized Mode)
 
     func setupMiniWindow() {
-        let screen = NSScreen.main!.visibleFrame
+        let screen = NSScreen.main!.frame  // full screen including dock area
         let spriteSize: CGFloat = 96   // 16px * 6 scale
         let mw: CGFloat = spriteSize + 8
         let bubbleH: CGFloat = 22
         let mh: CGFloat = spriteSize + bubbleH + 8
         miniWindow = NSPanel(
-            contentRect: NSRect(x: screen.midX - mw / 2, y: screen.minY + 4, width: mw, height: mh),
+            contentRect: NSRect(x: screen.midX - mw / 2, y: 0, width: mw, height: mh),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -3254,6 +3261,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
         container.wantsLayer = true
         container.layer?.backgroundColor = NSColor.clear.cgColor
         container.onDoubleClick = { [weak self] in self?.toggleWindow() }
+        container.onSingleClick = { [weak self] in self?.toggleMiniWalk() }
 
         // Speech bubble above character
         miniBubbleLabel = NSTextField(labelWithString: "")
@@ -3290,14 +3298,15 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
     var miniSayTimer: Timer?
     var miniStepCount = 0
 
-    static let miniPhrases = [
-        "Hey! Click me!", "Wandering...", "La la la~", "Boop!",
-        "I'm a pixel!", "Watcha doin?", "*walks*", "Beep boop!",
-        "So many windows!", "Exploring...", "*happy noises*",
-        "I can see your dock!", "Wheee!", "Adventure time!",
-        "Need help? Click me!", "*bounces*", "Pixel power!",
-        "Over here!", "Catch me!", "*stretches*",
-        "Let's code!", "Debug time!", "Ship it!", "LGTM!",
+    static let miniWalkPhrases = [
+        "Wandering...", "La la la~", "*walks*", "Beep boop!",
+        "Exploring...", "*happy noises*", "Wheee!", "Adventure!",
+        "Over here!", "Catch me!", "Let's code!", "Ship it!",
+    ]
+    static let miniIdlePhrases = [
+        "Chilling here~", "*yawn*", "Drag me!", "Zzz...",
+        "Nice spot!", "*sits*", "Double-click me!", "Watching you code...",
+        "Pixel life~", "*stretches*", "Cozy!", "Waiting...",
     ]
 
     func startMiniWalk() {
@@ -3308,15 +3317,19 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
         miniWalkTimer = Timer.scheduledTimer(withTimeInterval: 0.033, repeats: true) { [weak self] _ in
             self?.stepMiniWalk()
         }
-        // Random phrases timer
-        miniSayTimer = Timer.scheduledTimer(withTimeInterval: 6, repeats: true) { [weak self] _ in
+        miniSayTimer = Timer.scheduledTimer(withTimeInterval: 8, repeats: true) { [weak self] _ in
             self?.miniSayRandom()
         }
-        // Say hi immediately
-        showMiniBubble("Hey! Click me to open!")
+        showMiniBubble("Click me to stop!")
     }
 
     func stopMiniWalk() {
+        miniWalkTimer?.invalidate()
+        miniWalkTimer = nil
+        // Keep say timer for idle phrases
+    }
+
+    func stopMiniCompletely() {
         miniIsWalking = false
         miniWalkTimer?.invalidate()
         miniWalkTimer = nil
@@ -3324,10 +3337,40 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
         miniSayTimer = nil
     }
 
+    func toggleMiniWalk() {
+        if miniWalkTimer != nil {
+            // Walking → Park
+            stopMiniWalk()
+            miniIsWalking = false
+            showMiniBubble(["Parked!", "Sitting here~", "Okay, staying!", "*plop*"].randomElement()!)
+            // Start idle phrases
+            miniSayTimer?.invalidate()
+            miniSayTimer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in
+                guard let self = self, !self.miniIsWalking else { return }
+                self.showMiniBubble(AgentODelegate.miniIdlePhrases.randomElement() ?? "...")
+            }
+        } else {
+            // Parked → Walk
+            miniIsWalking = true
+            miniBaseY = miniWindow.frame.origin.y
+            miniStepCount = 0
+            showMiniBubble(["Let's go!", "Walking!", "Off I go~", "Wheee!"].randomElement()!)
+            miniWalkTimer = Timer.scheduledTimer(withTimeInterval: 0.033, repeats: true) { [weak self] _ in
+                self?.stepMiniWalk()
+            }
+            miniSayTimer?.invalidate()
+            miniSayTimer = Timer.scheduledTimer(withTimeInterval: 8, repeats: true) { [weak self] _ in
+                self?.miniSayRandom()
+            }
+        }
+    }
+
     func miniSayRandom() {
-        guard miniIsWalking else { return }
-        let phrase = AgentODelegate.miniPhrases.randomElement() ?? "..."
-        showMiniBubble(phrase)
+        if miniIsWalking {
+            showMiniBubble(AgentODelegate.miniWalkPhrases.randomElement() ?? "...")
+        } else {
+            showMiniBubble(AgentODelegate.miniIdlePhrases.randomElement() ?? "...")
+        }
     }
 
     func showMiniBubble(_ text: String) {
@@ -3341,7 +3384,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
     }
 
     func stepMiniWalk() {
-        guard let screen = NSScreen.main?.visibleFrame else { return }
+        guard let screen = NSScreen.main?.frame else { return }
         var frame = miniWindow.frame
 
         // Horizontal movement
@@ -3426,7 +3469,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
             updateMiniAgent()
             startMiniWalk()
         } else {
-            stopMiniWalk()
+            stopMiniCompletely()
             miniWindow.orderOut(nil)
             window.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
