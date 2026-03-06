@@ -304,114 +304,116 @@ struct PixelSprite {
     // ========== CLAUDE (Anthropic mascot — orange with ears) ==========
     // Colors: #E07C4C body, #C06838 darker, #1A1A2E outline/eyes
 
+    // Claude mascot — wide blocky body, small ears, 4 legs (matches SVG)
+    // Colors: #E07C4C body, #C06838 darker/forehead, #1A1A2E eyes
     static let claudeWalk1: [[UInt32]] = {
-        let T = C, B: UInt32 = 0x1A1A2E, O: UInt32 = 0xE07C4C, OD: UInt32 = 0xC06838
+        let T = C, B: UInt32 = 0x1A1A2E, O: UInt32 = 0xE07C4C, D: UInt32 = 0xC06838
         return [
-            [T,T,T,B,B,T,T,T,T,T,T,B,B,T,T,T],  // ear tips
-            [T,T,T,B,O,B,T,T,T,T,B,O,B,T,T,T],  // ears
-            [T,T,T,T,B,B,B,B,B,B,B,B,T,T,T,T],  // head top
-            [T,T,T,B,O,O,O,O,O,O,O,O,B,T,T,T],
-            [T,T,B,O,O,O,O,O,O,O,O,O,O,B,T,T],  // head
-            [T,T,B,O,O,B,B,O,O,B,B,O,O,B,T,T],  // eyes
-            [T,T,B,O,O,B,B,O,O,B,B,O,O,B,T,T],  // eyes lower
-            [T,T,B,O,O,O,O,O,O,O,O,O,O,B,T,T],  // face
-            [T,T,T,B,O,O,O,O,O,O,O,O,B,T,T,T],
-            [T,T,T,T,B,B,B,B,B,B,B,B,T,T,T,T],  // neck
-            [T,B,OD,B,O,O,O,O,O,O,O,O,B,OD,B,T],  // body + arms
-            [T,T,T,B,O,O,O,O,O,O,O,O,B,T,T,T],
-            [T,T,T,B,O,O,O,O,O,O,O,O,B,T,T,T],  // body
-            [T,T,T,T,B,O,O,O,O,O,O,B,T,T,T,T],
-            [T,T,T,T,B,O,B,T,T,B,O,B,T,T,T,T],  // legs
-            [T,T,T,B,O,O,B,T,T,B,O,O,B,T,T,T],  // feet
+            [T,T,T,T,T,T,T,T,T,T,T,T,T,T,T,T],
+            [T,T,T,O,O,T,T,T,T,T,T,O,O,T,T,T],  // ears
+            [T,T,T,O,O,T,T,T,T,T,T,O,O,T,T,T],  // ears
+            [T,T,D,D,D,D,D,D,D,D,D,D,D,D,T,T],  // dark forehead
+            [T,T,O,O,O,O,O,O,O,O,O,O,O,O,T,T],  // head
+            [T,T,O,O,B,B,O,O,O,O,B,B,O,O,T,T],  // eyes
+            [T,T,O,O,B,B,O,O,O,O,B,B,O,O,T,T],  // eyes
+            [T,T,O,O,O,O,O,O,O,O,O,O,O,O,T,T],  // body
+            [T,T,O,O,O,O,O,O,O,O,O,O,O,O,T,T],  // body
+            [T,T,O,O,O,O,O,O,O,O,O,O,O,O,T,T],  // body
+            [T,T,O,O,O,O,O,O,O,O,O,O,O,O,T,T],  // body bottom
+            [T,T,T,T,T,T,T,T,T,T,T,T,T,T,T,T],  // gap
+            [T,T,T,O,O,T,O,O,T,O,O,T,O,O,T,T],  // 4 legs
+            [T,T,T,O,O,T,O,O,T,O,O,T,O,O,T,T],  // legs
+            [T,T,T,D,D,T,D,D,T,D,D,T,D,D,T,T],  // feet (darker)
+            [T,T,T,T,T,T,T,T,T,T,T,T,T,T,T,T],
         ]
     }()
 
     static let claudeWalk2: [[UInt32]] = {
-        let T = C, B: UInt32 = 0x1A1A2E, O: UInt32 = 0xE07C4C, OD: UInt32 = 0xC06838
+        let T = C, B: UInt32 = 0x1A1A2E, O: UInt32 = 0xE07C4C, D: UInt32 = 0xC06838
         return [
-            [T,T,T,B,B,T,T,T,T,T,T,B,B,T,T,T],
-            [T,T,T,B,O,B,T,T,T,T,B,O,B,T,T,T],
-            [T,T,T,T,B,B,B,B,B,B,B,B,T,T,T,T],
-            [T,T,T,B,O,O,O,O,O,O,O,O,B,T,T,T],
-            [T,T,B,O,O,O,O,O,O,O,O,O,O,B,T,T],
-            [T,T,B,O,O,B,B,O,O,B,B,O,O,B,T,T],
-            [T,T,B,O,O,B,B,O,O,B,B,O,O,B,T,T],
-            [T,T,B,O,O,O,O,O,O,O,O,O,O,B,T,T],
-            [T,T,T,B,O,O,O,O,O,O,O,O,B,T,T,T],
-            [T,T,T,T,B,B,B,B,B,B,B,B,T,T,T,T],
-            [T,B,OD,B,O,O,O,O,O,O,O,O,B,OD,B,T],  // arms wave
-            [T,T,T,B,O,O,O,O,O,O,O,O,B,T,T,T],
-            [T,T,T,B,O,O,O,O,O,O,O,O,B,T,T,T],
-            [T,T,T,T,B,O,O,O,O,O,O,B,T,T,T,T],
-            [T,T,T,T,T,B,O,B,B,O,B,T,T,T,T,T],  // legs swapped
-            [T,T,T,T,B,O,O,B,B,O,O,B,T,T,T,T],  // feet swapped
+            [T,T,T,T,T,T,T,T,T,T,T,T,T,T,T,T],
+            [T,T,T,O,O,T,T,T,T,T,T,O,O,T,T,T],  // ears
+            [T,T,T,O,O,T,T,T,T,T,T,O,O,T,T,T],  // ears
+            [T,T,D,D,D,D,D,D,D,D,D,D,D,D,T,T],  // dark forehead
+            [T,T,O,O,O,O,O,O,O,O,O,O,O,O,T,T],  // head
+            [T,T,O,O,B,B,O,O,O,O,B,B,O,O,T,T],  // eyes
+            [T,T,O,O,B,B,O,O,O,O,B,B,O,O,T,T],  // eyes
+            [T,T,O,O,O,O,O,O,O,O,O,O,O,O,T,T],  // body
+            [T,T,O,O,O,O,O,O,O,O,O,O,O,O,T,T],  // body
+            [T,T,O,O,O,O,O,O,O,O,O,O,O,O,T,T],  // body
+            [T,T,O,O,O,O,O,O,O,O,O,O,O,O,T,T],  // body bottom
+            [T,T,T,T,T,T,T,T,T,T,T,T,T,T,T,T],  // gap
+            [T,O,O,T,T,O,O,T,T,O,O,T,T,O,O,T],  // 4 legs spread
+            [T,O,O,T,T,O,O,T,T,O,O,T,T,O,O,T],  // legs
+            [T,D,D,T,T,D,D,T,T,D,D,T,T,D,D,T],  // feet (darker)
+            [T,T,T,T,T,T,T,T,T,T,T,T,T,T,T,T],
         ]
     }()
 
     static let claudeBlink: [[UInt32]] = {
-        let T = C, B: UInt32 = 0x1A1A2E, O: UInt32 = 0xE07C4C, OD: UInt32 = 0xC06838
+        let T = C, B: UInt32 = 0x1A1A2E, O: UInt32 = 0xE07C4C, D: UInt32 = 0xC06838
         return [
-            [T,T,T,B,B,T,T,T,T,T,T,B,B,T,T,T],
-            [T,T,T,B,O,B,T,T,T,T,B,O,B,T,T,T],
-            [T,T,T,T,B,B,B,B,B,B,B,B,T,T,T,T],
-            [T,T,T,B,O,O,O,O,O,O,O,O,B,T,T,T],
-            [T,T,B,O,O,O,O,O,O,O,O,O,O,B,T,T],
-            [T,T,B,O,O,B,B,O,O,B,B,O,O,B,T,T],  // closed eyes (—)
-            [T,T,B,O,O,O,O,O,O,O,O,O,O,B,T,T],  // no lower eye
-            [T,T,B,O,O,O,O,O,O,O,O,O,O,B,T,T],
-            [T,T,T,B,O,O,O,O,O,O,O,O,B,T,T,T],
-            [T,T,T,T,B,B,B,B,B,B,B,B,T,T,T,T],
-            [T,B,OD,B,O,O,O,O,O,O,O,O,B,OD,B,T],
-            [T,T,T,B,O,O,O,O,O,O,O,O,B,T,T,T],
-            [T,T,T,B,O,O,O,O,O,O,O,O,B,T,T,T],
-            [T,T,T,T,B,O,O,O,O,O,O,B,T,T,T,T],
-            [T,T,T,T,B,O,B,T,T,B,O,B,T,T,T,T],
-            [T,T,T,B,O,O,B,T,T,B,O,O,B,T,T,T],
+            [T,T,T,T,T,T,T,T,T,T,T,T,T,T,T,T],
+            [T,T,T,O,O,T,T,T,T,T,T,O,O,T,T,T],  // ears
+            [T,T,T,O,O,T,T,T,T,T,T,O,O,T,T,T],  // ears
+            [T,T,D,D,D,D,D,D,D,D,D,D,D,D,T,T],  // dark forehead
+            [T,T,O,O,O,O,O,O,O,O,O,O,O,O,T,T],  // head
+            [T,T,O,O,B,B,O,O,O,O,B,B,O,O,T,T],  // closed eyes (line)
+            [T,T,O,O,O,O,O,O,O,O,O,O,O,O,T,T],  // no lower eye
+            [T,T,O,O,O,O,O,O,O,O,O,O,O,O,T,T],  // body
+            [T,T,O,O,O,O,O,O,O,O,O,O,O,O,T,T],  // body
+            [T,T,O,O,O,O,O,O,O,O,O,O,O,O,T,T],  // body
+            [T,T,O,O,O,O,O,O,O,O,O,O,O,O,T,T],  // body bottom
+            [T,T,T,T,T,T,T,T,T,T,T,T,T,T,T,T],  // gap
+            [T,T,T,O,O,T,O,O,T,O,O,T,O,O,T,T],  // 4 legs
+            [T,T,T,O,O,T,O,O,T,O,O,T,O,O,T,T],  // legs
+            [T,T,T,D,D,T,D,D,T,D,D,T,D,D,T,T],  // feet
+            [T,T,T,T,T,T,T,T,T,T,T,T,T,T,T,T],
         ]
     }()
 
     static let claudeWorking: [[UInt32]] = {
-        let T = C, B: UInt32 = 0x1A1A2E, O: UInt32 = 0xE07C4C, OD: UInt32 = 0xC06838
+        let T = C, B: UInt32 = 0x1A1A2E, O: UInt32 = 0xE07C4C, D: UInt32 = 0xC06838
         let DK: UInt32 = 0x8B6914, DG: UInt32 = 0x666666
         return [
-            [T,T,T,B,B,T,T,T,T,T,T,B,B,T,T,T],
-            [T,T,T,B,O,B,T,T,T,T,B,O,B,T,T,T],
-            [T,T,T,T,B,B,B,B,B,B,B,B,T,T,T,T],
-            [T,T,T,B,O,O,O,O,O,O,O,O,B,T,T,T],
-            [T,T,B,O,O,O,O,O,O,O,O,O,O,B,T,T],
-            [T,T,B,O,O,B,B,O,O,B,B,O,O,B,T,T],  // eyes look down
-            [T,T,B,O,O,O,B,O,O,O,B,O,O,B,T,T],
-            [T,T,B,O,O,O,O,O,O,O,O,O,O,B,T,T],
-            [T,T,T,B,O,O,O,O,O,O,O,O,B,T,T,T],
-            [T,T,T,T,B,B,B,B,B,B,B,B,T,T,T,T],
-            [T,T,T,B,O,O,O,O,O,O,O,O,B,T,T,T],
-            [T,T,T,B,O,O,O,O,O,O,O,O,B,T,T,T],
-            [T,B,DK,DK,DK,DK,DK,DK,DK,DK,DK,DK,DK,DK,B,T],
-            [T,B,DK,DG,DG,DK,DK,DK,DK,DK,DK,DG,DG,DK,B,T],
-            [T,B,DK,DK,DK,DK,DK,DK,DK,DK,DK,DK,DK,DK,B,T],
-            [T,T,B,B,B,B,B,B,B,B,B,B,B,B,T,T],
+            [T,T,T,T,T,T,T,T,T,T,T,T,T,T,T,T],
+            [T,T,T,O,O,T,T,T,T,T,T,O,O,T,T,T],  // ears
+            [T,T,T,O,O,T,T,T,T,T,T,O,O,T,T,T],  // ears
+            [T,T,D,D,D,D,D,D,D,D,D,D,D,D,T,T],  // dark forehead
+            [T,T,O,O,O,O,O,O,O,O,O,O,O,O,T,T],  // head
+            [T,T,O,O,O,B,B,O,O,B,B,O,O,O,T,T],  // eyes look down
+            [T,T,O,O,O,O,B,O,O,O,B,O,O,O,T,T],  // pupils down
+            [T,T,O,O,O,O,O,O,O,O,O,O,O,O,T,T],  // body
+            [T,T,O,O,O,O,O,O,O,O,O,O,O,O,T,T],  // body
+            [T,T,O,O,O,O,O,O,O,O,O,O,O,O,T,T],  // body
+            [T,T,O,O,O,O,O,O,O,O,O,O,O,O,T,T],  // body bottom
+            [T,DK,DK,DK,DK,DK,DK,DK,DK,DK,DK,DK,DK,DK,DK,T],  // desk
+            [T,DK,DG,DG,DK,DK,DK,DK,DK,DK,DK,DK,DG,DG,DK,T],  // desk keys
+            [T,DK,DK,DK,DK,DK,DK,DK,DK,DK,DK,DK,DK,DK,DK,T],  // desk
+            [T,T,B,B,B,B,B,B,B,B,B,B,B,B,T,T],  // desk edge
+            [T,T,T,T,T,T,T,T,T,T,T,T,T,T,T,T],
         ]
     }()
 
     static let claudeSleep: [[UInt32]] = {
-        let T = C, B: UInt32 = 0x1A1A2E, O: UInt32 = 0xE07C4C
+        let T = C, B: UInt32 = 0x1A1A2E, O: UInt32 = 0xE07C4C, D: UInt32 = 0xC06838
         let Z: UInt32 = 0x88AAFF
         return [
-            [T,T,T,T,T,T,T,T,T,T,T,T,T,Z,Z,T],
+            [T,T,T,T,T,T,T,T,T,T,T,T,Z,Z,Z,T],  // Z
             [T,T,T,T,T,T,T,T,T,T,T,T,T,T,Z,T],
-            [T,T,T,T,T,T,T,T,T,T,T,T,T,Z,Z,T],
-            [T,T,T,B,B,T,T,T,T,T,T,T,Z,T,Z,T],
-            [T,T,T,B,O,B,B,B,B,B,B,B,T,Z,Z,T],  // ear + head
-            [T,T,B,O,O,O,O,O,O,O,O,O,B,T,T,T],
-            [T,T,B,O,O,B,B,O,O,B,B,O,B,T,T,T],  // closed eyes
-            [T,T,B,O,O,O,O,O,O,O,O,O,B,T,T,T],
-            [T,T,T,B,O,O,O,O,O,O,O,B,T,T,T,T],
-            [T,T,B,O,O,O,O,O,O,O,O,O,B,T,T,T],  // body curl
-            [T,B,O,O,O,O,O,O,O,O,O,O,O,B,T,T],
-            [T,B,O,O,O,O,O,O,O,O,O,O,O,B,T,T],
-            [T,B,O,O,O,O,O,O,O,O,O,O,O,B,T,T],
-            [T,T,B,O,O,O,O,O,O,O,O,O,B,T,T,T],
-            [T,T,T,B,B,B,B,B,B,B,B,B,T,T,T,T],
+            [T,T,T,T,T,T,T,T,T,T,T,T,T,Z,T,T],
+            [T,T,T,T,T,T,T,T,T,T,T,T,Z,Z,Z,T],  // z
+            [T,T,D,D,D,D,D,D,D,D,D,D,D,D,T,T],  // forehead (no ears when sleeping)
+            [T,T,O,O,O,O,O,O,O,O,O,O,O,O,T,T],  // head
+            [T,T,O,O,B,B,O,O,O,O,B,B,O,O,T,T],  // closed eyes
+            [T,T,O,O,O,O,O,O,O,O,O,O,O,O,T,T],  // face
+            [T,T,O,O,O,O,O,O,O,O,O,O,O,O,T,T],  // body
+            [T,T,O,O,O,O,O,O,O,O,O,O,O,O,T,T],  // body
+            [T,T,O,O,O,O,O,O,O,O,O,O,O,O,T,T],  // body
+            [T,T,O,O,O,O,O,O,O,O,O,O,O,O,T,T],  // curled up
+            [T,T,O,O,O,O,O,O,O,O,O,O,O,O,T,T],  // curled
+            [T,T,D,D,D,D,D,D,D,D,D,D,D,D,T,T],  // bottom
+            [T,T,T,T,T,T,T,T,T,T,T,T,T,T,T,T],
             [T,T,T,T,T,T,T,T,T,T,T,T,T,T,T,T],
         ]
     }()
