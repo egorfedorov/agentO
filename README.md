@@ -5,8 +5,8 @@
 </p>
 
 <p align="center">
-  <strong>Your ASCII desktop companion for Claude CLI & Codex CLI.</strong><br>
-  A native macOS floating Tamagotchi that helps you code, learns, evolves, and keeps you company.
+  <strong>Your Pixel Art Desktop Companion for Claude CLI & Codex CLI.</strong><br>
+  A native macOS floating Tamagotchi with pixel art characters that walk across your screen, help you code, learn, evolve, and keep you company.
 </p>
 
 <p align="center">
@@ -142,77 +142,36 @@ This gives users a path to earn from domain expertise by training high-quality p
 - Makes expertise discoverable and comparable.
 - Creates a feedback loop where better training leads to better demand.
 
-## New in v6.5.0
+## New in v7.x — Pixel Art & Walking Desktop Pet
 
-### AI Personality + Proactive Suggestions
-- New adaptive memory profile persisted in `~/.agento_memory.json`
-- Tracks command categories, coding-time pattern, and language signals from prompts
-- Personality modes: Helpful, Sarcastic, Zen, Hyper
-- Commands:
-  - `/personality`
-  - `/personality set helpful|sarcastic|zen|hyper`
-  - `/personality auto`
-  - `/suggest`
+### Pixel Art Characters
+- All characters now rendered as **16x16 pixel art sprites** instead of ASCII
+- **4 pixel skins:** Robot, Cat, Skull, Minion — each with unique walk animation frames
+- Pixel art displayed in both the main window and mini walking mode
+- Rendered via native NSImage at configurable scale
 
-### Help UX Refresh
-- `/help` stays compact
-- `/help all` now shows a short command map by category
-- `/help all commands` opens full command catalog
+### Walking Desktop Pet
+- **Close the window** and your pet walks across the screen at dock level
+- Animated walk cycle with two-frame sprite animation
+- Random **jumps** with physics (velocity + gravity)
+- Random **speech bubbles** with personality phrases
+- **Drag** the pet anywhere on screen — it keeps walking from where you drop it
+- **Single click** to park/resume walking
+- **Double click** to reopen the main window
+- Transparent borderless window — no background box, just the pixel character
 
-### Snippet Export
-- Added `/export` to generate `~/Desktop/agento-snippets.md`
-- Makes snippet knowledge base portable/shareable
+### Translation Engine
+- Switched from Google Translate to **MyMemory API** (no API key needed)
+- Proper URL encoding via URLComponents — works reliably with all 18 languages
+- Auto-detects source language (Cyrillic → RU, Latin → EN, CJK → ZH, etc.)
 
-## New in v6.4.0
-
-### Tactical PvP Duels
-- Challenge flow is now explicit: invite -> accept/decline -> both submit move.
-- Moves use zone strategy (`head`, `body`, `legs`) for both attack and defense.
-- Commands:
-  - `/battle <username>`
-  - `/accept <username>` / `/decline <username>`
-  - `/move <attackZone> <defenseZone>`
-
-### Pet Marketplace (Rentals)
-- Publish your pet as a rental listing directly from Agent-O.
-- Rent other players' pets and track rental lifecycle/history.
-- Commands:
-  - `/market`
-  - `/rent publish <pricePerDay> <maxDays> <title>`
-  - `/rent take <owner> <days>`
-  - `/rent my [owner|renter|both]`
-  - `/rent end <rentalId>`
-- Web landing:
-  - Leaderboard: https://social-coral-five.vercel.app/
-  - Marketplace: https://social-coral-five.vercel.app/marketplace
-
-### Pet Training Loop
-- New training dashboard and memory-training command for your pet.
-- Commands:
-  - `/training` — training quality dashboard
-  - `/optimizer` — token optimizer status
-  - `/optimizer aggressive` — stronger compression, lower token spend
-  - `/specialist` — active specialist profile + signals
-  - `/specialist set <key|auto>` — manual lock or auto-learning
-  - `/train <fact>` — train pet memory (+XP)
-  - `/promptcoach [N]` — prompt quality coaching
-
-### Multi-Model Router
-- Agent-O now supports provider routing beyond Claude/Codex.
-- Providers: Claude, Codex, GPT, Gemini, Ollama.
-- Commands:
-  - `/model` — current provider + model status
-  - `/models` — all providers + configured models
-  - `/model <provider>` — set active provider
-  - `/model <provider> <model-id>` — set model override
-  - `/model endpoint gpt|gemini <url>` — custom API endpoint
-  - `/compare <prompt>` — compare responses from multiple providers
-  - `/usage [N]` — usage analytics by provider
-  - `/cost` — estimated token/cost tracker
-
-### Landing & Docs Refresh
-- Landing page now highlights tactical duels, marketplace rentals, and training.
-- README includes slash-command rule and pre-release checks for `/update`.
+### Previous Highlights (v6.x)
+- AI Personality modes (Helpful, Sarcastic, Zen, Hyper) + `/personality` + `/suggest`
+- Tactical PvP Duels with zone strategy (`/battle`, `/accept`, `/move`)
+- Pet Marketplace Rentals (`/rent publish`, `/rent take`, `/market`)
+- Pet Training Loop (`/training`, `/train`, `/specialist`, `/promptcoach`)
+- Multi-Model Router: Claude, Codex, GPT, Gemini, Ollama (`/model`, `/compare`, `/cost`)
+- Token Optimizer Plugin (`/optimizer balanced|aggressive|off`)
 
 ## Features
 
@@ -272,7 +231,7 @@ Unlock badges for milestones — first command, 100 commands, commits, streaks, 
 - Type `RU text` to translate to Russian
 - **18 languages** supported: EN, RU, ES, FR, DE, IT, PT, JA, KO, ZH, AR, HI, TR, PL, NL, UK, CS, SV
 - Translation auto-copied to clipboard
-- Powered by Google Translate (no API key needed)
+- Powered by MyMemory API (no API key needed)
 
 ### Clipboard Watcher
 - `/watch` — Agent-O monitors your clipboard every 2 seconds
@@ -361,14 +320,14 @@ Unlock badges for milestones — first command, 100 commands, commits, streaks, 
 - Compete with other Agent-O users worldwide
 
 ### Customization
-- **4 Skins:** Robot, Cat, Skull, Clippy
+- **4 Pixel Skins:** Robot, Cat, Skull, Minion
 - **5 Themes:** Matrix, Cyberpunk, Sunset, Ocean, Hacker
 - **8 Animation states:** idle, thinking, typing, happy, sleeping, error, dancing, eating
 
 ### UX
 - **Cmd+Shift+O** — global hotkey to show/hide
 - **Menu bar** icon with all actions
-- **Minimizes** to tiny floating ASCII icon
+- **Close window** and pet walks across screen as a pixel character
 - **Up/Down arrows** for command history
 - **Git status** auto-detected in UI
 - **Quick action buttons:** Commit, Tests, Explain, Review
@@ -406,7 +365,7 @@ Unlock badges for milestones — first command, 100 commands, commits, streaks, 
 | `/pomo10` | 10 min pomodoro |
 | `/break` | 5 min break |
 | `/stoppomo` | Stop timer |
-| `/skin <name>` | robot/cat/skull/clippy |
+| `/skin <name>` | robot/cat/skull/minion |
 | `/theme <name>` | matrix/cyberpunk/sunset/ocean/hacker |
 | `EN <text>` | Translate to English |
 | `RU <text>` | Translate to Russian |

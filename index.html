@@ -3,15 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Agent-O -- Your ASCII Desktop Companion for AI Coding</title>
-    <meta name="description" content="A native macOS floating Tamagotchi for Claude CLI & Codex CLI. Train specialist AI pets, rent them in the marketplace, and grow skill-based reputation.">
-    <meta property="og:title" content="Agent-O -- ASCII Desktop Companion">
-    <meta property="og:description" content="Train specialist AI pets from real prompts, rent them in the marketplace, and build a skill-based AI pet economy.">
+    <title>Agent-O -- Pixel Art Desktop Pet for AI Coding</title>
+    <meta name="description" content="A native macOS pixel art desktop pet for Claude CLI & Codex CLI. Walks across your screen, trains from your workflow, and keeps you company.">
+    <meta property="og:title" content="Agent-O -- Pixel Art Desktop Pet">
+    <meta property="og:description" content="Pixel art desktop companion that walks across your screen. Train specialist AI pets, rent them in the marketplace.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://egorfedorov.github.io/agentO/">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="Agent-O -- ASCII Desktop Companion">
-    <meta name="twitter:description" content="Train specialist AI pets from your daily workflow and rent them in a skill-based marketplace.">
+    <meta name="twitter:title" content="Agent-O -- Pixel Art Desktop Pet">
+    <meta name="twitter:description" content="Pixel art desktop companion that walks, jumps, and talks. Train it from your daily coding workflow.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -197,6 +197,98 @@
             margin-bottom: 2.5rem;
             animation: float 4s ease-in-out infinite, pulse-glow 4s ease-in-out infinite;
             user-select: none;
+            display: none;
+        }
+
+        /* Pixel Art Robot */
+        .pixel-pet-container {
+            margin-bottom: 2.5rem;
+            position: relative;
+            height: 160px;
+            width: 300px;
+            overflow: visible;
+        }
+
+        .pixel-pet {
+            position: absolute;
+            animation: pet-walk 6s linear infinite;
+            filter: drop-shadow(0 0 12px rgba(77, 212, 230, 0.4));
+        }
+
+        @keyframes pet-walk {
+            0% { left: -60px; }
+            45% { left: 260px; transform: scaleX(1); }
+            50% { left: 260px; transform: scaleX(-1); }
+            95% { left: -60px; transform: scaleX(-1); }
+            100% { left: -60px; transform: scaleX(1); }
+        }
+
+        .pixel-grid {
+            display: grid;
+            grid-template-columns: repeat(16, 8px);
+            grid-template-rows: repeat(16, 8px);
+            image-rendering: pixelated;
+        }
+
+        .pixel-grid span {
+            width: 8px;
+            height: 8px;
+        }
+
+        .pixel-pet .frame2 { display: none; }
+        .pixel-pet .frame1 { display: grid; }
+
+        @keyframes sprite-swap {
+            0%, 49% { }
+            50%, 100% { }
+        }
+
+        /* Sprite swap via CSS animation */
+        .pixel-pet {
+            animation: pet-walk 6s linear infinite, pet-bounce 0.6s ease-in-out infinite;
+        }
+
+        @keyframes pet-bounce {
+            0%, 100% { margin-top: 0; }
+            50% { margin-top: -8px; }
+        }
+
+        /* Speech bubble */
+        .pet-bubble {
+            position: absolute;
+            top: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-card);
+            border: 1px solid var(--cyan);
+            border-radius: 8px;
+            padding: 4px 10px;
+            font-size: 0.7rem;
+            color: var(--cyan);
+            white-space: nowrap;
+            animation: bubble-pop 4s ease-in-out infinite;
+            pointer-events: none;
+        }
+
+        @keyframes bubble-pop {
+            0%, 20% { opacity: 0; transform: translateX(-50%) translateY(5px); }
+            30%, 70% { opacity: 1; transform: translateX(-50%) translateY(0); }
+            80%, 100% { opacity: 0; transform: translateX(-50%) translateY(-5px); }
+        }
+
+        /* Walking pet demo strip */
+        .walking-demo {
+            width: 100%;
+            max-width: 800px;
+            height: 80px;
+            position: relative;
+            margin: 0 auto 1rem;
+            border-bottom: 2px solid var(--border-hover);
+            overflow: hidden;
+        }
+
+        .walking-demo .pixel-pet {
+            top: 16px;
         }
 
         .hero-title {
@@ -750,27 +842,17 @@
 
 <!-- ========== HERO ========== -->
 <div class="hero">
-    <div class="hero-ascii">
-        ┌┤████├┐
-    ┌────┤ ▓▓▓▓ ├────┐
-    │  ╔═════════╗   │
-    │  ║  O   O  ║   │
-    │  ║    ═    ║   │
-    │  ║  └───┘  ║   │
-    │  ╚═════════╝   │
-    └───────┬────────┘
-      ┌─────┴──────┐
-      │  AGENT-O   │
-      │ ░░░░░░░░░░ │
-      └─────┬──────┘
-        ┌───┴───┐
-        █       █
-       ═╧═     ═╧═</div>
+    <div class="pixel-pet-container">
+        <div class="pixel-pet" id="heroPet">
+            <div class="pet-bubble">Hello! Let's code!</div>
+            <canvas id="petCanvas" width="128" height="128" style="image-rendering: pixelated; width: 128px; height: 128px;"></canvas>
+        </div>
+    </div>
 
     <h1 class="hero-title gradient-text">Agent-O</h1>
     <p class="hero-tagline">
-        Your <strong>ASCII Desktop Companion</strong> for Claude CLI &amp; Codex CLI
-        with tactical duels, social pet rentals, and a trainable AI pet brain.
+        Your <strong>Pixel Art Desktop Pet</strong> for Claude CLI &amp; Codex CLI.
+        Walks across your screen, jumps, talks, and keeps you company while you code.
     </p>
 
     <div class="hero-cta">
@@ -832,25 +914,25 @@
 <!-- ========== NEW IN V6.2.0 ========== -->
 <section>
     <div class="container">
-        <span class="section-label">New in v6.2.0</span>
-        <h2 class="section-heading">Big social update: <span class="gradient-text">fight, rent, train</span></h2>
-        <p class="section-desc">Agent-O is now a multiplayer coding companion with tactical duels, a public pet rental market, and a real training loop for your pet's memory.</p>
+        <span class="section-label">New in v7.x</span>
+        <h2 class="section-heading">Pixel art pets that <span class="gradient-text">walk your screen</span></h2>
+        <p class="section-desc">Agent-O characters are now pixel art sprites. Close the window and your pet walks across the screen at dock level with jumps, speech bubbles, and personality.</p>
 
         <div class="release-grid">
             <div class="release-card">
-                <h3>&#9876; Tactical Duel System</h3>
-                <p>Battle flow is now challenge-based. Opponent must accept, then both players pick attack and defense zones (head/body/legs).</p>
-                <code>/battle username -> /accept username -> /move head body</code>
+                <h3>&#127912; Pixel Art Characters</h3>
+                <p>16x16 pixel sprites for Robot, Cat, Skull, and Minion. Each with unique two-frame walk animation cycles.</p>
+                <code>/skin robot | /skin cat | /skin skull | /skin minion</code>
             </div>
             <div class="release-card">
-                <h3>&#127970; Pet Marketplace Rentals</h3>
-                <p>Publish your pet listing, rent other pets, track active and completed rentals, and view everything on a web marketplace.</p>
-                <code>/rent publish 50 7 CyberCat | /rent take owner 3</code>
+                <h3>&#128694; Walking Desktop Pet</h3>
+                <p>Close the window and your pet walks across the screen. Drag it anywhere, click to park, double-click to reopen.</p>
+                <code>close window -> pet walks -> click to park -> double-click to open</code>
             </div>
             <div class="release-card">
-                <h3>&#129504; Training Dashboard</h3>
-                <p>See training score, prompt quality, learned patterns, and continuously improve your pet with explicit memory training.</p>
-                <code>/training | /train "I prefer concise patch plans"</code>
+                <h3>&#127760; Better Translation</h3>
+                <p>Switched to MyMemory API with proper URL encoding. Works reliably across all 18 supported languages.</p>
+                <code>EN privet | RU hello | ES hola</code>
             </div>
         </div>
     </div>
@@ -975,7 +1057,7 @@
             <div class="feature-card">
                 <span class="feature-icon">&#127912;</span>
                 <h3>Customization</h3>
-                <p>4 unique ASCII skins (Robot, Cat, Skull, Clippy) and 5 color themes. Make it yours.</p>
+                <p>4 pixel art skins (Robot, Cat, Skull, Minion) and 5 color themes. Each skin has unique walk animations.</p>
             </div>
 
             <div class="feature-card">
@@ -1112,14 +1194,10 @@
 
 <!-- ========== FOOTER ========== -->
 <footer>
-    <div class="footer-ascii">
-    ┌┤██├┐
-┌───┤ ▓▓ ├───┐
-│ ╔═══════╗  │
-│ ║ O   O ║  │
-│ ║ └───┘ ║  │
-│ ╚═══════╝  │
-└──────┬──────┘</div>
+    <div class="footer-ascii" style="font-size:0.6rem;opacity:0.3;">
+    [  O  O  ]
+    [ -___- ]
+    [_______]</div>
     <p>
         <a href="https://github.com/egorfedorov/agentO">GitHub</a>
         &nbsp;&middot;&nbsp;
@@ -1134,9 +1212,59 @@
         MIT License
     </p>
     <p style="margin-top:0.75rem;opacity:0.5;">
-        Built with ASCII art and love. Agent-O was generated entirely by AI.
+        Built with pixel art and love. Agent-O was generated entirely by AI.
     </p>
 </footer>
 
+<script>
+// Pixel art robot sprite - 16x16
+const robotFrame1 = [
+  0,0,0,0,0,0,0x4dd4e6,0x4dd4e6,0x4dd4e6,0,0,0,0,0,0,0,
+  0,0,0,0,0x4dd4e6,0x4dd4e6,0x4dd4e6,0x4dd4e6,0x4dd4e6,0x4dd4e6,0x4dd4e6,0,0,0,0,0,
+  0,0,0,0x4dd4e6,0x4dd4e6,0x4dd4e6,0x4dd4e6,0x4dd4e6,0x4dd4e6,0x4dd4e6,0x4dd4e6,0x4dd4e6,0,0,0,0,
+  0,0,0,0x4dd4e6,0x4dd4e6,0x00ffff,0x00ffff,0x4dd4e6,0x00ffff,0x00ffff,0x4dd4e6,0x4dd4e6,0,0,0,0,
+  0,0,0,0x4dd4e6,0x4dd4e6,0x4dd4e6,0x4dd4e6,0x4dd4e6,0x4dd4e6,0x4dd4e6,0x4dd4e6,0x4dd4e6,0,0,0,0,
+  0,0,0,0,0x4dd4e6,0x4dd4e6,0x333333,0x333333,0x333333,0x4dd4e6,0x4dd4e6,0,0,0,0,0,
+  0,0,0,0,0,0x4dd4e6,0x4dd4e6,0x4dd4e6,0x4dd4e6,0x4dd4e6,0,0,0,0,0,0,
+  0,0,0,0,0x4dd4e6,0x4dd4e6,0x4dd4e6,0x4dd4e6,0x4dd4e6,0x4dd4e6,0x4dd4e6,0,0,0,0,0,
+  0,0,0x4dd4e6,0x4dd4e6,0x4dd4e6,0x4dd4e6,0x4dd4e6,0x4dd4e6,0x4dd4e6,0x4dd4e6,0x4dd4e6,0x4dd4e6,0x4dd4e6,0,0,0,
+  0,0,0x4dd4e6,0x4dd4e6,0x4dd4e6,0x00ffff,0x4dd4e6,0x4dd4e6,0x4dd4e6,0x00ffff,0x4dd4e6,0x4dd4e6,0x4dd4e6,0,0,0,
+  0,0,0,0x4dd4e6,0x4dd4e6,0x4dd4e6,0x4dd4e6,0x4dd4e6,0x4dd4e6,0x4dd4e6,0x4dd4e6,0x4dd4e6,0,0,0,0,
+  0,0,0,0,0x4dd4e6,0x4dd4e6,0x4dd4e6,0x4dd4e6,0x4dd4e6,0x4dd4e6,0x4dd4e6,0,0,0,0,0,
+  0,0,0,0,0,0x4dd4e6,0x4dd4e6,0x4dd4e6,0x4dd4e6,0x4dd4e6,0,0,0,0,0,0,
+  0,0,0,0,0,0x4dd4e6,0,0,0,0x4dd4e6,0,0,0,0,0,0,
+  0,0,0,0,0x4dd4e6,0x4dd4e6,0,0,0,0x4dd4e6,0x4dd4e6,0,0,0,0,0,
+  0,0,0,0x4dd4e6,0x4dd4e6,0,0,0,0,0,0x4dd4e6,0x4dd4e6,0,0,0,0,
+];
+
+function renderPixelSprite(canvas, sprite) {
+  const ctx = canvas.getContext('2d');
+  const scale = 8;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  for (let i = 0; i < 256; i++) {
+    if (sprite[i]) {
+      const x = (i % 16) * scale;
+      const y = Math.floor(i / 16) * scale;
+      const c = sprite[i];
+      ctx.fillStyle = '#' + c.toString(16).padStart(6, '0');
+      ctx.fillRect(x, y, scale, scale);
+    }
+  }
+}
+
+const canvas = document.getElementById('petCanvas');
+if (canvas) renderPixelSprite(canvas, robotFrame1);
+
+// Rotate speech bubbles
+const bubbles = ['Hello! Let\'s code!', 'Feed me commits!', '/skin cat', 'I can walk!', 'Double-click me!', 'Cmd+Shift+O'];
+let bubbleIdx = 0;
+const bubbleEl = document.querySelector('.pet-bubble');
+if (bubbleEl) {
+  setInterval(() => {
+    bubbleIdx = (bubbleIdx + 1) % bubbles.length;
+    bubbleEl.textContent = bubbles[bubbleIdx];
+  }, 4000);
+}
+</script>
 </body>
 </html>
