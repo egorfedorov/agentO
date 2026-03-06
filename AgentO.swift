@@ -38,6 +38,7 @@ enum AgentSkin: String, CaseIterable {
     case cat = "Cat"
     case skull = "Skull"
     case minion = "Minion"
+    case claude = "Claude"
 
     var idle: [[String]] {
         switch self {
@@ -45,14 +46,16 @@ enum AgentSkin: String, CaseIterable {
         case .cat: return [AgentArt.Cat.idle1, AgentArt.Cat.idle2]
         case .skull: return [AgentArt.Skull.idle1, AgentArt.Skull.idle2]
         case .minion: return [AgentArt.Minion.idle1, AgentArt.Minion.idle2]
+        case .claude: return [AgentArt.Robot.idle1, AgentArt.Robot.idle2]  // fallback ASCII
         }
     }
-    var thinking: [[String]] { // returns array of frame-lines
+    var thinking: [[String]] {
         switch self {
         case .robot: return [AgentArt.Robot.think1, AgentArt.Robot.think2]
         case .cat: return [AgentArt.Cat.think1, AgentArt.Cat.think2]
         case .skull: return [AgentArt.Skull.think1, AgentArt.Skull.think2]
         case .minion: return [AgentArt.Minion.think1, AgentArt.Minion.think2]
+        case .claude: return [AgentArt.Robot.think1, AgentArt.Robot.think2]
         }
     }
     var happy: [String] {
@@ -61,6 +64,7 @@ enum AgentSkin: String, CaseIterable {
         case .cat: return AgentArt.Cat.happy
         case .skull: return AgentArt.Skull.happy
         case .minion: return AgentArt.Minion.happy
+        case .claude: return AgentArt.Robot.happy
         }
     }
     var sleeping: [[String]] {
@@ -69,6 +73,7 @@ enum AgentSkin: String, CaseIterable {
         case .cat: return [AgentArt.Cat.sleep1, AgentArt.Cat.sleep2]
         case .skull: return [AgentArt.Skull.sleep1, AgentArt.Skull.sleep2]
         case .minion: return [AgentArt.Minion.sleep1, AgentArt.Minion.sleep2]
+        case .claude: return [AgentArt.Robot.sleep1, AgentArt.Robot.sleep2]
         }
     }
     var error: [String] {
@@ -77,6 +82,7 @@ enum AgentSkin: String, CaseIterable {
         case .cat: return AgentArt.Cat.error
         case .skull: return AgentArt.Skull.error
         case .minion: return AgentArt.Minion.error
+        case .claude: return AgentArt.Robot.error
         }
     }
     var typing: [[String]] {
@@ -85,6 +91,7 @@ enum AgentSkin: String, CaseIterable {
         case .cat: return [AgentArt.Cat.type1, AgentArt.Cat.type2]
         case .skull: return [AgentArt.Skull.type1, AgentArt.Skull.type2]
         case .minion: return [AgentArt.Minion.type1, AgentArt.Minion.type2]
+        case .claude: return [AgentArt.Robot.type1, AgentArt.Robot.type2]
         }
     }
     var dance: [[String]] {
@@ -93,6 +100,7 @@ enum AgentSkin: String, CaseIterable {
         case .cat: return [AgentArt.Cat.dance1, AgentArt.Cat.dance2, AgentArt.Cat.dance3]
         case .skull: return [AgentArt.Skull.dance1, AgentArt.Skull.dance2, AgentArt.Skull.dance3]
         case .minion: return [AgentArt.Minion.dance1, AgentArt.Minion.dance2, AgentArt.Minion.dance3]
+        case .claude: return [AgentArt.Robot.dance1, AgentArt.Robot.dance2, AgentArt.Robot.dance3]
         }
     }
     var mini: String {
@@ -101,6 +109,7 @@ enum AgentSkin: String, CaseIterable {
         case .cat: return "[=^.^=]"
         case .skull: return "[☠]"
         case .minion: return "[👾]"
+        case .claude: return "[🤖]"
         }
     }
 }
@@ -265,7 +274,7 @@ struct PixelSprite {
             [T,T,B,Y,B,BL,BL,BL,BL,BL,B,Y,B,T,T,T],  // arms
             [T,T,T,T,B,BL,BL,BL,BL,BL,B,T,T,T,T,T],
             [T,T,T,T,B,BL,B,B,B,BL,B,T,T,T,T,T],  // pocket
-            [T,T,T,T,B,BL,BL,T,BL,BL,B,T,T,T,T],
+            [T,T,T,T,B,BL,BL,T,BL,BL,B,T,T,T,T,T],
             [T,T,T,T,T,B,B,T,T,B,B,T,T,T,T,T],  // legs
             [T,T,T,T,B,B,T,T,T,B,B,T,T,T,T,T],  // shoes
         ]
@@ -286,9 +295,124 @@ struct PixelSprite {
             [T,T,B,Y,B,BL,BL,BL,BL,BL,B,Y,B,T,T,T],
             [T,T,T,T,B,BL,BL,BL,BL,BL,B,T,T,T,T,T],
             [T,T,T,T,B,BL,B,B,B,BL,B,T,T,T,T,T],
-            [T,T,T,T,B,BL,BL,T,BL,BL,B,T,T,T,T],
+            [T,T,T,T,B,BL,BL,T,BL,BL,B,T,T,T,T,T],
             [T,T,T,T,B,B,T,T,T,B,B,T,T,T,T,T],
             [T,T,T,T,T,B,B,T,B,B,T,T,T,T,T,T],  // feet swapped
+        ]
+    }()
+
+    // ========== CLAUDE (Anthropic mascot — orange with ears) ==========
+    // Colors: #E07C4C body, #C06838 darker, #1A1A2E outline/eyes
+
+    static let claudeWalk1: [[UInt32]] = {
+        let T = C, B: UInt32 = 0x1A1A2E, O: UInt32 = 0xE07C4C, OD: UInt32 = 0xC06838
+        return [
+            [T,T,T,B,B,T,T,T,T,T,T,B,B,T,T,T],  // ear tips
+            [T,T,T,B,O,B,T,T,T,T,B,O,B,T,T,T],  // ears
+            [T,T,T,T,B,B,B,B,B,B,B,B,T,T,T,T],  // head top
+            [T,T,T,B,O,O,O,O,O,O,O,O,B,T,T,T],
+            [T,T,B,O,O,O,O,O,O,O,O,O,O,B,T,T],  // head
+            [T,T,B,O,O,B,B,O,O,B,B,O,O,B,T,T],  // eyes
+            [T,T,B,O,O,B,B,O,O,B,B,O,O,B,T,T],  // eyes lower
+            [T,T,B,O,O,O,O,O,O,O,O,O,O,B,T,T],  // face
+            [T,T,T,B,O,O,O,O,O,O,O,O,B,T,T,T],
+            [T,T,T,T,B,B,B,B,B,B,B,B,T,T,T,T],  // neck
+            [T,B,OD,B,O,O,O,O,O,O,O,O,B,OD,B,T],  // body + arms
+            [T,T,T,B,O,O,O,O,O,O,O,O,B,T,T,T],
+            [T,T,T,B,O,O,O,O,O,O,O,O,B,T,T,T],  // body
+            [T,T,T,T,B,O,O,O,O,O,O,B,T,T,T,T],
+            [T,T,T,T,B,O,B,T,T,B,O,B,T,T,T,T],  // legs
+            [T,T,T,B,O,O,B,T,T,B,O,O,B,T,T,T],  // feet
+        ]
+    }()
+
+    static let claudeWalk2: [[UInt32]] = {
+        let T = C, B: UInt32 = 0x1A1A2E, O: UInt32 = 0xE07C4C, OD: UInt32 = 0xC06838
+        return [
+            [T,T,T,B,B,T,T,T,T,T,T,B,B,T,T,T],
+            [T,T,T,B,O,B,T,T,T,T,B,O,B,T,T,T],
+            [T,T,T,T,B,B,B,B,B,B,B,B,T,T,T,T],
+            [T,T,T,B,O,O,O,O,O,O,O,O,B,T,T,T],
+            [T,T,B,O,O,O,O,O,O,O,O,O,O,B,T,T],
+            [T,T,B,O,O,B,B,O,O,B,B,O,O,B,T,T],
+            [T,T,B,O,O,B,B,O,O,B,B,O,O,B,T,T],
+            [T,T,B,O,O,O,O,O,O,O,O,O,O,B,T,T],
+            [T,T,T,B,O,O,O,O,O,O,O,O,B,T,T,T],
+            [T,T,T,T,B,B,B,B,B,B,B,B,T,T,T,T],
+            [T,B,OD,B,O,O,O,O,O,O,O,O,B,OD,B,T],  // arms wave
+            [T,T,T,B,O,O,O,O,O,O,O,O,B,T,T,T],
+            [T,T,T,B,O,O,O,O,O,O,O,O,B,T,T,T],
+            [T,T,T,T,B,O,O,O,O,O,O,B,T,T,T,T],
+            [T,T,T,T,T,B,O,B,B,O,B,T,T,T,T,T],  // legs swapped
+            [T,T,T,T,B,O,O,B,B,O,O,B,T,T,T,T],  // feet swapped
+        ]
+    }()
+
+    static let claudeBlink: [[UInt32]] = {
+        let T = C, B: UInt32 = 0x1A1A2E, O: UInt32 = 0xE07C4C, OD: UInt32 = 0xC06838
+        return [
+            [T,T,T,B,B,T,T,T,T,T,T,B,B,T,T,T],
+            [T,T,T,B,O,B,T,T,T,T,B,O,B,T,T,T],
+            [T,T,T,T,B,B,B,B,B,B,B,B,T,T,T,T],
+            [T,T,T,B,O,O,O,O,O,O,O,O,B,T,T,T],
+            [T,T,B,O,O,O,O,O,O,O,O,O,O,B,T,T],
+            [T,T,B,O,O,B,B,O,O,B,B,O,O,B,T,T],  // closed eyes (—)
+            [T,T,B,O,O,O,O,O,O,O,O,O,O,B,T,T],  // no lower eye
+            [T,T,B,O,O,O,O,O,O,O,O,O,O,B,T,T],
+            [T,T,T,B,O,O,O,O,O,O,O,O,B,T,T,T],
+            [T,T,T,T,B,B,B,B,B,B,B,B,T,T,T,T],
+            [T,B,OD,B,O,O,O,O,O,O,O,O,B,OD,B,T],
+            [T,T,T,B,O,O,O,O,O,O,O,O,B,T,T,T],
+            [T,T,T,B,O,O,O,O,O,O,O,O,B,T,T,T],
+            [T,T,T,T,B,O,O,O,O,O,O,B,T,T,T,T],
+            [T,T,T,T,B,O,B,T,T,B,O,B,T,T,T,T],
+            [T,T,T,B,O,O,B,T,T,B,O,O,B,T,T,T],
+        ]
+    }()
+
+    static let claudeWorking: [[UInt32]] = {
+        let T = C, B: UInt32 = 0x1A1A2E, O: UInt32 = 0xE07C4C, OD: UInt32 = 0xC06838
+        let DK: UInt32 = 0x8B6914, DG: UInt32 = 0x666666
+        return [
+            [T,T,T,B,B,T,T,T,T,T,T,B,B,T,T,T],
+            [T,T,T,B,O,B,T,T,T,T,B,O,B,T,T,T],
+            [T,T,T,T,B,B,B,B,B,B,B,B,T,T,T,T],
+            [T,T,T,B,O,O,O,O,O,O,O,O,B,T,T,T],
+            [T,T,B,O,O,O,O,O,O,O,O,O,O,B,T,T],
+            [T,T,B,O,O,B,B,O,O,B,B,O,O,B,T,T],  // eyes look down
+            [T,T,B,O,O,O,B,O,O,O,B,O,O,B,T,T],
+            [T,T,B,O,O,O,O,O,O,O,O,O,O,B,T,T],
+            [T,T,T,B,O,O,O,O,O,O,O,O,B,T,T,T],
+            [T,T,T,T,B,B,B,B,B,B,B,B,T,T,T,T],
+            [T,T,T,B,O,O,O,O,O,O,O,O,B,T,T,T],
+            [T,T,T,B,O,O,O,O,O,O,O,O,B,T,T,T],
+            [T,B,DK,DK,DK,DK,DK,DK,DK,DK,DK,DK,DK,DK,B,T],
+            [T,B,DK,DG,DG,DK,DK,DK,DK,DK,DK,DG,DG,DK,B,T],
+            [T,B,DK,DK,DK,DK,DK,DK,DK,DK,DK,DK,DK,DK,B,T],
+            [T,T,B,B,B,B,B,B,B,B,B,B,B,B,T,T],
+        ]
+    }()
+
+    static let claudeSleep: [[UInt32]] = {
+        let T = C, B: UInt32 = 0x1A1A2E, O: UInt32 = 0xE07C4C
+        let Z: UInt32 = 0x88AAFF
+        return [
+            [T,T,T,T,T,T,T,T,T,T,T,T,T,Z,Z,T],
+            [T,T,T,T,T,T,T,T,T,T,T,T,T,T,Z,T],
+            [T,T,T,T,T,T,T,T,T,T,T,T,T,Z,Z,T],
+            [T,T,T,B,B,T,T,T,T,T,T,T,Z,T,Z,T],
+            [T,T,T,B,O,B,B,B,B,B,B,B,T,Z,Z,T],  // ear + head
+            [T,T,B,O,O,O,O,O,O,O,O,O,B,T,T,T],
+            [T,T,B,O,O,B,B,O,O,B,B,O,B,T,T,T],  // closed eyes
+            [T,T,B,O,O,O,O,O,O,O,O,O,B,T,T,T],
+            [T,T,T,B,O,O,O,O,O,O,O,B,T,T,T,T],
+            [T,T,B,O,O,O,O,O,O,O,O,O,B,T,T,T],  // body curl
+            [T,B,O,O,O,O,O,O,O,O,O,O,O,B,T,T],
+            [T,B,O,O,O,O,O,O,O,O,O,O,O,B,T,T],
+            [T,B,O,O,O,O,O,O,O,O,O,O,O,B,T,T],
+            [T,T,B,O,O,O,O,O,O,O,O,O,B,T,T,T],
+            [T,T,T,B,B,B,B,B,B,B,B,B,T,T,T,T],
+            [T,T,T,T,T,T,T,T,T,T,T,T,T,T,T,T],
         ]
     }()
 
@@ -387,6 +511,60 @@ struct PixelSprite {
         ]
     }()
 
+    // ========== POOP SPRITE ==========
+    static let poop: [[UInt32]] = {
+        let T: UInt32 = 0x00000000  // transparent
+        let B: UInt32 = 0x3B2714    // dark brown outline
+        let P: UInt32 = 0x8B6914    // poop brown
+        let L: UInt32 = 0xA0822A    // lighter brown highlight
+        let S: UInt32 = 0x6B9B3A    // stink green
+        return [
+            [T,T,T,T,T,T,S,T,T,S,T,T,T,T,T,T],
+            [T,T,T,T,T,S,T,T,S,T,T,T,T,T,T,T],
+            [T,T,T,T,T,T,S,T,T,S,T,T,T,T,T,T],
+            [T,T,T,T,T,T,T,B,B,T,T,T,T,T,T,T],
+            [T,T,T,T,T,T,B,L,L,B,T,T,T,T,T,T],
+            [T,T,T,T,T,T,T,B,B,T,T,T,T,T,T,T],
+            [T,T,T,T,T,B,B,P,P,B,B,T,T,T,T,T],
+            [T,T,T,T,B,L,P,P,P,P,L,B,T,T,T,T],
+            [T,T,T,T,T,B,P,P,P,P,B,T,T,T,T,T],
+            [T,T,T,B,B,P,P,P,P,P,P,B,B,T,T,T],
+            [T,T,B,L,P,P,P,P,P,P,P,P,L,B,T,T],
+            [T,T,B,P,P,P,P,P,P,P,P,P,P,B,T,T],
+            [T,B,L,P,P,P,P,P,P,P,P,P,P,L,B,T],
+            [T,B,P,P,P,P,P,P,P,P,P,P,P,P,B,T],
+            [T,B,P,P,P,P,P,P,P,P,P,P,P,P,B,T],
+            [T,T,B,B,B,B,B,B,B,B,B,B,B,B,T,T],
+        ]
+    }()
+
+    // Stink frame 2 (wavy lines shifted)
+    static let poopStink2: [[UInt32]] = {
+        let T: UInt32 = 0x00000000
+        let B: UInt32 = 0x3B2714
+        let P: UInt32 = 0x8B6914
+        let L: UInt32 = 0xA0822A
+        let S: UInt32 = 0x6B9B3A
+        return [
+            [T,T,T,T,T,S,T,T,S,T,T,T,T,T,T,T],
+            [T,T,T,T,T,T,S,T,T,S,T,T,T,T,T,T],
+            [T,T,T,T,T,S,T,T,S,T,T,T,T,T,T,T],
+            [T,T,T,T,T,T,T,B,B,T,T,T,T,T,T,T],
+            [T,T,T,T,T,T,B,L,L,B,T,T,T,T,T,T],
+            [T,T,T,T,T,T,T,B,B,T,T,T,T,T,T,T],
+            [T,T,T,T,T,B,B,P,P,B,B,T,T,T,T,T],
+            [T,T,T,T,B,L,P,P,P,P,L,B,T,T,T,T],
+            [T,T,T,T,T,B,P,P,P,P,B,T,T,T,T,T],
+            [T,T,T,B,B,P,P,P,P,P,P,B,B,T,T,T],
+            [T,T,B,L,P,P,P,P,P,P,P,P,L,B,T,T],
+            [T,T,B,P,P,P,P,P,P,P,P,P,P,B,T,T],
+            [T,B,L,P,P,P,P,P,P,P,P,P,P,L,B,T],
+            [T,B,P,P,P,P,P,P,P,P,P,P,P,P,B,T],
+            [T,B,P,P,P,P,P,P,P,P,P,P,P,P,B,T],
+            [T,T,B,B,B,B,B,B,B,B,B,B,B,B,T,T],
+        ]
+    }()
+
     // ========== BLINK SPRITES (eyes closed — horizontal line) ==========
 
     static let robotBlink: [[UInt32]] = {
@@ -471,7 +649,7 @@ struct PixelSprite {
             [T,T,B,Y,B,BL,BL,BL,BL,BL,B,Y,B,T,T,T],
             [T,T,T,T,B,BL,BL,BL,BL,BL,B,T,T,T,T,T],
             [T,T,T,T,B,BL,B,B,B,BL,B,T,T,T,T,T],
-            [T,T,T,T,B,BL,BL,T,BL,BL,B,T,T,T,T],
+            [T,T,T,T,B,BL,BL,T,BL,BL,B,T,T,T,T,T],
             [T,T,T,T,T,B,B,T,T,B,B,T,T,T,T,T],
             [T,T,T,T,B,B,T,T,T,B,B,T,T,T,T,T],
         ]
@@ -609,6 +787,7 @@ extension AgentSkin {
         case .cat: return [PixelSprite.catWalk1, PixelSprite.catWalk2]
         case .skull: return [PixelSprite.skullWalk1, PixelSprite.skullWalk2]
         case .minion: return [PixelSprite.minionWalk1, PixelSprite.minionWalk2]
+        case .claude: return [PixelSprite.claudeWalk1, PixelSprite.claudeWalk2]
         }
     }
 
@@ -618,6 +797,7 @@ extension AgentSkin {
         case .cat: return PixelSprite.catWorking
         case .skull: return PixelSprite.skullWorking
         case .minion: return PixelSprite.minionWorking
+        case .claude: return PixelSprite.claudeWorking
         }
     }
 
@@ -627,6 +807,7 @@ extension AgentSkin {
         case .cat: return PixelSprite.catBlink
         case .skull: return PixelSprite.skullBlink
         case .minion: return PixelSprite.minionBlink
+        case .claude: return PixelSprite.claudeBlink
         }
     }
 
@@ -636,6 +817,7 @@ extension AgentSkin {
         case .cat: return PixelSprite.catSleep
         case .skull: return PixelSprite.skullSleep
         case .minion: return PixelSprite.minionSleep
+        case .claude: return PixelSprite.claudeSleep
         }
     }
 }
@@ -1448,7 +1630,7 @@ class L10n {
         "running_proc":     [.en: "Running processes:", .ru: "Запущенные процессы:"],
         "cmd_history":      [.en: "Command history:", .ru: "История команд:"],
         "skin_changed":     [.en: "Skin changed to", .ru: "Скин изменён на"],
-        "skins_list":       [.en: "Skins: robot, cat, skull, minion", .ru: "Скины: robot, cat, skull, minion"],
+        "skins_list":       [.en: "Skins: robot, cat, skull, minion, claude", .ru: "Скины: robot, cat, skull, minion, claude"],
         "themes_list":      [.en: "Themes: matrix, cyberpunk, sunset, ocean, hacker", .ru: "Темы: matrix, cyberpunk, sunset, ocean, hacker"],
         "theme_changed":    [.en: "Theme:", .ru: "Тема:"],
         "levelup":          [.en: "LEVEL UP! I'm Level", .ru: "УРОВЕНЬ! Я теперь"],
@@ -1710,6 +1892,7 @@ class PetStats {
     var lastUsedDay: String = ""
     var unlockedAchievements: [String] = []
     var triedSkins: [String] = ["Robot"]
+    var activeSkin: String = "robot"
     var gamesWon: Int = 0
     var pomodorosCompleted: Int = 0
     var language: String = "en"
@@ -1862,6 +2045,7 @@ class PetStats {
             "lastUsedDay": lastUsedDay,
             "unlockedAchievements": unlockedAchievements,
             "triedSkins": triedSkins,
+            "activeSkin": activeSkin,
             "gamesWon": gamesWon,
             "pomodorosCompleted": pomodorosCompleted,
             "language": language,
@@ -1901,6 +2085,7 @@ class PetStats {
         stats.lastUsedDay = dict["lastUsedDay"] as? String ?? ""
         stats.unlockedAchievements = dict["unlockedAchievements"] as? [String] ?? []
         stats.triedSkins = dict["triedSkins"] as? [String] ?? ["Robot"]
+        stats.activeSkin = dict["activeSkin"] as? String ?? "robot"
         stats.gamesWon = dict["gamesWon"] as? Int ?? 0
         stats.pomodorosCompleted = dict["pomodorosCompleted"] as? Int ?? 0
         stats.language = dict["language"] as? String ?? "en"
@@ -1926,6 +2111,19 @@ class PetStats {
 }
 
 // MARK: - Drop View
+
+class PoopView: NSView {
+    var onClicked: (() -> Void)?
+    var imageView: NSImageView?
+
+    override func mouseDown(with event: NSEvent) {
+        onClicked?()
+    }
+
+    override func resetCursorRects() {
+        addCursorRect(bounds, cursor: .pointingHand)
+    }
+}
 
 class MiniPetView: NSView {
     var onDoubleClick: (() -> Void)?
@@ -3300,6 +3498,9 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         L10n.lang = Lang(rawValue: pet.language) ?? .en
+        if let savedSkin = AgentSkin.allCases.first(where: { $0.rawValue == pet.activeSkin }) {
+            currentSkin = savedSkin
+        }
         pet.updateStreak()
         playerUsername = UserDefaults.standard.string(forKey: "agento_username") ?? pet.leaderboardUsername
         playerAuthToken = UserDefaults.standard.string(forKey: "agento_player_token") ?? pet.leaderboardToken
@@ -3383,6 +3584,8 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
     @objc func changeSkinMenu(_ sender: NSMenuItem) {
         guard let skin = sender.representedObject as? AgentSkin else { return }
         currentSkin = skin
+        pet.activeSkin = skin.rawValue
+        pet.save()
         updateAgentDisplay()
         bubbleLabel.stringValue = speechBubble("New look! \(skin.rawValue)")
         playSound("Pop")
@@ -3583,6 +3786,8 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
     var miniBubbleHideTimer: Timer?
     var miniChaseMode = false  // cursor chase (Neko mode)
     var miniTripCooldown = 0   // frames until next trip chance
+    var miniPoopCooldown = 0   // frames until next poop chance
+    var poopWindows: [(panel: NSPanel, stinkFrame: Int, stinkTimer: Timer?)] = []
 
     // MARK: - Mini Window (Minimized Mode)
 
@@ -3697,6 +3902,12 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
         miniWalkTimer = nil
         miniSayTimer?.invalidate()
         miniSayTimer = nil
+        // Clean up all poops
+        for poop in poopWindows {
+            poop.stinkTimer?.invalidate()
+            poop.panel.orderOut(nil)
+        }
+        poopWindows.removeAll()
     }
 
     func toggleMiniWalk() {
@@ -3830,6 +4041,15 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
             miniWalkDirection *= -1
         }
 
+        // Poop — ~once every 2-3 minutes (1 in 3600 frames at ~30fps)
+        miniPoopCooldown = max(0, miniPoopCooldown - 1)
+        if miniPoopCooldown == 0 && !miniIsJumping && Int.random(in: 0..<3600) == 0 {
+            miniPoopCooldown = 3600  // cooldown ~2 min
+            dropPoop(at: frame.origin.x + frame.width / 2)
+            showMiniBubble(["Oops...", "*blushes*", "Sorry!", "Hehe...", "Nature calls!"].randomElement()!)
+            pet.happiness = max(0, pet.happiness - 5)
+        }
+
         // Jump physics
         if miniIsJumping {
             miniJumpOffset += miniJumpVelocity
@@ -3913,6 +4133,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
         case .robot: skinReaction = ["*happy beeps*", "Beep boop!", "*whirrs happily*", "< 3"].randomElement()!
         case .skull: skinReaction = ["Hehe~", "*rattles happily*", "Spooky love!", "Ehhehe~"].randomElement()!
         case .minion: skinReaction = ["Banana!", "Hehehe!", "*giggles*", "Bello!"].randomElement()!
+        case .claude: skinReaction = ["*happy hum*", "Thanks!", "That's nice~", "Claude approved!"].randomElement()!
         }
         showMiniBubble(skinReaction)
         pet.happiness = min(100, pet.happiness + 5)
@@ -3967,6 +4188,68 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
                     }
                 }
             }
+        }
+    }
+
+    func dropPoop(at x: CGFloat) {
+        let baseY = NSScreen.main?.visibleFrame.minY ?? 0
+        let poopScale = 4  // smaller than pet
+        let poopSize = 16 * poopScale  // 64px
+        let poopPanel = NSPanel(
+            contentRect: NSRect(x: x - CGFloat(poopSize / 2), y: baseY, width: CGFloat(poopSize), height: CGFloat(poopSize)),
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered, defer: false
+        )
+        poopPanel.isFloatingPanel = true
+        poopPanel.level = .floating
+        poopPanel.backgroundColor = .clear
+        poopPanel.hasShadow = false
+        poopPanel.isOpaque = false
+        poopPanel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+
+        let poopView = PoopView(frame: NSRect(x: 0, y: 0, width: poopSize, height: poopSize))
+        poopView.onClicked = { [weak self, weak poopPanel] in
+            guard let self = self, let panel = poopPanel else { return }
+            self.cleanPoop(panel)
+        }
+        let img = PixelSprite.render(PixelSprite.poop, scale: poopScale)
+        let imgView = NSImageView(frame: NSRect(x: 0, y: 0, width: poopSize, height: poopSize))
+        imgView.image = img
+        imgView.imageScaling = .scaleNone
+        poopView.addSubview(imgView)
+        poopView.imageView = imgView
+        poopPanel.contentView = poopView
+        poopPanel.orderFront(nil)
+
+        // Stink animation timer — alternate sprites every 0.5s
+        var stinkFrame = 0
+        let stinkTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak poopView] _ in
+            guard let pv = poopView else { return }
+            stinkFrame = (stinkFrame + 1) % 2
+            let sprite = stinkFrame == 0 ? PixelSprite.poop : PixelSprite.poopStink2
+            pv.imageView?.image = PixelSprite.render(sprite, scale: poopScale)
+        }
+
+        poopWindows.append((panel: poopPanel, stinkFrame: 0, stinkTimer: stinkTimer))
+    }
+
+    func cleanPoop(_ panel: NSPanel) {
+        // Poof effect then remove
+        showMiniBubble(["Clean!", "All tidy!", "*scrubs*", "Sparkle~"].randomElement()!)
+        pet.happiness = min(100, pet.happiness + 3)
+
+        // Quick poof animation
+        NSAnimationContext.runAnimationGroup({ ctx in
+            ctx.duration = 0.3
+            panel.animator().alphaValue = 0
+        }, completionHandler: {
+            panel.orderOut(nil)
+        })
+
+        // Remove from tracking
+        if let idx = poopWindows.firstIndex(where: { $0.panel === panel }) {
+            poopWindows[idx].stinkTimer?.invalidate()
+            poopWindows.remove(at: idx)
         }
     }
 
@@ -5476,6 +5759,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
                 let skinName = String(cmd.dropFirst(6)).lowercased()
                 if let skin = AgentSkin.allCases.first(where: { $0.rawValue.lowercased() == skinName }) {
                     currentSkin = skin
+                    pet.activeSkin = skin.rawValue
                     if !pet.triedSkins.contains(skin.rawValue) {
                         pet.triedSkins.append(skin.rawValue)
                     }
@@ -5486,7 +5770,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
                     processAchievements()
                     pet.save()
                 } else {
-                    appendColored("❌ Skins: robot, cat, skull, minion\n\n", color: cRed)
+                    appendColored("❌ Skins: robot, cat, skull, minion, claude\n\n", color: cRed)
                 }
                 return true
             }
