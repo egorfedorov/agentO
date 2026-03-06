@@ -37,14 +37,14 @@ enum AgentSkin: String, CaseIterable {
     case robot = "Robot"
     case cat = "Cat"
     case skull = "Skull"
-    case clippy = "Clippy"
+    case minion = "Minion"
 
     var idle: [[String]] {
         switch self {
         case .robot: return [AgentArt.Robot.idle1, AgentArt.Robot.idle2]
         case .cat: return [AgentArt.Cat.idle1, AgentArt.Cat.idle2]
         case .skull: return [AgentArt.Skull.idle1, AgentArt.Skull.idle2]
-        case .clippy: return [AgentArt.Clippy.idle1, AgentArt.Clippy.idle2]
+        case .minion: return [AgentArt.Minion.idle1, AgentArt.Minion.idle2]
         }
     }
     var thinking: [[String]] { // returns array of frame-lines
@@ -52,7 +52,7 @@ enum AgentSkin: String, CaseIterable {
         case .robot: return [AgentArt.Robot.think1, AgentArt.Robot.think2]
         case .cat: return [AgentArt.Cat.think1, AgentArt.Cat.think2]
         case .skull: return [AgentArt.Skull.think1, AgentArt.Skull.think2]
-        case .clippy: return [AgentArt.Clippy.think1, AgentArt.Clippy.think2]
+        case .minion: return [AgentArt.Minion.think1, AgentArt.Minion.think2]
         }
     }
     var happy: [String] {
@@ -60,7 +60,7 @@ enum AgentSkin: String, CaseIterable {
         case .robot: return AgentArt.Robot.happy
         case .cat: return AgentArt.Cat.happy
         case .skull: return AgentArt.Skull.happy
-        case .clippy: return AgentArt.Clippy.happy
+        case .minion: return AgentArt.Minion.happy
         }
     }
     var sleeping: [[String]] {
@@ -68,7 +68,7 @@ enum AgentSkin: String, CaseIterable {
         case .robot: return [AgentArt.Robot.sleep1, AgentArt.Robot.sleep2]
         case .cat: return [AgentArt.Cat.sleep1, AgentArt.Cat.sleep2]
         case .skull: return [AgentArt.Skull.sleep1, AgentArt.Skull.sleep2]
-        case .clippy: return [AgentArt.Clippy.sleep1, AgentArt.Clippy.sleep2]
+        case .minion: return [AgentArt.Minion.sleep1, AgentArt.Minion.sleep2]
         }
     }
     var error: [String] {
@@ -76,7 +76,7 @@ enum AgentSkin: String, CaseIterable {
         case .robot: return AgentArt.Robot.error
         case .cat: return AgentArt.Cat.error
         case .skull: return AgentArt.Skull.error
-        case .clippy: return AgentArt.Clippy.error
+        case .minion: return AgentArt.Minion.error
         }
     }
     var typing: [[String]] {
@@ -84,7 +84,7 @@ enum AgentSkin: String, CaseIterable {
         case .robot: return [AgentArt.Robot.type1, AgentArt.Robot.type2]
         case .cat: return [AgentArt.Cat.type1, AgentArt.Cat.type2]
         case .skull: return [AgentArt.Skull.type1, AgentArt.Skull.type2]
-        case .clippy: return [AgentArt.Clippy.type1, AgentArt.Clippy.type2]
+        case .minion: return [AgentArt.Minion.type1, AgentArt.Minion.type2]
         }
     }
     var dance: [[String]] {
@@ -92,7 +92,7 @@ enum AgentSkin: String, CaseIterable {
         case .robot: return [AgentArt.Robot.dance1, AgentArt.Robot.dance2, AgentArt.Robot.dance3]
         case .cat: return [AgentArt.Cat.dance1, AgentArt.Cat.dance2, AgentArt.Cat.dance3]
         case .skull: return [AgentArt.Skull.dance1, AgentArt.Skull.dance2, AgentArt.Skull.dance3]
-        case .clippy: return [AgentArt.Clippy.dance1, AgentArt.Clippy.dance2, AgentArt.Clippy.dance3]
+        case .minion: return [AgentArt.Minion.dance1, AgentArt.Minion.dance2, AgentArt.Minion.dance3]
         }
     }
     var mini: String {
@@ -100,7 +100,7 @@ enum AgentSkin: String, CaseIterable {
         case .robot: return "[◉‿◉]"
         case .cat: return "[=^.^=]"
         case .skull: return "[☠]"
-        case .clippy: return "[📎]"
+        case .minion: return "[👾]"
         }
     }
 }
@@ -248,7 +248,7 @@ struct PixelSprite {
         ]
     }()
 
-    // ========== CLIPPY → MINION ==========
+    // ========== MINION ==========
     static let minionWalk1: [[UInt32]] = {
         let T = C, B: UInt32 = 0x1A1A2E, Y: UInt32 = 0xFDD835, YD: UInt32 = 0xE6C030, W: UInt32 = 0xFFFFFF, G: UInt32 = 0x999999, BL: UInt32 = 0x1565C0, BLD: UInt32 = 0x0D47A1
         return [
@@ -292,6 +292,101 @@ struct PixelSprite {
         ]
     }()
 
+    // ========== WORKING SPRITES (at desk) ==========
+    // Each character sitting behind a brown desk — top half same as walk1, bottom 4 rows replaced with desk
+
+    static let robotWorking: [[UInt32]] = {
+        let T = C, B: UInt32 = 0x1A1A2E, W: UInt32 = 0xFFFFFF, CY: UInt32 = 0x4ECDC4, CD: UInt32 = 0x3AA89F, G: UInt32 = 0x56E39F
+        let DK: UInt32 = 0x8B6914, DG: UInt32 = 0x666666  // desk colors
+        return [
+            [T,T,T,T,T,T,T,B,B,T,T,T,T,T,T,T],
+            [T,T,T,T,T,T,B,G,G,B,T,T,T,T,T,T],
+            [T,T,T,T,B,B,B,B,B,B,B,B,T,T,T,T],
+            [T,T,T,B,W,W,W,W,W,W,W,W,B,T,T,T],
+            [T,T,B,W,W,W,W,W,W,W,W,W,W,B,T,T],
+            [T,T,B,W,W,B,B,W,W,B,B,W,W,B,T,T],  // eyes looking down
+            [T,T,B,W,W,W,B,W,W,W,B,W,W,B,T,T],
+            [T,T,B,W,W,W,W,W,W,W,W,W,W,B,T,T],
+            [T,T,T,B,W,W,B,B,B,W,W,B,T,T,T,T],
+            [T,T,T,T,B,B,B,B,B,B,B,T,T,T,T,T],
+            [T,T,T,B,CY,CY,CY,CY,CY,CY,CY,B,T,T,T,T],
+            [T,T,B,CY,CY,CY,CY,CY,CY,CY,CY,CY,B,T,T,T],
+            [T,B,DK,DK,DK,DK,DK,DK,DK,DK,DK,DK,DK,DK,B,T],  // desk surface
+            [T,B,DK,DG,DG,DK,DK,DK,DK,DK,DK,DG,DG,DK,B,T],  // desk front
+            [T,B,DK,DK,DK,DK,DK,DK,DK,DK,DK,DK,DK,DK,B,T],  // desk bottom
+            [T,T,B,B,B,B,B,B,B,B,B,B,B,B,T,T],  // desk base
+        ]
+    }()
+
+    static let catWorking: [[UInt32]] = {
+        let T = C, B: UInt32 = 0x1A1A2E, O: UInt32 = 0xF0A040, OL: UInt32 = 0xD08830, W: UInt32 = 0xFFFFFF, P: UInt32 = 0xFF6B8A, R: UInt32 = 0xCC3355
+        let DK: UInt32 = 0x8B6914, DG: UInt32 = 0x666666
+        return [
+            [T,T,T,B,B,T,T,T,T,T,T,B,B,T,T,T],
+            [T,T,B,O,O,B,T,T,T,T,B,O,O,B,T,T],
+            [T,B,O,OL,O,O,B,B,B,B,O,OL,O,O,B,T],
+            [T,B,O,O,O,O,O,O,O,O,O,O,O,O,B,T],
+            [T,B,O,O,B,B,O,O,O,O,B,B,O,O,B,T],
+            [T,B,O,O,B,W,O,O,O,O,B,W,O,O,B,T],  // eyes looking down
+            [T,T,B,O,O,O,O,W,W,O,O,O,O,B,T,T],
+            [T,T,B,O,O,O,W,P,P,W,O,O,O,B,T,T],
+            [T,T,T,B,O,O,O,W,W,O,O,O,B,T,T,T],
+            [T,T,T,T,B,B,R,R,R,R,B,B,T,T,T,T],
+            [T,T,T,B,O,O,O,O,O,O,O,O,B,T,T,T],
+            [T,T,B,O,O,O,O,O,O,O,O,O,O,B,T,T],
+            [T,B,DK,DK,DK,DK,DK,DK,DK,DK,DK,DK,DK,DK,B,T],
+            [T,B,DK,DG,DG,DK,DK,DK,DK,DK,DK,DG,DG,DK,B,T],
+            [T,B,DK,DK,DK,DK,DK,DK,DK,DK,DK,DK,DK,DK,B,T],
+            [T,T,B,B,B,B,B,B,B,B,B,B,B,B,T,T],
+        ]
+    }()
+
+    static let skullWorking: [[UInt32]] = {
+        let T = C, B: UInt32 = 0x1A1A2E, W: UInt32 = 0xFFFFFF, P: UInt32 = 0x8E44AD, PD: UInt32 = 0x6C3483, R: UInt32 = 0xFF4444
+        let DK: UInt32 = 0x8B6914, DG: UInt32 = 0x666666
+        return [
+            [T,T,T,T,T,B,B,B,B,B,B,T,T,T,T,T],
+            [T,T,T,T,B,W,W,W,W,W,W,B,T,T,T,T],
+            [T,T,T,B,W,W,W,W,W,W,W,W,B,T,T,T],
+            [T,T,T,B,W,W,W,W,W,W,W,W,B,T,T,T],
+            [T,T,T,B,B,B,W,W,W,B,B,W,B,T,T,T],
+            [T,T,T,B,R,B,W,W,W,R,B,W,B,T,T,T],
+            [T,T,T,T,B,W,W,B,B,W,W,B,T,T,T,T],
+            [T,T,T,T,B,W,B,W,W,B,W,B,T,T,T,T],
+            [T,T,T,T,T,B,B,B,B,B,B,T,T,T,T,T],
+            [T,T,T,B,B,P,P,P,P,P,P,B,B,T,T,T],
+            [T,T,B,P,P,P,P,P,P,P,P,P,P,B,T,T],
+            [T,B,PD,B,P,P,P,P,P,P,P,B,PD,B,T,T],
+            [T,B,DK,DK,DK,DK,DK,DK,DK,DK,DK,DK,DK,DK,B,T],
+            [T,B,DK,DG,DG,DK,DK,DK,DK,DK,DK,DG,DG,DK,B,T],
+            [T,B,DK,DK,DK,DK,DK,DK,DK,DK,DK,DK,DK,DK,B,T],
+            [T,T,B,B,B,B,B,B,B,B,B,B,B,B,T,T],
+        ]
+    }()
+
+    static let minionWorking: [[UInt32]] = {
+        let T = C, B: UInt32 = 0x1A1A2E, Y: UInt32 = 0xFDD835, W: UInt32 = 0xFFFFFF, G: UInt32 = 0x999999, BL: UInt32 = 0x1565C0
+        let DK: UInt32 = 0x8B6914, DG: UInt32 = 0x666666
+        return [
+            [T,T,T,T,T,B,B,B,B,B,B,T,T,T,T,T],
+            [T,T,T,T,B,Y,Y,Y,Y,Y,Y,B,T,T,T,T],
+            [T,T,T,B,Y,Y,Y,Y,Y,Y,Y,Y,B,T,T,T],
+            [T,T,T,B,Y,G,G,Y,Y,G,G,Y,B,T,T,T],
+            [T,T,T,B,G,W,W,G,G,W,W,G,B,T,T,T],
+            [T,T,T,B,G,W,B,G,G,W,B,G,B,T,T,T],
+            [T,T,T,B,Y,G,G,Y,Y,G,G,Y,B,T,T,T],
+            [T,T,T,T,B,Y,Y,B,B,Y,Y,B,T,T,T,T],
+            [T,T,T,T,T,B,B,B,B,B,B,T,T,T,T,T],
+            [T,T,T,B,BL,BL,BL,BL,BL,BL,BL,B,T,T,T,T],
+            [T,T,B,Y,B,BL,BL,BL,BL,BL,B,Y,B,T,T,T],
+            [T,T,T,T,B,BL,BL,BL,BL,BL,B,T,T,T,T,T],
+            [T,B,DK,DK,DK,DK,DK,DK,DK,DK,DK,DK,DK,DK,B,T],
+            [T,B,DK,DG,DG,DK,DK,DK,DK,DK,DK,DG,DG,DK,B,T],
+            [T,B,DK,DK,DK,DK,DK,DK,DK,DK,DK,DK,DK,DK,B,T],
+            [T,T,B,B,B,B,B,B,B,B,B,B,B,B,T,T],
+        ]
+    }()
+
     // Render pixel sprite to NSImage
     static func render(_ sprite: [[UInt32]], scale: Int = 6) -> NSImage {
         let w = sprite[0].count
@@ -328,7 +423,16 @@ extension AgentSkin {
         case .robot: return [PixelSprite.robotWalk1, PixelSprite.robotWalk2]
         case .cat: return [PixelSprite.catWalk1, PixelSprite.catWalk2]
         case .skull: return [PixelSprite.skullWalk1, PixelSprite.skullWalk2]
-        case .clippy: return [PixelSprite.minionWalk1, PixelSprite.minionWalk2]
+        case .minion: return [PixelSprite.minionWalk1, PixelSprite.minionWalk2]
+        }
+    }
+
+    var pixelWorking: [[UInt32]] {
+        switch self {
+        case .robot: return PixelSprite.robotWorking
+        case .cat: return PixelSprite.catWorking
+        case .skull: return PixelSprite.skullWorking
+        case .minion: return PixelSprite.minionWorking
         }
     }
 }
@@ -849,7 +953,7 @@ struct AgentArt {
         static let dance3 = happy
     }
 
-    struct Clippy {
+    struct Minion {
         static let idle1 = [
             "       ╭─────╮        ",
             "       │ ╭─╮ │        ",
@@ -1141,7 +1245,7 @@ class L10n {
         "running_proc":     [.en: "Running processes:", .ru: "Запущенные процессы:"],
         "cmd_history":      [.en: "Command history:", .ru: "История команд:"],
         "skin_changed":     [.en: "Skin changed to", .ru: "Скин изменён на"],
-        "skins_list":       [.en: "Skins: robot, cat, skull, clippy", .ru: "Скины: robot, cat, skull, clippy"],
+        "skins_list":       [.en: "Skins: robot, cat, skull, minion", .ru: "Скины: robot, cat, skull, minion"],
         "themes_list":      [.en: "Themes: matrix, cyberpunk, sunset, ocean, hacker", .ru: "Темы: matrix, cyberpunk, sunset, ocean, hacker"],
         "theme_changed":    [.en: "Theme:", .ru: "Тема:"],
         "levelup":          [.en: "LEVEL UP! I'm Level", .ru: "УРОВЕНЬ! Я теперь"],
@@ -3238,13 +3342,13 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
     // MARK: - Mini Window (Minimized Mode)
 
     func setupMiniWindow() {
-        let screen = NSScreen.main!.frame  // full screen including dock area
+        let visible = NSScreen.main!.visibleFrame
         let spriteSize: CGFloat = 96   // 16px * 6 scale
         let mw: CGFloat = spriteSize + 8
         let bubbleH: CGFloat = 22
         let mh: CGFloat = spriteSize + bubbleH + 8
         miniWindow = NSPanel(
-            contentRect: NSRect(x: screen.midX - mw / 2, y: 0, width: mw, height: mh),
+            contentRect: NSRect(x: visible.midX - mw / 2, y: visible.minY, width: mw, height: mh),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -3294,7 +3398,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
     var miniJumpOffset: CGFloat = 0
     var miniJumpVelocity: CGFloat = 0
     var miniIsJumping = false
-    var miniBaseY: CGFloat = 0
+    var miniBaseY: CGFloat = NSScreen.main?.visibleFrame.minY ?? 0
     var miniSayTimer: Timer?
     var miniStepCount = 0
 
@@ -3320,7 +3424,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
         miniSayTimer = Timer.scheduledTimer(withTimeInterval: 8, repeats: true) { [weak self] _ in
             self?.miniSayRandom()
         }
-        showMiniBubble("Click me to stop!")
+        showMiniBubble("Walking! Click to park")
     }
 
     func stopMiniWalk() {
@@ -3342,7 +3446,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
             // Walking → Park
             stopMiniWalk()
             miniIsWalking = false
-            showMiniBubble(["Parked!", "Sitting here~", "Okay, staying!", "*plop*"].randomElement()!)
+            showMiniBubble("Parked! Click to walk")
             // Start idle phrases
             miniSayTimer?.invalidate()
             miniSayTimer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in
@@ -3354,7 +3458,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
             miniIsWalking = true
             miniBaseY = miniWindow.frame.origin.y
             miniStepCount = 0
-            showMiniBubble(["Let's go!", "Walking!", "Off I go~", "Wheee!"].randomElement()!)
+            showMiniBubble("Walking! Click to park")
             miniWalkTimer = Timer.scheduledTimer(withTimeInterval: 0.033, repeats: true) { [weak self] _ in
                 self?.stepMiniWalk()
             }
@@ -3366,6 +3470,15 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
     }
 
     func miniSayRandom() {
+        // Contextual status bubbles take priority
+        if pet.hunger < 20 {
+            showMiniBubble(["I'm hungry...", "Feed me!", "So hungry...", "*stomach growls*"].randomElement()!)
+            return
+        }
+        if pet.energy < 20 {
+            showMiniBubble(["So tired...", "Need rest...", "*yawn* sleepy...", "Zzz..."].randomElement()!)
+            return
+        }
         if miniIsWalking {
             showMiniBubble(AgentODelegate.miniWalkPhrases.randomElement() ?? "...")
         } else {
@@ -3424,9 +3537,20 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
 
     func updateMiniAgent() {
         guard miniImageView != nil else { return }
-        let pixFrames = currentSkin.pixelFrames
-        miniAnimFrame = (miniAnimFrame + 1) % pixFrames.count
-        let sprite = pixFrames[miniAnimFrame]
+
+        // Choose sprite based on context
+        let sprite: [[UInt32]]
+        if state == .thinking {
+            sprite = currentSkin.pixelWorking
+        } else if pet.hunger < 20 {
+            sprite = currentSkin.pixelFrames[0]  // normal sprite, status shown via bubble
+        } else if pet.energy < 20 {
+            sprite = currentSkin.pixelFrames[0]  // normal sprite, status shown via bubble
+        } else {
+            let pixFrames = currentSkin.pixelFrames
+            miniAnimFrame = (miniAnimFrame + 1) % pixFrames.count
+            sprite = pixFrames[miniAnimFrame]
+        }
 
         let finalSprite = miniWalkDirection < 0 ? PixelSprite.flipped(sprite) : sprite
         miniImageView.image = PixelSprite.render(finalSprite)
@@ -3630,6 +3754,10 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
     func setState(_ newState: AgentState, duration: TimeInterval? = nil) {
         state = newState
         animate()
+        // Show contextual bubble in mini pet
+        if newState == .thinking && miniWindow != nil && miniWindow.isVisible {
+            showMiniBubble(["Working...", "Processing...", "Thinking...", "On it!"].randomElement()!)
+        }
         if let d = duration {
             DispatchQueue.main.asyncAfter(deadline: .now() + d) { [weak self] in
                 self?.state = .idle
@@ -4933,7 +5061,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
                     processAchievements()
                     pet.save()
                 } else {
-                    appendColored("❌ Skins: robot, cat, skull, clippy\n\n", color: cRed)
+                    appendColored("❌ Skins: robot, cat, skull, minion\n\n", color: cRed)
                 }
                 return true
             }
