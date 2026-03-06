@@ -63,7 +63,7 @@ xattr -cr ~/Downloads/AgentO.app
 - Correct: `/update`, `/battle user`, `/rent publish 50 7 CyberCat`
 - Incorrect: `update`, `!update`
 - Friendly aliases supported: `/help all commands`, `/quests daily quests`
-- Help UX: `/help` shows compact view; `/help ai|tools|pet|social|focus`; `/help all` for full list
+- Help UX: `/help` shows compact view; `/help ai|tools|pet|social|focus`; `/help all` command map; `/help all commands` full catalog
 - Input box supports direct paste (Cmd+V / right-click Paste)
 
 ## Project Vision
@@ -141,6 +141,27 @@ This gives users a path to earn from domain expertise by training high-quality p
 - Matches task intent to specialist pets.
 - Makes expertise discoverable and comparable.
 - Creates a feedback loop where better training leads to better demand.
+
+## New in v6.5.0
+
+### AI Personality + Proactive Suggestions
+- New adaptive memory profile persisted in `~/.agento_memory.json`
+- Tracks command categories, coding-time pattern, and language signals from prompts
+- Personality modes: Helpful, Sarcastic, Zen, Hyper
+- Commands:
+  - `/personality`
+  - `/personality set helpful|sarcastic|zen|hyper`
+  - `/personality auto`
+  - `/suggest`
+
+### Help UX Refresh
+- `/help` stays compact
+- `/help all` now shows a short command map by category
+- `/help all commands` opens full command catalog
+
+### Snippet Export
+- Added `/export` to generate `~/Desktop/agento-snippets.md`
+- Makes snippet knowledge base portable/shareable
 
 ## New in v6.4.0
 
@@ -263,6 +284,7 @@ Unlock badges for milestones — first command, 100 commands, commits, streaks, 
 - `/save` — save the last AI response as a snippet
 - `/snippets` — browse all saved snippets
 - `/search <query>` — fuzzy search through your knowledge base
+- `/export` — export snippets to `~/Desktop/agento-snippets.md`
 
 ### Share Card
 - `/share` — export a beautiful SVG pet card to your Desktop
@@ -295,6 +317,8 @@ Unlock badges for milestones — first command, 100 commands, commits, streaks, 
 - `/teach <fact>` — teach your pet something
 - `/train <fact>` — training alias (+XP)
 - `/training` — learning quality dashboard
+- `/personality` — adaptive personality profile + coding behavior stats
+- `/suggest` — proactive next-step recommendation
 - `/specialist` — show current specialist + confidence signals
 - `/specialist list` — list specialist keys
 - `/specialist set <key>` — lock specialist manually
@@ -392,6 +416,7 @@ Unlock badges for milestones — first command, 100 commands, commits, streaks, 
 | `/save` | Save last response as snippet |
 | `/snippets` | List saved snippets |
 | `/search <q>` | Search snippets |
+| `/export` | Export snippets to Markdown |
 | `/share` | Export pet share card (SVG) |
 | `/screenshot` | Capture & analyze screen area |
 | `/diff` | AI code review of git changes |
@@ -412,6 +437,8 @@ Unlock badges for milestones — first command, 100 commands, commits, streaks, 
 | `/optimizer` | Token optimizer status |
 | `/optimizer aggressive` | Strong token compression mode |
 | `/optimizer off` | Disable optimizer |
+| `/personality` | Show/set adaptive personality profile |
+| `/suggest` | Show proactive recommendation |
 | `/specialist` | Active specialist profile |
 | `/specialist list` | Show specialist keys |
 | `/specialist set <key>` | Lock specialist manually |
@@ -462,7 +489,7 @@ Unlock badges for milestones — first command, 100 commands, commits, streaks, 
 - **Framework:** AppKit (native macOS)
 - **Binary size:** ~50KB
 - **Dependencies:** 0
-- **Persistence:** `~/.agento_pet.json`, `~/.agento_brain.json`
+- **Persistence:** `~/.agento_pet.json`, `~/.agento_brain.json`, `~/.agento_memory.json`
 
 ## License
 

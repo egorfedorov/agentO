@@ -1891,6 +1891,297 @@ class ProviderCostTracker {
     }
 }
 
+enum PersonalityType: String, CaseIterable {
+    case helpful
+    case sarcastic
+    case zen
+    case hyper
+
+    var label: String {
+        switch self {
+        case .helpful: return "Helpful"
+        case .sarcastic: return "Sarcastic"
+        case .zen: return "Zen"
+        case .hyper: return "Hyper"
+        }
+    }
+}
+
+class PersonalityProfile {
+    static let savePath = NSHomeDirectory() + "/.agento_memory.json"
+    static let legacyPath = NSHomeDirectory() + "/.agento_personality.json"
+
+    var manualTypeKey: String?
+    var categoryCounts: [String: Int] = [:]
+    var commandCounts: [String: Int] = [:]
+    var providerCounts: [String: Int] = [:]
+    var languageCounts: [String: Int] = [:]
+    var timeOfDayCounts: [String: Int] = [:]
+    var successfulRuns: Int = 0
+    var failedRuns: Int = 0
+    var promptRuns: Int = 0
+    var fastBurstCount: Int = 0
+    var focusActions: Int = 0
+    var socialActions: Int = 0
+    var helperActions: Int = 0
+    var lastCommandTimestamp: TimeInterval = 0
+
+    var currentType: PersonalityType {
+        if let manual = manualTypeKey, let forced = PersonalityType(rawValue: manual) {
+            return forced
+        }
+        return inferredType()
+    }
+
+    var runCount: Int {
+        return successfulRuns + failedRuns
+    }
+
+    var errorRate: Double {
+        guard runCount > 0 else { return 0 }
+        return Double(failedRuns) / Double(runCount)
+    }
+
+    func activeTimeBucketLabel() -> String {
+        let sorted = timeOfDayCounts.sorted { a, b in
+            if a.value == b.value { return a.key < b.key }
+            return a.value > b.value
+        }
+        guard let top = sorted.first else { return "n/a" }
+        return top.key
+    }
+
+    func topLanguages(limit: Int = 3) -> [(String, Int)] {
+        return languageCounts
+            .sorted { a, b in
+                if a.value == b.value { return a.key < b.key }
+                return a.value > b.value
+            }
+            .prefix(limit)
+            .map { ($0.key, $0.value) }
+    }
+
+    func hourBucket(for date: Date = Date()) -> String {
+        let hour = Calendar.current.component(.hour, from: date)
+        switch hour {
+        case 6..<12: return "morning"
+        case 12..<18: return "day"
+        case 18..<24: return "evening"
+        default: return "night"
+        }
+    }
+
+    func detectLanguages(in input: String) -> [String] {
+        let text = input.lowercased()
+        let lexemes: [String: [String]] = [
+            "swift": ["swift", "xcode", "appkit", "swiftui"],
+            "python": ["python", "py ", "pip", "pytest"],
+            "javascript": ["javascript", "js ", "node", "npm", "pnpm", "tsx"],
+            "typescript": ["typescript", "ts ", "tsconfig", "typecheck"],
+            "go": ["golang", "go ", "go.mod"],
+            "rust": ["rust", "cargo", ".rs"],
+            "cpp": [" c++", "cpp", ".hpp", ".cc", ".cpp"],
+            "java": ["java", "gradle", "maven"],
+            "sql": ["sql", "postgres", "mysql", "sqlite"],
+            "html/css": ["html", "css", "tailwind", "svg"]
+        ]
+        var found: [String] = []
+        for (lang, markers) in lexemes {
+            if markers.contains(where: { text.contains($0) }) {
+                found.append(lang)
+            }
+        }
+        return found
+    }
+
+    func commandCategory(_ input: String) -> String {
+        let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if trimmed.isEmpty { return "prompt" }
+        if !trimmed.hasPrefix("/") { return "prompt" }
+        let token = trimmed.split(separator: " ").first.map(String.init) ?? trimmed
+
+        let focus: Set<String> = ["/pomo", "/pomo10", "/break", "/stoppomo", "/rest"]
+        let social: Set<String> = ["/battle", "/accept", "/decline", "/move", "/battles", "/leaderboard", "/market", "/rent", "/name"]
+        let tools: Set<String> = ["/diff", "/commit", "/test", "/ask", "/screenshot", "/regex", "/sh", "/watch", "/unwatch", "/git", "/ps", "/save", "/snippets", "/search", "/export"]
+        let learn: Set<String> = ["/train", "/teach", "/memory", "/brain", "/promptcoach", "/promptstats", "/training", "/specialist", "/personality", "/suggest", "/optimizer"]
+        let fun: Set<String> = ["/game", "/trivia", "/typing", "/dance", "/quests", "/inventory"]
+
+        if focus.contains(token) { return "focus" }
+        if social.contains(token) { return "social" }
+        if tools.contains(token) { return "tools" }
+        if learn.contains(token) { return "learning" }
+        if fun.contains(token) { return "fun" }
+        if token == "/help" || token == "/version" || token == "/update" || token == "/clear" { return "meta" }
+        if token == "/model" || token == "/models" || token == "/compare" || token == "/usage" || token == "/cost" { return "ai_router" }
+        return "prompt"
+    }
+
+    func recordInput(_ input: String) {
+        let now = Date().timeIntervalSince1970
+        if lastCommandTimestamp > 0 && (now - lastCommandTimestamp) < 15 {
+            fastBurstCount += 1
+        }
+        lastCommandTimestamp = now
+
+        let normalized = input.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if normalized.hasPrefix("/") {
+            let token = normalized.split(separator: " ").first.map(String.init) ?? normalized
+            commandCounts[token, default: 0] += 1
+        }
+
+        let category = commandCategory(input)
+        categoryCounts[category, default: 0] += 1
+        let bucket = hourBucket()
+        timeOfDayCounts[bucket, default: 0] += 1
+
+        let langs = detectLanguages(in: input)
+        for lang in langs {
+            languageCounts[lang, default: 0] += 1
+        }
+
+        if category == "prompt" {
+            promptRuns += 1
+        }
+        if category == "focus" {
+            focusActions += 1
+        }
+        if category == "social" {
+            socialActions += 1
+        }
+        if category == "tools" || category == "learning" {
+            helperActions += 1
+        }
+        save()
+    }
+
+    func recordRun(provider: String, success: Bool) {
+        let key = provider.lowercased()
+        providerCounts[key, default: 0] += 1
+        if success {
+            successfulRuns += 1
+        } else {
+            failedRuns += 1
+        }
+        save()
+    }
+
+    func setManualType(_ type: PersonalityType?) {
+        manualTypeKey = type?.rawValue
+        save()
+    }
+
+    func inferredType() -> PersonalityType {
+        if focusActions >= 12 && errorRate < 0.2 {
+            return .zen
+        }
+        if fastBurstCount >= 25 || promptRuns >= 160 {
+            return .hyper
+        }
+        if failedRuns >= 8 && errorRate >= 0.35 {
+            return .sarcastic
+        }
+        let eveningAndNight = (timeOfDayCounts["evening"] ?? 0) + (timeOfDayCounts["night"] ?? 0)
+        let morningAndDay = (timeOfDayCounts["morning"] ?? 0) + (timeOfDayCounts["day"] ?? 0)
+        if eveningAndNight >= 40 && eveningAndNight > morningAndDay {
+            return .zen
+        }
+        return .helpful
+    }
+
+    func successLine() -> String {
+        switch currentType {
+        case .helpful:
+            return "Nice work. XP secured."
+        case .sarcastic:
+            return "Well, that actually worked."
+        case .zen:
+            return "Flow maintained. Good output."
+        case .hyper:
+            return "Boom! Another win!"
+        }
+    }
+
+    func errorLine() -> String {
+        switch currentType {
+        case .helpful:
+            return "No worries, we can fix this."
+        case .sarcastic:
+            return "Great. Another error. Let's patch it."
+        case .zen:
+            return "Breathe. We debug step by step."
+        case .hyper:
+            return "Error spike! Let's counter-attack."
+        }
+    }
+
+    func thinkingLine() -> String {
+        switch currentType {
+        case .helpful:
+            return "Thinking..."
+        case .sarcastic:
+            return "Thinking, because guessing is expensive..."
+        case .zen:
+            return "Centering context..."
+        case .hyper:
+            return "Turbo thinking..."
+        }
+    }
+
+    func save() {
+        let data: [String: Any] = [
+            "manualTypeKey": manualTypeKey as Any,
+            "categoryCounts": categoryCounts,
+            "commandCounts": commandCounts,
+            "providerCounts": providerCounts,
+            "languageCounts": languageCounts,
+            "timeOfDayCounts": timeOfDayCounts,
+            "successfulRuns": successfulRuns,
+            "failedRuns": failedRuns,
+            "promptRuns": promptRuns,
+            "fastBurstCount": fastBurstCount,
+            "focusActions": focusActions,
+            "socialActions": socialActions,
+            "helperActions": helperActions,
+            "lastCommandTimestamp": lastCommandTimestamp,
+        ]
+        if let jsonData = try? JSONSerialization.data(withJSONObject: data),
+           let json = String(data: jsonData, encoding: .utf8) {
+            try? json.write(toFile: PersonalityProfile.savePath, atomically: true, encoding: .utf8)
+        }
+    }
+
+    static func load() -> PersonalityProfile {
+        let profile = PersonalityProfile()
+        let sourcePath: String
+        if FileManager.default.fileExists(atPath: savePath) {
+            sourcePath = savePath
+        } else if FileManager.default.fileExists(atPath: legacyPath) {
+            sourcePath = legacyPath
+        } else {
+            return profile
+        }
+        guard let data = try? Data(contentsOf: URL(fileURLWithPath: sourcePath)),
+              let raw = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return profile
+        }
+        profile.manualTypeKey = raw["manualTypeKey"] as? String
+        profile.categoryCounts = raw["categoryCounts"] as? [String: Int] ?? [:]
+        profile.commandCounts = raw["commandCounts"] as? [String: Int] ?? [:]
+        profile.providerCounts = raw["providerCounts"] as? [String: Int] ?? [:]
+        profile.languageCounts = raw["languageCounts"] as? [String: Int] ?? [:]
+        profile.timeOfDayCounts = raw["timeOfDayCounts"] as? [String: Int] ?? [:]
+        profile.successfulRuns = raw["successfulRuns"] as? Int ?? 0
+        profile.failedRuns = raw["failedRuns"] as? Int ?? 0
+        profile.promptRuns = raw["promptRuns"] as? Int ?? 0
+        profile.fastBurstCount = raw["fastBurstCount"] as? Int ?? 0
+        profile.focusActions = raw["focusActions"] as? Int ?? 0
+        profile.socialActions = raw["socialActions"] as? Int ?? 0
+        profile.helperActions = raw["helperActions"] as? Int ?? 0
+        profile.lastCommandTimestamp = raw["lastCommandTimestamp"] as? TimeInterval ?? 0
+        return profile
+    }
+}
+
 enum TokenOptimizerMode: String {
     case off
     case balanced
@@ -2233,7 +2524,7 @@ struct ProviderSyncResult {
 // MARK: - Main App Delegate
 
 class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
-    static let sourceVersion = "6.4.0"
+    static let sourceVersion = "6.5.0"
     static func parseVersion(_ version: String) -> [Int] {
         return version
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -2306,6 +2597,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
     var pet = PetStats.load()
     var brain = PetBrain.load()
     var promptJournal = PromptJournal.load()
+    var personality = PersonalityProfile.load()
     var costTracker = ProviderCostTracker.load()
     var tokenOptimizer = TokenOptimizer.load()
     var lastTokenOptimization: TokenOptimizationResult?
@@ -2803,8 +3095,12 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         }
         tipTimer = Timer.scheduledTimer(withTimeInterval: 45.0, repeats: true) { [weak self] _ in
             guard let self = self, self.state == .idle || self.state == .sleeping else { return }
-            let tip = AgentArt.tips.randomElement()!
-            self.bubbleLabel.stringValue = speechBubble(tip)
+            if Int.random(in: 0..<3) == 0, let suggestion = self.bestSuggestionLine() {
+                self.bubbleLabel.stringValue = speechBubble(suggestion)
+            } else {
+                let tip = AgentArt.tips.randomElement()!
+                self.bubbleLabel.stringValue = speechBubble(tip)
+            }
         }
         sleepTimer = Timer.scheduledTimer(withTimeInterval: 10.0, repeats: true) { [weak self] _ in
             guard let self = self else { return }
@@ -3390,8 +3686,9 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             "/accept", "/ach", "/achievements", "/ask", "/battle", "/battles", "/brain",
             "/break", "/calc", "/chat", "/challenges", "/claude", "/clear", "/clipboard", "/compare", "/cost",
             "/codex", "/commit", "/compact", "/daily", "/dance", "/decline", "/diff",
-            "/en", "/evo", "/feed", "/forget", "/full", "/game", "/git", "/guess",
+            "/en", "/evo", "/export", "/feed", "/forget", "/full", "/game", "/git", "/guess",
             "/gemini", "/gpt", "/help", "/history", "/inventory", "/leaderboard", "/market", "/memory", "/model", "/models", "/move",
+            "/personality", "/suggest", "/test",
             "/name", "/paste", "/play", "/pomo", "/pomo10", "/pomodoro", "/promptcoach",
             "/promptstats", "/ps", "/quests", "/regex", "/remind", "/reminders", "/rent", "/rest",
             "/review", "/ru", "/save", "/screenshot", "/search", "/sh", "/share", "/skin",
@@ -3557,6 +3854,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         inputField.stringValue = ""
         lastInteraction = Date()
         if state == .sleeping { state = .idle }
+        personality.recordInput(parsedPrompt)
 
         // Add to history
         commandHistory.append(prompt)
@@ -3616,7 +3914,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         checkInventoryUnlocks()
 
         setState(.thinking)
-        bubbleLabel.stringValue = speechBubble("\(L10n.t("thinking")) \(actualPrompt.prefix(28))...")
+        bubbleLabel.stringValue = speechBubble("\(personality.thinkingLine()) \(actualPrompt.prefix(28))...")
         appendColored("⏳ → \(cli)...\n", color: cDimGray)
 
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
@@ -3742,6 +4040,10 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             analyzeClipboard()
             return true
 
+        case "/test":
+            quickTest()
+            return true
+
         case "/evo", "/evolution":
             let stage = Evolution.stage(for: pet.level)
             let title = Evolution.title(for: pet.level)
@@ -3776,7 +4078,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             return true
 
         case "/help all commands":
-            showHelpAll()
+            showHelpCatalog()
             return true
 
         case "/memory":
@@ -3797,6 +4099,14 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
         case "/usage":
             showProviderUsage(days: 7)
+            return true
+
+        case "/personality":
+            showPersonalityStatus()
+            return true
+
+        case "/suggest":
+            showProactiveSuggestion()
             return true
 
         case "/cost":
@@ -3874,6 +4184,10 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
         case "/save":
             saveSnippet()
+            return true
+
+        case "/export":
+            exportSnippetsMarkdown()
             return true
 
         case "/snippets":
@@ -4051,6 +4365,11 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                 let raw = String(cmd.dropFirst(7)).trimmingCharacters(in: .whitespacesAndNewlines)
                 let days = max(1, Int(raw) ?? 7)
                 showProviderUsage(days: days)
+                return true
+            }
+            if cmd.hasPrefix("/personality ") {
+                let args = String(cmd.dropFirst(13)).trimmingCharacters(in: .whitespacesAndNewlines)
+                handlePersonalityCommand(args: args)
                 return true
             }
             if cmd.hasPrefix("/cost ") {
@@ -4581,6 +4900,35 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                 }
             }
             appendOutput("\n")
+        }
+    }
+
+    func exportSnippetsMarkdown() {
+        guard !savedSnippets.isEmpty else {
+            appendColored("❌ No snippets to export. Save with /save first.\n\n", color: cRed)
+            return
+        }
+
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm"
+
+        var markdown = "# Agent-O Snippets\n\n"
+        markdown += "Exported: \(formatter.string(from: Date()))\n\n"
+        for (index, snippet) in savedSnippets.enumerated() {
+            markdown += "## \(index + 1). \(snippet.title)\n"
+            markdown += "_Saved: \(formatter.string(from: snippet.date))_\n\n"
+            markdown += "```text\n\(snippet.content)\n```\n\n"
+        }
+
+        let path = NSHomeDirectory() + "/Desktop/agento-snippets.md"
+        do {
+            try markdown.write(toFile: path, atomically: true, encoding: .utf8)
+            appendColored("✅ Snippets exported\n", color: cGreen, bold: true)
+            appendColored("  \(path)\n\n", color: cGray)
+            bubbleLabel.stringValue = speechBubble("Snippets exported.")
+            playSound("Pop")
+        } catch {
+            appendColored("❌ Export failed: \(error.localizedDescription)\n\n", color: cRed)
         }
     }
 
@@ -5429,6 +5777,192 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         appendOutput("→ prompts \(totalPrompts), chars \(totalChars)\n\n")
     }
 
+    func topPersonalityCategories(limit: Int = 3) -> [(String, Int)] {
+        return personality.categoryCounts
+            .sorted { a, b in
+                if a.value == b.value { return a.key < b.key }
+                return a.value > b.value
+            }
+            .prefix(limit)
+            .map { ($0.key, $0.value) }
+    }
+
+    func showPersonalityStatus() {
+        let mode = personality.manualTypeKey == nil ? "Auto" : "Manual"
+        let type = personality.currentType
+        appendColored("╭── Personality ──────────────────────╮\n", color: cCyan)
+        appendColored("  Current: \(type.label)\n", color: cGreen, bold: true)
+        appendColored("  Mode: \(mode)\n", color: cGray)
+        appendColored("  Runs: \(personality.runCount) (ok \(personality.successfulRuns) / err \(personality.failedRuns))\n", color: cGray)
+        appendColored(String(format: "  Error rate: %.1f%%\n", personality.errorRate * 100.0), color: cGray)
+        appendColored("  Prompt runs: \(personality.promptRuns)\n", color: cGray)
+        appendColored("  Focus actions: \(personality.focusActions)\n", color: cGray)
+        appendColored("  Social actions: \(personality.socialActions)\n", color: cGray)
+        appendColored("  Fast bursts: \(personality.fastBurstCount)\n", color: cGray)
+        appendColored("  Active coding time: \(personality.activeTimeBucketLabel())\n", color: cGray)
+        appendColored("  Memory file: ~/.agento_memory.json\n", color: cDimGray)
+
+        let topCats = topPersonalityCategories()
+        if !topCats.isEmpty {
+            let row = topCats.map { "\($0.0)(\($0.1))" }.joined(separator: ", ")
+            appendColored("  Top categories: \(row)\n", color: cDimGray)
+        }
+        let topLanguages = personality.topLanguages()
+        if !topLanguages.isEmpty {
+            let row = topLanguages.map { "\($0.0)(\($0.1))" }.joined(separator: ", ")
+            appendColored("  Top languages: \(row)\n", color: cDimGray)
+        }
+
+        appendColored("\n  Commands:\n", color: cPurple, bold: true)
+        appendColored("  /personality set helpful|sarcastic|zen|hyper\n", color: cYellow)
+        appendColored("  /personality auto\n", color: cYellow)
+        appendColored("  /personality suggest\n", color: cYellow)
+        appendColored("  /personality reset\n", color: cYellow)
+        appendColored("╰─────────────────────────────────────╯\n\n", color: cCyan)
+    }
+
+    func handlePersonalityCommand(args: String) {
+        let value = args.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if value.isEmpty || value == "status" {
+            showPersonalityStatus()
+            return
+        }
+        if value == "suggest" {
+            showProactiveSuggestion()
+            return
+        }
+        if value == "auto" {
+            personality.setManualType(nil)
+            appendColored("✅ Personality mode: auto\n", color: cGreen, bold: true)
+            appendColored("  Current: \(personality.currentType.label)\n\n", color: cGray)
+            return
+        }
+        if value == "reset" {
+            personality = PersonalityProfile()
+            personality.save()
+            appendColored("✅ Personality profile reset\n\n", color: cGreen, bold: true)
+            return
+        }
+        if value.hasPrefix("set ") {
+            let key = String(value.dropFirst(4)).trimmingCharacters(in: .whitespacesAndNewlines)
+            guard let type = PersonalityType(rawValue: key) else {
+                appendColored("❌ Unknown personality type: \(key)\n", color: cRed)
+                appendColored("  Use: helpful | sarcastic | zen | hyper\n\n", color: cGray)
+                return
+            }
+            personality.setManualType(type)
+            appendColored("✅ Personality set: \(type.label)\n\n", color: cGreen, bold: true)
+            return
+        }
+        appendColored("❌ Usage: /personality [status|set <type>|auto|suggest|reset]\n\n", color: cRed)
+    }
+
+    func gitSuggestionSnapshot() -> (repo: String, branch: String, changed: Int, staged: Int, unstaged: Int)? {
+        let cwd = FileManager.default.currentDirectoryPath
+        let quoted = shellQuote(cwd)
+        let inside = shell("git -C \(quoted) rev-parse --is-inside-work-tree 2>/dev/null")?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard inside == "true" else { return nil }
+
+        let branch = shell("git -C \(quoted) branch --show-current 2>/dev/null")?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? "unknown"
+        let porcelain = shell("git -C \(quoted) status --porcelain 2>/dev/null") ?? ""
+        let repo = URL(fileURLWithPath: cwd).lastPathComponent
+        let lines = porcelain
+            .components(separatedBy: "\n")
+            .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+
+        var staged = 0
+        var unstaged = 0
+        for line in lines {
+            if line.hasPrefix("??") {
+                unstaged += 1
+                continue
+            }
+            if line.count >= 2 {
+                let chars = Array(line)
+                if chars[0] != " " { staged += 1 }
+                if chars[1] != " " { unstaged += 1 }
+            }
+        }
+        return (repo, branch, lines.count, staged, unstaged)
+    }
+
+    func bestSuggestionLine() -> String? {
+        var candidates: [(Int, String)] = []
+
+        if !pet.hasCompletedOnboarding {
+            candidates.append((100, "Finish onboarding to unlock full pet progression."))
+        }
+        if playerUsername.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            candidates.append((98, "Set your public name: /name YourName"))
+        } else if playerAuthToken.isEmpty {
+            candidates.append((94, "Publish once to bind owner token: /leaderboard"))
+        }
+        if pet.energy < 25 {
+            candidates.append((93, "Energy is low. Run /rest before next coding sprint."))
+        }
+        if pet.hunger < 25 {
+            candidates.append((92, "Pet is hungry. Run /feed to recover mood and stability."))
+        }
+        if pet.happiness < 25 {
+            candidates.append((90, "Pet mood is low. Run /play for a quick morale boost."))
+        }
+        let commitRuns = personality.commandCounts["/commit"] ?? 0
+        let testRuns = personality.commandCounts["/test"] ?? 0
+        if commitRuns >= 2 && testRuns + 1 < commitRuns {
+            candidates.append((89, "You often commit without tests. Run /test before the next /commit."))
+        }
+
+        let activeBucket = personality.activeTimeBucketLabel()
+        if (activeBucket == "night" || activeBucket == "evening") && pet.energy < 45 {
+            candidates.append((84, "Late-session fatigue detected. Use /pomo10 or /rest to avoid sloppy mistakes."))
+        }
+
+        let commitSignals = (personality.categoryCounts["tools"] ?? 0) + pet.totalCommits
+        let focusSignals = personality.focusActions
+        if commitSignals >= 6 && focusSignals < 3 {
+            candidates.append((83, "High dev activity detected. Try /pomo for focused execution."))
+        }
+        if commitSignals >= 5 && (personality.categoryCounts["prompt"] ?? 0) > 10 {
+            candidates.append((80, "Before next commit, run /test for a fast safety check."))
+        }
+        if !isWatchingClipboard && pet.totalCommands >= 15 {
+            candidates.append((72, "Enable clipboard assistant with /watch for auto code/error hints."))
+        }
+
+        if let git = gitSuggestionSnapshot() {
+            if git.changed > 0 {
+                if git.staged == 0 {
+                    candidates.append((86, "Git \(git.repo)/\(git.branch): \(git.changed) changed files. Stage + run /commit."))
+                } else {
+                    candidates.append((88, "Git \(git.repo)/\(git.branch): \(git.staged) staged changes. Generate message: /commit."))
+                }
+            } else {
+                candidates.append((48, "Git tree is clean on \(git.repo)/\(git.branch). Good moment for /battle or /training."))
+            }
+        }
+
+        if candidates.isEmpty {
+            return nil
+        }
+        let best = candidates.sorted { a, b in
+            if a.0 == b.0 { return a.1 < b.1 }
+            return a.0 > b.0
+        }.first
+        return best?.1
+    }
+
+    func showProactiveSuggestion() {
+        if let line = bestSuggestionLine() {
+            appendColored("💡 Suggestion: \(line)\n\n", color: cYellow, bold: true)
+            bubbleLabel.stringValue = speechBubble(line)
+            playSound("Pop")
+        } else {
+            appendColored("💡 No strong suggestion right now. Keep coding.\n\n", color: cDimGray)
+        }
+    }
+
     func parseCompareProviders(token: String) -> [AIProvider] {
         let parts = token
             .split(separator: ",")
@@ -5767,6 +6301,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             DispatchQueue.main.async {
                 guard let self = self else { return }
                 self.lastResponse = output
+                self.personality.recordRun(provider: provider.rawValue, success: success)
                 if !output.isEmpty {
                     self.appendOutput(output)
                 }
@@ -5782,14 +6317,14 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                     self.refreshStatsDisplay()
                     self.checkLevelUp(oldLevel: oldLevel)
                     self.setState(.happy, duration: 3)
-                    self.bubbleLabel.stringValue = speechBubble(L10n.t("done_xp"))
+                    self.bubbleLabel.stringValue = speechBubble(self.personality.successLine())
                     self.playSound("Glass")
                 } else {
                     if let errorMessage = errorMessage, !errorMessage.isEmpty {
                         self.appendColored("❌ \(errorMessage)\n\n", color: self.cRed)
                     }
                     self.setState(.error, duration: 3)
-                    self.bubbleLabel.stringValue = speechBubble(L10n.t("error_exec"))
+                    self.bubbleLabel.stringValue = speechBubble(self.personality.errorLine())
                     self.playSound("Basso")
                 }
                 self.refreshGitStatus()
@@ -5915,6 +6450,8 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         appendColored("  /help ", color: cGreen, bold: true)
         appendOutput("quick help  ")
         appendColored("/help all ", color: cGreen, bold: true)
+        appendOutput("command map  ")
+        appendColored("/help all commands ", color: cGreen, bold: true)
         appendOutput("full list  ")
         appendColored("/quests ", color: cYellow, bold: true)
         appendOutput("daily quests\n\n")
@@ -6741,16 +7278,15 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         printHelpRows([
             ("text", "→ send prompt to active provider"),
             ("/model", "→ provider/model status"),
-            ("/models", "→ list providers + models"),
             ("/compare <p>", "→ compare outputs"),
-            ("/usage 7", "→ provider usage for 7 days"),
-            ("/cost", "→ token/cost tracker"),
+            ("/suggest", "→ proactive next action"),
             ("/quests", "→ daily quests"),
             ("/leaderboard", "→ publish to leaderboard"),
         ])
         appendColored("\n  Categories:\n", color: cPurple, bold: true)
         appendColored("  /help ai      /help tools    /help pet\n", color: cGray)
         appendColored("  /help social  /help focus    /help all\n", color: cGray)
+        appendColored("  /help all commands (full catalog)\n", color: cDimGray)
         appendColored("╰─────────────────────────────────────╯\n\n", color: cCyan)
     }
 
@@ -6760,8 +7296,12 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             showHelp()
             return
         }
-        if key == "all" || key == "all commands" {
+        if key == "all" {
             showHelpAll()
+            return
+        }
+        if key == "all commands" || key == "full" || key == "catalog" {
+            showHelpCatalog()
             return
         }
 
@@ -6782,6 +7322,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                 ("/compare <p>", "→ compare providers"),
                 ("/usage [N]", "→ provider usage"),
                 ("/cost", "→ cost summary"),
+                ("/optimizer", "→ token optimizer status"),
             ])
             appendOutput("\n")
         case "tools", "dev":
@@ -6795,6 +7336,9 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                 ("/sh <desc>", "→ NL → shell command"),
                 ("/watch", "→ clipboard watcher on"),
                 ("/unwatch", "→ clipboard watcher off"),
+                ("/save /snippets", "→ snippet knowledge base"),
+                ("/export", "→ export snippets markdown"),
+                ("/update", "→ download/apply latest release"),
             ])
             appendOutput("\n")
         case "pet", "brain":
@@ -6806,6 +7350,8 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                 ("/specialist", "→ specialist profile"),
                 ("/train <fact>", "→ train memory"),
                 ("/memory", "→ learned facts/skills"),
+                ("/personality", "→ behavior profile"),
+                ("/suggest", "→ proactive suggestion"),
                 ("/optimizer", "→ token optimizer"),
             ])
             appendOutput("\n")
@@ -6836,166 +7382,155 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             appendOutput("\n")
         default:
             appendColored("❌ Unknown help section: \(key)\n", color: cRed)
-            appendColored("  Use: /help ai | /help tools | /help pet | /help social | /help focus | /help all\n\n", color: cGray)
+            appendColored("  Use: /help ai | /help tools | /help pet | /help social | /help focus | /help all\n", color: cGray)
+            appendColored("       /help all commands for full catalog\n\n", color: cGray)
         }
     }
 
     func showHelpAll() {
-        appendColored("╭── Commands ─────────────────────────╮\n", color: cCyan)
-        appendColored("  CLI\n", color: cPurple, bold: true)
-        let cliCmds: [(String, String)] = [
-            ("text", "→ send to active provider (\(currentProvider.rawValue))"),
-            ("/claude <p>", "→ explicitly to Claude CLI"),
-            ("/codex <p>", "→ explicitly to Codex CLI"),
-            ("/gpt <p>", "→ explicitly to OpenAI GPT"),
-            ("/gemini <p>", "→ explicitly to Gemini"),
-            ("/ollama <p>", "→ explicitly to local Ollama"),
-            ("/model", "→ active provider + model status"),
-            ("/models", "→ list all providers/models"),
-            ("/model endpoint ...", "→ custom GPT/Gemini endpoint"),
+        appendColored("╭── Command Map ──────────────────────╮\n", color: cCyan)
+        appendColored("  AI\n", color: cPurple, bold: true)
+        printHelpRows([
+            ("/model", "→ active provider and model"),
+            ("/models", "→ all providers/models"),
             ("/compare <p>", "→ compare provider answers"),
-            ("/usage [N]", "→ provider usage in last N days"),
-            ("/cost", "→ token/cost tracker"),
-            ("/paste", "→ analyze clipboard content"),
-        ]
-        for (cmd, desc) in cliCmds {
-            appendColored("  \(cmd.padding(toLength: 16, withPad: " ", startingAt: 0))", color: cYellow)
-            appendOutput("\(desc)\n")
-        }
-        appendColored("  Tamagotchi\n", color: cPurple, bold: true)
-        let petCmds: [(String, String)] = [
-            ("/feed", "→ feed Agent-O (+Food)"),
-            ("/play", "→ play with Agent-O (+Joy)"),
-            ("/rest", "→ let Agent-O rest (+Energy)"),
-            ("/stats", "→ full pet stats"),
-            ("/evo", "→ evolution stage info"),
-            ("/ach", "→ achievements list"),
-        ]
-        for (cmd, desc) in petCmds {
-            appendColored("  \(cmd.padding(toLength: 16, withPad: " ", startingAt: 0))", color: cYellow)
-            appendOutput("\(desc)\n")
-        }
-        appendColored("  Fun & Focus\n", color: cPurple, bold: true)
-        let funCmds: [(String, String)] = [
-            ("/game", "→ number guessing game"),
-            ("/trivia", "→ dev trivia quiz"),
-            ("/typing", "→ typing speed test"),
-            ("/dance", "→ let's dance!"),
-            ("/quests", "→ daily quests"),
-            ("/inventory", "→ your items"),
-            ("/pomo", "→ 25 min pomodoro timer"),
-            ("/pomo10", "→ 10 min pomodoro"),
-            ("/break", "→ 5 min break timer"),
-            ("/stoppomo", "→ stop timer"),
-        ]
-        for (cmd, desc) in funCmds {
-            appendColored("  \(cmd.padding(toLength: 16, withPad: " ", startingAt: 0))", color: cYellow)
-            appendOutput("\(desc)\n")
-        }
-        appendColored("  Customization\n", color: cPurple, bold: true)
-        let custCmds: [(String, String)] = [
-            ("/skin <name>", "→ robot/cat/skull/clippy"),
-            ("/theme <name>", "→ matrix/cyberpunk/sunset/ocean/hacker"),
-        ]
-        for (cmd, desc) in custCmds {
-            appendColored("  \(cmd.padding(toLength: 16, withPad: " ", startingAt: 0))", color: cYellow)
-            appendOutput("\(desc)\n")
-        }
-        appendColored("  Translation\n", color: cPurple, bold: true)
-        let transCmds: [(String, String)] = [
-            ("EN <text>", "→ translate to English"),
-            ("RU <text>", "→ translate to Russian"),
-            ("ES/FR/DE...", "→ any language (18 supported)"),
-            ("/translate ru", "→ auto-translate clipboard → RU"),
-            ("/translate en", "→ auto-translate clipboard → EN"),
-            ("/translate off", "→ stop auto-translate"),
-        ]
-        for (cmd, desc) in transCmds {
-            appendColored("  \(cmd.padding(toLength: 16, withPad: " ", startingAt: 0))", color: cYellow)
-            appendOutput("\(desc)\n")
-        }
-        appendColored("  Tools\n", color: cPurple, bold: true)
-        appendColored("  Smart Tools\n", color: cPurple, bold: true)
-        let smartCmds: [(String, String)] = [
-            ("/screenshot", "→ capture & analyze screen area"),
-            ("/diff", "→ AI code review of git changes"),
-            ("/commit", "→ auto-generate commit message"),
-            ("/ask <file>", "→ analyze a file with active provider"),
-            ("/watch", "→ clipboard watcher on"),
-            ("/unwatch", "→ clipboard watcher off"),
-            ("/save", "→ save last response"),
-            ("/snippets", "→ list saved snippets"),
-            ("/search <q>", "→ search snippets"),
-            ("/share", "→ export pet share card"),
-            ("/chat new", "→ start new chat"),
-            ("/chat list", "→ list all chats"),
-            ("/chat <N>", "→ switch to chat N"),
-            ("/remind <t> ..", "→ set reminder (30m/2h)"),
-            ("/reminders", "→ list active reminders"),
-            ("/standup", "→ daily standup report"),
-            ("/sh <desc>", "→ NL → shell command"),
-            ("/clipboard", "→ clipboard history"),
-            ("/calc <expr>", "→ calc/convert/currency"),
-            ("/regex <desc>", "→ build regex pattern"),
-            ("/daily", "→ daily activity summary"),
-            ("/promptstats [N]", "→ prompt stats for N days"),
-            ("/promptcoach [N]", "→ prompt quality feedback"),
-            ("/optimizer", "→ token optimizer status"),
-            ("/optimizer aggressive", "→ max token savings"),
-            ("/optimizer off", "→ disable optimizer"),
-            ("/training", "→ pet training dashboard"),
-            ("/specialist", "→ active specialist profile"),
-            ("/specialist list", "→ specialist keys"),
-            ("/specialist set ...", "→ lock specialist manually"),
-            ("/train <fact>", "→ train pet memory (+5 XP)"),
-            ("/teach <fact>", "→ teach your pet something"),
-            ("/memory", "→ what your pet knows"),
-            ("/brain", "→ export pet brain (JSON)"),
-            ("/forget <fact>", "→ make pet forget"),
-        ]
-        for (cmd, desc) in smartCmds {
-            appendColored("  \(cmd.padding(toLength: 16, withPad: " ", startingAt: 0))", color: cYellow)
-            appendOutput("\(desc)\n")
-        }
+            ("/usage [N]", "→ provider usage"),
+            ("/cost", "→ estimated spend"),
+        ])
+        appendColored("  Pet + Learning\n", color: cPurple, bold: true)
+        printHelpRows([
+            ("/stats", "→ pet state and progress"),
+            ("/training", "→ learning dashboard"),
+            ("/specialist", "→ active specialty"),
+            ("/personality", "→ personality profile"),
+            ("/suggest", "→ proactive next action"),
+        ])
         appendColored("  Social\n", color: cPurple, bold: true)
-        let socialCmds: [(String, String)] = [
+        printHelpRows([
+            ("/leaderboard", "→ publish profile"),
+            ("/market", "→ rental market"),
+            ("/rent help", "→ rental commands"),
+            ("/battle <user>", "→ send challenge"),
+            ("/battles", "→ recent duel history"),
+        ])
+        appendColored("  Dev Tools\n", color: cPurple, bold: true)
+        printHelpRows([
+            ("/diff", "→ AI review of git diff"),
+            ("/commit", "→ commit message generator"),
+            ("/watch", "→ clipboard watcher on"),
+            ("/save", "→ save last answer"),
+            ("/export", "→ export snippets to markdown"),
+        ])
+        appendColored("  Focus + Fun\n", color: cPurple, bold: true)
+        printHelpRows([
+            ("/quests", "→ daily quests"),
+            ("/pomo", "→ 25-minute focus timer"),
+            ("/game", "→ number game"),
+            ("/trivia", "→ trivia mini-game"),
+            ("/typing", "→ typing speed test"),
+        ])
+        appendColored("\n  Need everything? /help all commands\n", color: cDimGray)
+        appendColored("╰─────────────────────────────────────╯\n\n", color: cCyan)
+    }
+
+    func showHelpCatalog() {
+        appendColored("╭── Full Command Catalog ─────────────╮\n", color: cCyan)
+        appendColored("  AI + Routing\n", color: cPurple, bold: true)
+        printHelpRows([
+            ("text", "→ send to active provider (\(currentProvider.rawValue))"),
+            ("/claude <p>", "→ force Claude"),
+            ("/codex <p>", "→ force Codex"),
+            ("/gpt <p>", "→ force GPT"),
+            ("/gemini <p>", "→ force Gemini"),
+            ("/ollama <p>", "→ force Ollama"),
+            ("/model", "→ active provider/model"),
+            ("/models", "→ list providers"),
+            ("/model endpoint ...", "→ set/clear endpoint"),
+            ("/compare <p>", "→ compare outputs"),
+            ("/usage [N]", "→ provider usage"),
+            ("/cost", "→ token/cost tracker"),
+            ("/paste", "→ analyze clipboard text"),
+        ])
+
+        appendColored("  Pet + Brain\n", color: cPurple, bold: true)
+        printHelpRows([
+            ("/feed /play /rest", "→ core pet actions"),
+            ("/stats /evo /ach", "→ status + progression"),
+            ("/training", "→ training dashboard"),
+            ("/personality", "→ personality status/mode"),
+            ("/suggest", "→ proactive suggestion"),
+            ("/specialist", "→ specialist profile"),
+            ("/specialist list", "→ specialist keys"),
+            ("/specialist set <k>", "→ lock specialist"),
+            ("/optimizer", "→ optimizer status"),
+            ("/train <fact>", "→ memory training (+XP)"),
+            ("/teach <fact>", "→ teach alias"),
+            ("/memory", "→ show pet memory"),
+            ("/brain", "→ export brain JSON"),
+            ("/forget <fact>", "→ remove fact"),
+        ])
+
+        appendColored("  Social + PvP + Market\n", color: cPurple, bold: true)
+        printHelpRows([
             ("/name <name>", "→ set leaderboard name"),
-            ("/leaderboard", "→ publish to leaderboard"),
-            ("/market", "→ pet rental marketplace"),
-            ("/rent help", "→ rental commands help"),
-            ("/rent publish ...", "→ publish your pet"),
+            ("/leaderboard", "→ publish profile"),
+            ("/market", "→ rental market view"),
+            ("/rent help", "→ rental commands"),
+            ("/rent publish ...", "→ publish listing"),
             ("/rent take ...", "→ rent a pet"),
-            ("/rent my [role]", "→ your rentals"),
-            ("/rent end <id>", "→ finish owner rental"),
-            ("/battle <user>", "→ send battle challenge"),
-            ("/challenges", "→ incoming battle challenges"),
-            ("/accept <user>", "→ accept battle challenge"),
-            ("/decline <user>", "→ decline battle challenge"),
+            ("/rent my [role]", "→ rental history"),
+            ("/rent end <id>", "→ finish rental"),
+            ("/battle <user>", "→ send challenge"),
+            ("/challenges", "→ pending challenges"),
+            ("/accept <user>", "→ accept challenge"),
+            ("/decline <user>", "→ decline challenge"),
             ("/move <atk> <def>", "→ submit duel move"),
             ("/battles", "→ battle history"),
-        ]
-        for (cmd, desc) in socialCmds {
-            appendColored("  \(cmd.padding(toLength: 16, withPad: " ", startingAt: 0))", color: cYellow)
-            appendOutput("\(desc)\n")
-        }
-        let toolCmds: [(String, String)] = [
-            ("/git", "→ git project status"),
-            ("/ps", "→ monitor processes"),
+        ])
+
+        appendColored("  Dev + Utility\n", color: cPurple, bold: true)
+        printHelpRows([
+            ("/screenshot", "→ capture + analyze"),
+            ("/diff", "→ AI diff review"),
+            ("/commit", "→ generate commit message"),
+            ("/ask <file>", "→ analyze file"),
+            ("/watch /unwatch", "→ clipboard monitor"),
+            ("/save", "→ save snippet"),
+            ("/snippets", "→ list snippets"),
+            ("/search <q>", "→ search snippets"),
+            ("/export", "→ export snippets markdown"),
+            ("/share", "→ export SVG card"),
+            ("/chat new|list|<N>", "→ chat sessions"),
+            ("/remind <t> <text>", "→ reminder"),
+            ("/reminders", "→ reminder list"),
+            ("/standup", "→ standup report"),
+            ("/sh <desc>", "→ NL to shell"),
+            ("/clipboard", "→ clipboard history"),
+            ("/calc <expr>", "→ quick conversions"),
+            ("/regex <desc>", "→ regex helper"),
+            ("/daily", "→ day summary"),
+            ("/promptstats [N]", "→ prompt stats"),
+            ("/promptcoach [N]", "→ prompt feedback"),
+            ("/git", "→ git status snapshot"),
+            ("/ps", "→ process monitor"),
             ("/tip", "→ random tip"),
             ("/history", "→ command history"),
-            ("/update", "→ check & install updates"),
+            ("/update", "→ update to latest"),
             ("/version", "→ current version"),
             ("/clear", "→ clear output"),
-        ]
-        for (cmd, desc) in toolCmds {
-            appendColored("  \(cmd.padding(toLength: 16, withPad: " ", startingAt: 0))", color: cYellow)
-            appendOutput("\(desc)\n")
-        }
-        appendColored("╰─────────────────────────────────────╯\n", color: cCyan)
-        appendColored("\nButtons: ", color: cPurple, bold: true)
-        appendOutput("Commit · Tests · Explain · Review\n")
-        appendColored("Hotkey: ", color: cPurple, bold: true)
-        appendOutput("⌘⇧O toggle, ↑↓ history, Drag&Drop files\n\n")
+        ])
+
+        appendColored("  Focus + Games\n", color: cPurple, bold: true)
+        printHelpRows([
+            ("/quests", "→ daily quests"),
+            ("/inventory", "→ unlocked items"),
+            ("/pomo /pomo10", "→ focus timers"),
+            ("/break /stoppomo", "→ break and stop"),
+            ("/game /trivia /typing", "→ mini-games"),
+            ("/dance", "→ dance animation"),
+            ("/compact /full", "→ switch UI density"),
+        ])
+        appendColored("╰─────────────────────────────────────╯\n\n", color: cCyan)
     }
 
     // MARK: - Pet Brain
