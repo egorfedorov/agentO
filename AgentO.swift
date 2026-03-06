@@ -105,6 +105,234 @@ enum AgentSkin: String, CaseIterable {
     }
 }
 
+// MARK: - Pixel Art Sprites
+
+struct PixelSprite {
+    static let C: UInt32 = 0 // transparent
+
+    // Color shortcuts
+    static let BK: UInt32 = 0x1A1A2E  // outline dark
+    static let OL: UInt32 = 0x222244  // outline
+
+    // ========== ROBOT (Finn-style cute bot) ==========
+    // Cyan/teal robot with antenna, white face panel, glowing eyes
+    static let robotWalk1: [[UInt32]] = {
+        let T = C, B: UInt32 = 0x1A1A2E, W: UInt32 = 0xFFFFFF, CY: UInt32 = 0x4ECDC4, CD: UInt32 = 0x3AA89F, SK: UInt32 = 0xE8D5B7, G: UInt32 = 0x56E39F
+        return [
+            [T,T,T,T,T,T,T,B,B,T,T,T,T,T,T,T],  // antenna
+            [T,T,T,T,T,T,B,G,G,B,T,T,T,T,T,T],  // antenna tip
+            [T,T,T,T,B,B,B,B,B,B,B,B,T,T,T,T],  // head top
+            [T,T,T,B,W,W,W,W,W,W,W,W,B,T,T,T],
+            [T,T,B,W,W,W,W,W,W,W,W,W,W,B,T,T],  // head
+            [T,T,B,W,W,B,B,W,W,B,B,W,W,B,T,T],  // eyes
+            [T,T,B,W,W,B,CY,W,W,B,CY,W,W,B,T,T],  // pupils
+            [T,T,B,W,W,W,W,W,W,W,W,W,W,B,T,T],
+            [T,T,T,B,W,W,B,B,B,W,W,B,T,T,T,T],  // mouth
+            [T,T,T,T,B,B,B,B,B,B,B,T,T,T,T,T],
+            [T,T,T,B,CY,CY,CY,CY,CY,CY,CY,B,T,T,T,T],  // body
+            [T,T,B,CY,CY,CY,CY,CY,CY,CY,CY,CY,B,T,T,T],
+            [T,B,CD,B,CY,CY,CY,CY,CY,CY,CY,B,CD,B,T,T],  // arms
+            [T,T,T,T,B,CY,CY,CY,CY,CY,B,T,T,T,T,T],
+            [T,T,T,T,T,B,B,T,B,B,T,T,T,T,T,T],  // legs
+            [T,T,T,T,B,B,T,T,T,B,B,T,T,T,T,T],  // feet
+        ]
+    }()
+    static let robotWalk2: [[UInt32]] = {
+        let T = C, B: UInt32 = 0x1A1A2E, W: UInt32 = 0xFFFFFF, CY: UInt32 = 0x4ECDC4, CD: UInt32 = 0x3AA89F, SK: UInt32 = 0xE8D5B7, G: UInt32 = 0x56E39F
+        return [
+            [T,T,T,T,T,T,T,B,B,T,T,T,T,T,T,T],
+            [T,T,T,T,T,T,B,G,G,B,T,T,T,T,T,T],
+            [T,T,T,T,B,B,B,B,B,B,B,B,T,T,T,T],
+            [T,T,T,B,W,W,W,W,W,W,W,W,B,T,T,T],
+            [T,T,B,W,W,W,W,W,W,W,W,W,W,B,T,T],
+            [T,T,B,W,W,B,B,W,W,B,B,W,W,B,T,T],
+            [T,T,B,W,W,CY,B,W,W,CY,B,W,W,B,T,T],  // eyes look other way
+            [T,T,B,W,W,W,W,W,W,W,W,W,W,B,T,T],
+            [T,T,T,B,W,W,W,B,B,W,W,B,T,T,T,T],
+            [T,T,T,T,B,B,B,B,B,B,B,T,T,T,T,T],
+            [T,T,T,B,CY,CY,CY,CY,CY,CY,CY,B,T,T,T,T],
+            [T,T,B,CY,CY,CY,CY,CY,CY,CY,CY,CY,B,T,T,T],
+            [T,B,CD,B,CY,CY,CY,CY,CY,CY,CY,B,CD,B,T,T],
+            [T,T,T,T,B,CY,CY,CY,CY,CY,B,T,T,T,T,T],
+            [T,T,T,T,B,B,T,T,T,B,B,T,T,T,T,T],  // legs swapped
+            [T,T,T,T,T,B,B,T,B,B,T,T,T,T,T,T],
+        ]
+    }()
+
+    // ========== CAT (Shiba/Neko-style) ==========
+    // Orange cat with pointy ears, white muzzle, pink nose, collar
+    static let catWalk1: [[UInt32]] = {
+        let T = C, B: UInt32 = 0x1A1A2E, O: UInt32 = 0xF0A040, OL: UInt32 = 0xD08830, W: UInt32 = 0xFFFFFF, P: UInt32 = 0xFF6B8A, R: UInt32 = 0xCC3355
+        return [
+            [T,T,T,B,B,T,T,T,T,T,T,B,B,T,T,T],  // ear tips
+            [T,T,B,O,O,B,T,T,T,T,B,O,O,B,T,T],  // ears
+            [T,B,O,OL,O,O,B,B,B,B,O,OL,O,O,B,T],  // ear inner + head
+            [T,B,O,O,O,O,O,O,O,O,O,O,O,O,B,T],  // head
+            [T,B,O,O,B,B,O,O,O,O,B,B,O,O,B,T],  // eyes outer
+            [T,B,O,O,B,W,O,O,O,O,B,W,O,O,B,T],  // eyes
+            [T,T,B,O,O,O,O,W,W,O,O,O,O,B,T,T],  // muzzle top
+            [T,T,B,O,O,O,W,P,P,W,O,O,O,B,T,T],  // nose
+            [T,T,T,B,O,O,O,W,W,O,O,O,B,T,T,T],  // mouth
+            [T,T,T,T,B,B,R,R,R,R,B,B,T,T,T,T],  // collar
+            [T,T,T,B,O,O,O,O,O,O,O,O,B,T,T,T],  // body
+            [T,T,B,O,O,O,O,O,O,O,O,O,O,B,T,T],
+            [T,T,B,O,O,O,O,O,O,O,O,O,O,B,T,T],
+            [T,T,T,B,B,B,T,T,T,B,B,B,T,T,T,T],  // legs
+            [T,T,T,B,O,B,T,T,T,B,O,B,T,T,T,T],  // paws
+            [T,T,T,T,T,T,T,T,T,T,T,T,B,O,O,B],  // tail
+        ]
+    }()
+    static let catWalk2: [[UInt32]] = {
+        let T = C, B: UInt32 = 0x1A1A2E, O: UInt32 = 0xF0A040, OL: UInt32 = 0xD08830, W: UInt32 = 0xFFFFFF, P: UInt32 = 0xFF6B8A, R: UInt32 = 0xCC3355
+        return [
+            [T,T,T,B,B,T,T,T,T,T,T,B,B,T,T,T],
+            [T,T,B,O,O,B,T,T,T,T,B,O,O,B,T,T],
+            [T,B,O,OL,O,O,B,B,B,B,O,OL,O,O,B,T],
+            [T,B,O,O,O,O,O,O,O,O,O,O,O,O,B,T],
+            [T,B,O,O,B,B,O,O,O,O,B,B,O,O,B,T],
+            [T,B,O,O,W,B,O,O,O,O,W,B,O,O,B,T],  // eyes look other way
+            [T,T,B,O,O,O,O,W,W,O,O,O,O,B,T,T],
+            [T,T,B,O,O,O,W,P,P,W,O,O,O,B,T,T],
+            [T,T,T,B,O,O,O,W,W,O,O,O,B,T,T,T],
+            [T,T,T,T,B,B,R,R,R,R,B,B,T,T,T,T],
+            [T,T,T,B,O,O,O,O,O,O,O,O,B,T,T,T],
+            [T,T,B,O,O,O,O,O,O,O,O,O,O,B,T,T],
+            [T,T,B,O,O,O,O,O,O,O,O,O,O,B,T,T],
+            [T,T,T,B,B,B,T,T,T,B,B,B,T,T,T,T],
+            [T,T,T,T,B,O,B,T,B,O,B,T,T,T,T,T],  // legs swapped
+            [T,B,O,O,B,T,T,T,T,T,T,T,T,T,T,T],  // tail other side
+        ]
+    }()
+
+    // ========== SKULL (purple hoodie reaper) ==========
+    static let skullWalk1: [[UInt32]] = {
+        let T = C, B: UInt32 = 0x1A1A2E, W: UInt32 = 0xFFFFFF, WG: UInt32 = 0xDDDDDD, P: UInt32 = 0x8E44AD, PD: UInt32 = 0x6C3483, R: UInt32 = 0xFF4444
+        return [
+            [T,T,T,T,T,B,B,B,B,B,B,T,T,T,T,T],
+            [T,T,T,T,B,W,W,W,W,W,W,B,T,T,T,T],
+            [T,T,T,B,W,W,W,W,W,W,W,W,B,T,T,T],
+            [T,T,T,B,W,W,W,W,W,W,W,W,B,T,T,T],
+            [T,T,T,B,B,B,W,W,W,B,B,W,B,T,T,T],  // eye sockets
+            [T,T,T,B,R,B,W,W,W,R,B,W,B,T,T,T],  // red pupils
+            [T,T,T,T,B,W,W,B,B,W,W,B,T,T,T,T],  // nose
+            [T,T,T,T,B,W,B,W,W,B,W,B,T,T,T,T],  // teeth
+            [T,T,T,T,T,B,B,B,B,B,B,T,T,T,T,T],
+            [T,T,T,B,B,P,P,P,P,P,P,B,B,T,T,T],  // hoodie
+            [T,T,B,P,P,P,P,P,P,P,P,P,P,B,T,T],
+            [T,B,PD,B,P,P,P,P,P,P,P,B,PD,B,T,T],
+            [T,T,T,T,B,P,P,P,P,P,B,T,T,T,T,T],
+            [T,T,T,T,T,B,B,T,B,B,T,T,T,T,T,T],
+            [T,T,T,T,B,B,T,T,T,B,B,T,T,T,T,T],
+            [T,T,T,T,T,T,T,T,T,T,T,T,T,T,T,T],
+        ]
+    }()
+    static let skullWalk2: [[UInt32]] = {
+        let T = C, B: UInt32 = 0x1A1A2E, W: UInt32 = 0xFFFFFF, WG: UInt32 = 0xDDDDDD, P: UInt32 = 0x8E44AD, PD: UInt32 = 0x6C3483, R: UInt32 = 0xFF4444
+        return [
+            [T,T,T,T,T,B,B,B,B,B,B,T,T,T,T,T],
+            [T,T,T,T,B,W,W,W,W,W,W,B,T,T,T,T],
+            [T,T,T,B,W,W,W,W,W,W,W,W,B,T,T,T],
+            [T,T,T,B,W,W,W,W,W,W,W,W,B,T,T,T],
+            [T,T,T,B,B,B,W,W,W,B,B,W,B,T,T,T],
+            [T,T,T,B,R,B,W,W,W,R,B,W,B,T,T,T],
+            [T,T,T,T,B,W,W,B,B,W,W,B,T,T,T,T],
+            [T,T,T,T,B,W,W,B,B,W,W,B,T,T,T,T],  // grin
+            [T,T,T,T,T,B,B,B,B,B,B,T,T,T,T,T],
+            [T,T,T,B,B,P,P,P,P,P,P,B,B,T,T,T],
+            [T,T,B,P,P,P,P,P,P,P,P,P,P,B,T,T],
+            [T,B,PD,B,P,P,P,P,P,P,P,B,PD,B,T,T],
+            [T,T,T,T,B,P,P,P,P,P,B,T,T,T,T,T],
+            [T,T,T,T,B,B,T,T,T,B,B,T,T,T,T,T],
+            [T,T,T,T,T,B,B,T,B,B,T,T,T,T,T,T],
+            [T,T,T,T,T,T,T,T,T,T,T,T,T,T,T,T],
+        ]
+    }()
+
+    // ========== CLIPPY → MINION ==========
+    static let minionWalk1: [[UInt32]] = {
+        let T = C, B: UInt32 = 0x1A1A2E, Y: UInt32 = 0xFDD835, YD: UInt32 = 0xE6C030, W: UInt32 = 0xFFFFFF, G: UInt32 = 0x999999, BL: UInt32 = 0x1565C0, BLD: UInt32 = 0x0D47A1
+        return [
+            [T,T,T,T,T,B,B,B,B,B,B,T,T,T,T,T],
+            [T,T,T,T,B,Y,Y,Y,Y,Y,Y,B,T,T,T,T],  // head
+            [T,T,T,B,Y,Y,Y,Y,Y,Y,Y,Y,B,T,T,T],
+            [T,T,T,B,Y,G,G,Y,Y,G,G,Y,B,T,T,T],  // goggle frame
+            [T,T,T,B,G,W,W,G,G,W,W,G,B,T,T,T],  // goggles
+            [T,T,T,B,G,W,B,G,G,W,B,G,B,T,T,T],  // pupils
+            [T,T,T,B,Y,G,G,Y,Y,G,G,Y,B,T,T,T],
+            [T,T,T,T,B,Y,Y,B,B,Y,Y,B,T,T,T,T],  // mouth
+            [T,T,T,T,T,B,B,B,B,B,B,T,T,T,T,T],
+            [T,T,T,B,BL,BL,BL,BL,BL,BL,BL,B,T,T,T,T],  // overalls
+            [T,T,B,Y,B,BL,BL,BL,BL,BL,B,Y,B,T,T,T],  // arms
+            [T,T,T,T,B,BL,BL,BL,BL,BL,B,T,T,T,T,T],
+            [T,T,T,T,B,BL,B,B,B,BL,B,T,T,T,T,T],  // pocket
+            [T,T,T,T,B,BL,BL,T,BL,BL,B,T,T,T,T],
+            [T,T,T,T,T,B,B,T,T,B,B,T,T,T,T,T],  // legs
+            [T,T,T,T,B,B,T,T,T,B,B,T,T,T,T,T],  // shoes
+        ]
+    }()
+    static let minionWalk2: [[UInt32]] = {
+        let T = C, B: UInt32 = 0x1A1A2E, Y: UInt32 = 0xFDD835, YD: UInt32 = 0xE6C030, W: UInt32 = 0xFFFFFF, G: UInt32 = 0x999999, BL: UInt32 = 0x1565C0, BLD: UInt32 = 0x0D47A1
+        return [
+            [T,T,T,T,T,B,B,B,B,B,B,T,T,T,T,T],
+            [T,T,T,T,B,Y,Y,Y,Y,Y,Y,B,T,T,T,T],
+            [T,T,T,B,Y,Y,Y,Y,Y,Y,Y,Y,B,T,T,T],
+            [T,T,T,B,Y,G,G,Y,Y,G,G,Y,B,T,T,T],
+            [T,T,T,B,G,W,W,G,G,W,W,G,B,T,T,T],
+            [T,T,T,B,G,B,W,G,G,B,W,G,B,T,T,T],  // pupils look other way
+            [T,T,T,B,Y,G,G,Y,Y,G,G,Y,B,T,T,T],
+            [T,T,T,T,B,Y,Y,Y,Y,Y,Y,B,T,T,T,T],  // smile
+            [T,T,T,T,T,B,B,B,B,B,B,T,T,T,T,T],
+            [T,T,T,B,BL,BL,BL,BL,BL,BL,BL,B,T,T,T,T],
+            [T,T,B,Y,B,BL,BL,BL,BL,BL,B,Y,B,T,T,T],
+            [T,T,T,T,B,BL,BL,BL,BL,BL,B,T,T,T,T,T],
+            [T,T,T,T,B,BL,B,B,B,BL,B,T,T,T,T,T],
+            [T,T,T,T,B,BL,BL,T,BL,BL,B,T,T,T,T],
+            [T,T,T,T,B,B,T,T,T,B,B,T,T,T,T,T],
+            [T,T,T,T,T,B,B,T,B,B,T,T,T,T,T,T],  // feet swapped
+        ]
+    }()
+
+    // Render pixel sprite to NSImage
+    static func render(_ sprite: [[UInt32]], scale: Int = 6) -> NSImage {
+        let w = sprite[0].count
+        let h = sprite.count
+        let imgW = w * scale
+        let imgH = h * scale
+        let image = NSImage(size: NSSize(width: imgW, height: imgH))
+        image.lockFocus()
+        NSColor.clear.set()
+        NSRect(x: 0, y: 0, width: imgW, height: imgH).fill()
+        for row in 0..<h {
+            for col in 0..<w {
+                let hex = sprite[row][col]
+                guard hex != 0 else { continue }
+                let r = CGFloat((hex >> 16) & 0xFF) / 255.0
+                let g = CGFloat((hex >> 8) & 0xFF) / 255.0
+                let b = CGFloat(hex & 0xFF) / 255.0
+                NSColor(red: r, green: g, blue: b, alpha: 1.0).set()
+                NSRect(x: col * scale, y: (h - 1 - row) * scale, width: scale, height: scale).fill()
+            }
+        }
+        image.unlockFocus()
+        return image
+    }
+
+    static func flipped(_ sprite: [[UInt32]]) -> [[UInt32]] {
+        return sprite.map { $0.reversed() }
+    }
+}
+
+extension AgentSkin {
+    var pixelFrames: [[[UInt32]]] {
+        switch self {
+        case .robot: return [PixelSprite.robotWalk1, PixelSprite.robotWalk2]
+        case .cat: return [PixelSprite.catWalk1, PixelSprite.catWalk2]
+        case .skull: return [PixelSprite.skullWalk1, PixelSprite.skullWalk2]
+        case .clippy: return [PixelSprite.minionWalk1, PixelSprite.minionWalk2]
+        }
+    }
+}
+
 // MARK: - ASCII Art Library
 
 struct AgentArt {
@@ -2524,7 +2752,7 @@ struct ProviderSyncResult {
 // MARK: - Main App Delegate
 
 class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
-    static let sourceVersion = "6.6.0"
+    static let sourceVersion = "7.0.0"
     static func parseVersion(_ version: String) -> [Int] {
         return version
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -2558,7 +2786,8 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
     var window: NSPanel!
     var miniWindow: NSPanel!
     var miniLabel: NSTextField!
-    var agentLabel: NSTextField!
+    var agentLabel: NSTextField!  // kept for compact mode fallback
+    var agentImageView: NSImageView!
     var bubbleLabel: NSTextField!
     var inputField: NSTextField!
     var outputScroll: NSScrollView!
@@ -2766,7 +2995,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         guard let skin = sender.representedObject as? AgentSkin else { return }
         currentSkin = skin
         updateAgentDisplay()
-        bubbleLabel.stringValue = speechBubble("Skin: \(skin.rawValue) \(skin.mini)")
+        bubbleLabel.stringValue = speechBubble("New look! \(skin.rawValue)")
         playSound("Pop")
     }
 
@@ -2815,16 +3044,31 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         bubbleLabel.autoresizingMask = [.width, .minYMargin]
         dropContainer.addSubview(bubbleLabel)
 
-        // ASCII agent (left) + side stats (right)
+        // Pixel agent (left) + side stats (right)
         yPos -= 150
         let agentW: CGFloat = (w - 20) * 0.55
+        // Hidden text label kept for compact mode
         agentLabel = NSTextField(labelWithString: "")
         agentLabel.frame = NSRect(x: 10, y: yPos, width: agentW, height: 150)
         agentLabel.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .medium)
         agentLabel.textColor = cCyan
         agentLabel.alignment = .center
         agentLabel.autoresizingMask = [.width, .minYMargin]
+        agentLabel.isHidden = true
         dropContainer.addSubview(agentLabel)
+
+        // Pixel art image view
+        let spriteScale = 8
+        let spriteSize = 16 * spriteScale  // 128px
+        agentImageView = NSImageView(frame: NSRect(
+            x: 10 + (Int(agentW) - spriteSize) / 2,
+            y: Int(yPos) + (150 - spriteSize) / 2,
+            width: spriteSize, height: spriteSize
+        ))
+        agentImageView.imageScaling = .scaleNone
+        agentImageView.wantsLayer = true
+        agentImageView.autoresizingMask = [.minYMargin]
+        dropContainer.addSubview(agentImageView)
 
         // Side stats panel (right of agent)
         sideStatsLabel = NSTextField(labelWithString: "")
@@ -2939,14 +3183,25 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         return btn
     }
 
+    var miniBubbleLabel: NSTextField!
+    var miniImageView: NSImageView!
+    var miniAnimFrame = 0
+    var miniWalkTimer: Timer?
+    var miniWalkDirection: CGFloat = 1  // 1 = right, -1 = left
+    var miniWalkSpeed: CGFloat = 1.2
+    var miniIsWalking = false
+    var miniBubbleHideTimer: Timer?
+
     // MARK: - Mini Window (Minimized Mode)
 
     func setupMiniWindow() {
         let screen = NSScreen.main!.visibleFrame
-        let mw: CGFloat = 52
-        let mh: CGFloat = 52
+        let spriteSize: CGFloat = 96   // 16px * 6 scale
+        let mw: CGFloat = spriteSize + 8
+        let bubbleH: CGFloat = 22
+        let mh: CGFloat = spriteSize + bubbleH + 8
         miniWindow = NSPanel(
-            contentRect: NSRect(x: screen.maxX - mw - 16, y: screen.minY + 16, width: mw, height: mh),
+            contentRect: NSRect(x: screen.midX - mw / 2, y: screen.minY + 4, width: mw, height: mh),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -2956,31 +3211,164 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         miniWindow.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         miniWindow.isMovableByWindowBackground = true
         miniWindow.backgroundColor = .clear
-        miniWindow.hasShadow = true
+        miniWindow.hasShadow = false
         miniWindow.isOpaque = false
 
-        // Rounded container
         let container = NSView(frame: NSRect(x: 0, y: 0, width: mw, height: mh))
         container.wantsLayer = true
-        container.layer?.cornerRadius = 14
-        container.layer?.backgroundColor = NSColor(red: 0.08, green: 0.08, blue: 0.12, alpha: 0.95).cgColor
-        container.layer?.borderColor = NSColor(red: 0.3, green: 0.82, blue: 0.9, alpha: 0.4).cgColor
-        container.layer?.borderWidth = 1.5
+        container.layer?.backgroundColor = NSColor.clear.cgColor
 
-        miniLabel = NSTextField(labelWithString: currentSkin.mini)
-        miniLabel.frame = NSRect(x: 0, y: 4, width: mw, height: mh - 4)
-        miniLabel.font = NSFont.monospacedSystemFont(ofSize: 20, weight: .bold)
-        miniLabel.textColor = cCyan
-        miniLabel.alignment = .center
+        // Speech bubble above character
+        miniBubbleLabel = NSTextField(labelWithString: "")
+        miniBubbleLabel.frame = NSRect(x: -40, y: mh - bubbleH - 2, width: mw + 80, height: bubbleH)
+        miniBubbleLabel.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
+        miniBubbleLabel.textColor = .white
+        miniBubbleLabel.backgroundColor = NSColor(red: 0.1, green: 0.1, blue: 0.15, alpha: 0.9)
+        miniBubbleLabel.isBezeled = false
+        miniBubbleLabel.drawsBackground = true
+        miniBubbleLabel.wantsLayer = true
+        miniBubbleLabel.layer?.cornerRadius = 10
+        miniBubbleLabel.layer?.masksToBounds = true
+        miniBubbleLabel.alignment = .center
+        miniBubbleLabel.maximumNumberOfLines = 1
+        miniBubbleLabel.lineBreakMode = .byTruncatingTail
+        miniBubbleLabel.isHidden = true
+
+        // Pixel art character
+        miniImageView = NSImageView(frame: NSRect(x: 4, y: 4, width: spriteSize, height: spriteSize))
+        miniImageView.imageScaling = .scaleNone
+        miniImageView.wantsLayer = true
 
         let clickArea = NSButton(frame: NSRect(x: 0, y: 0, width: mw, height: mh))
         clickArea.isTransparent = true
         clickArea.target = self
         clickArea.action = #selector(toggleWindow)
 
-        container.addSubview(miniLabel)
+        container.addSubview(miniImageView)
+        container.addSubview(miniBubbleLabel)
         container.addSubview(clickArea)
         miniWindow.contentView = container
+
+        updateMiniAgent()
+    }
+
+    var miniJumpOffset: CGFloat = 0
+    var miniJumpVelocity: CGFloat = 0
+    var miniIsJumping = false
+    var miniBaseY: CGFloat = 0
+    var miniSayTimer: Timer?
+    var miniStepCount = 0
+
+    static let miniPhrases = [
+        "Hey! Click me!", "Wandering...", "La la la~", "Boop!",
+        "I'm a pixel!", "Watcha doin?", "*walks*", "Beep boop!",
+        "So many windows!", "Exploring...", "*happy noises*",
+        "I can see your dock!", "Wheee!", "Adventure time!",
+        "Need help? Click me!", "*bounces*", "Pixel power!",
+        "Over here!", "Catch me!", "*stretches*",
+        "Let's code!", "Debug time!", "Ship it!", "LGTM!",
+    ]
+
+    func startMiniWalk() {
+        guard miniWalkTimer == nil else { return }
+        miniIsWalking = true
+        miniBaseY = miniWindow.frame.origin.y
+        miniStepCount = 0
+        miniWalkTimer = Timer.scheduledTimer(withTimeInterval: 0.033, repeats: true) { [weak self] _ in
+            self?.stepMiniWalk()
+        }
+        // Random phrases timer
+        miniSayTimer = Timer.scheduledTimer(withTimeInterval: 6, repeats: true) { [weak self] _ in
+            self?.miniSayRandom()
+        }
+        // Say hi immediately
+        showMiniBubble("Hey! Click me to open!")
+    }
+
+    func stopMiniWalk() {
+        miniIsWalking = false
+        miniWalkTimer?.invalidate()
+        miniWalkTimer = nil
+        miniSayTimer?.invalidate()
+        miniSayTimer = nil
+    }
+
+    func miniSayRandom() {
+        guard miniIsWalking else { return }
+        let phrase = AgentODelegate.miniPhrases.randomElement() ?? "..."
+        showMiniBubble(phrase)
+    }
+
+    func showMiniBubble(_ text: String) {
+        guard miniBubbleLabel != nil else { return }
+        miniBubbleLabel.stringValue = " \(text) "
+        miniBubbleLabel.isHidden = false
+        miniBubbleHideTimer?.invalidate()
+        miniBubbleHideTimer = Timer.scheduledTimer(withTimeInterval: 4, repeats: false) { [weak self] _ in
+            self?.miniBubbleLabel.isHidden = true
+        }
+    }
+
+    func stepMiniWalk() {
+        guard let screen = NSScreen.main?.visibleFrame else { return }
+        var frame = miniWindow.frame
+
+        // Horizontal movement
+        frame.origin.x += miniWalkSpeed * miniWalkDirection
+
+        // Bounce off edges
+        if frame.origin.x <= screen.minX {
+            frame.origin.x = screen.minX
+            miniWalkDirection = 1
+        } else if frame.maxX >= screen.maxX {
+            frame.origin.x = screen.maxX - frame.width
+            miniWalkDirection = -1
+        }
+
+        // Random jump
+        miniStepCount += 1
+        if !miniIsJumping && miniStepCount % 120 == 0 && Int.random(in: 0..<3) == 0 {
+            miniIsJumping = true
+            miniJumpVelocity = 6.0
+            showMiniBubble(["Wheee!", "Boing!", "Jump!", "*hops*", "Yay!"].randomElement()!)
+        }
+
+        // Jump physics
+        if miniIsJumping {
+            miniJumpOffset += miniJumpVelocity
+            miniJumpVelocity -= 0.4  // gravity
+            if miniJumpOffset <= 0 {
+                miniJumpOffset = 0
+                miniJumpVelocity = 0
+                miniIsJumping = false
+            }
+        }
+
+        frame.origin.y = miniBaseY + miniJumpOffset
+        miniWindow.setFrameOrigin(frame.origin)
+    }
+
+    func updateMiniAgent() {
+        guard miniImageView != nil else { return }
+        let pixFrames = currentSkin.pixelFrames
+        miniAnimFrame = (miniAnimFrame + 1) % pixFrames.count
+        let sprite = pixFrames[miniAnimFrame]
+
+        let finalSprite = miniWalkDirection < 0 ? PixelSprite.flipped(sprite) : sprite
+        miniImageView.image = PixelSprite.render(finalSprite)
+    }
+
+    func syncMiniBubble() {
+        // only used from main window state changes — show relevant messages in mini
+        guard miniBubbleLabel != nil, miniIsWalking, bubbleLabel != nil else { return }
+        let full = bubbleLabel.stringValue
+        let lines = full.components(separatedBy: "\n").filter { $0.contains("│") }
+        let text = lines.map { $0.replacingOccurrences(of: "│", with: "").trimmingCharacters(in: .whitespaces) }.joined(separator: " ")
+        guard !text.isEmpty else { return }
+        // Filter out boring/technical messages
+        let skip = ["Tip:", "Skin:", "up/down", "arrows", "/help", "Level"]
+        if skip.contains(where: { text.contains($0) }) { return }
+        showMiniBubble(text)
     }
 
     // MARK: - Global Hotkey (Cmd+Shift+O)
@@ -3004,7 +3392,10 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         if isWindowVisible {
             window.orderOut(nil)
             miniWindow.makeKeyAndOrderFront(nil)
+            updateMiniAgent()
+            startMiniWalk()
         } else {
+            stopMiniWalk()
             miniWindow.orderOut(nil)
             window.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
@@ -3033,9 +3424,14 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         window.setFrame(NSRect(x: x, y: y, width: w, height: h), display: true, animate: true)
         window.minSize = NSSize(width: 300, height: 300)
 
-        // Reposition: agent label at top, full width
-        agentLabel.frame = NSRect(x: 10, y: h - 30 - 100, width: w - 20, height: 100)
-        agentLabel.font = NSFont.monospacedSystemFont(ofSize: 10, weight: .medium)
+        // Reposition: pixel agent at top, centered
+        let compactSpriteSize = 16 * 6
+        agentImageView.frame = NSRect(
+            x: (Int(w) - compactSpriteSize) / 2,
+            y: Int(h) - 30 - compactSpriteSize - 4,
+            width: compactSpriteSize, height: compactSpriteSize
+        )
+        agentImageView.image = PixelSprite.render(currentSkin.pixelFrames[0], scale: 6)
 
         // Output takes the middle
         let outputTop = h - 30 - 105
@@ -3073,8 +3469,13 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         bubbleLabel.frame = NSRect(x: 10, y: yPos, width: w - 20, height: 75)
         yPos -= 150
         let agentW: CGFloat = (w - 20) * 0.55
-        agentLabel.frame = NSRect(x: 10, y: yPos, width: agentW, height: 150)
-        agentLabel.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .medium)
+        let fullSpriteSize = 16 * 8
+        agentImageView.frame = NSRect(
+            x: 10 + (Int(agentW) - fullSpriteSize) / 2,
+            y: Int(yPos) + (150 - fullSpriteSize) / 2,
+            width: fullSpriteSize, height: fullSpriteSize
+        )
+        agentImageView.image = PixelSprite.render(currentSkin.pixelFrames[0], scale: 8)
         sideStatsLabel.frame = NSRect(x: 10 + agentW + 4, y: yPos, width: w - agentW - 24, height: 150)
 
         let outputH = yPos - 44
@@ -3136,28 +3537,20 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
     }
 
     func animate() {
-        let frames: [[String]]
-        switch state {
-        case .idle: frames = currentSkin.idle
-        case .thinking: frames = currentSkin.thinking
-        case .typing: frames = currentSkin.typing
-        case .sleeping: frames = currentSkin.sleeping
-        case .dancing: frames = currentSkin.dance
-        case .eating: frames = currentSkin.idle
-        case .happy:
-            agentLabel.stringValue = currentSkin.happy.joined(separator: "\n")
-            return
-        case .error:
-            agentLabel.stringValue = currentSkin.error.joined(separator: "\n")
-            return
+        // Pixel art in main window
+        let pixFrames = currentSkin.pixelFrames
+        animFrame = (animFrame + 1) % pixFrames.count
+        if agentImageView != nil {
+            agentImageView.image = PixelSprite.render(pixFrames[animFrame], scale: 8)
         }
-        animFrame = (animFrame + 1) % frames.count
-        agentLabel.stringValue = frames[animFrame].joined(separator: "\n")
+        updateMiniAgent()
     }
 
     func updateAgentDisplay() {
-        let frames = currentSkin.idle
-        agentLabel.stringValue = frames[0].joined(separator: "\n")
+        let pixFrames = currentSkin.pixelFrames
+        if agentImageView != nil {
+            agentImageView.image = PixelSprite.render(pixFrames[0], scale: 8)
+        }
     }
 
     func setState(_ newState: AgentState, duration: TimeInterval? = nil) {
@@ -4460,7 +4853,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                         pet.triedSkins.append(skin.rawValue)
                     }
                     updateAgentDisplay()
-                    bubbleLabel.stringValue = speechBubble("Skin: \(skin.rawValue) \(skin.mini)")
+                    bubbleLabel.stringValue = speechBubble("New look! \(skin.rawValue)")
                     playSound("Pop")
                     appendColored("🎨 Skin changed to \(skin.rawValue)\n\n", color: cPurple)
                     processAchievements()
