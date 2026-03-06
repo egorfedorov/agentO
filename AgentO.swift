@@ -387,6 +387,191 @@ struct PixelSprite {
         ]
     }()
 
+    // ========== BLINK SPRITES (eyes closed — horizontal line) ==========
+
+    static let robotBlink: [[UInt32]] = {
+        let T = C, B: UInt32 = 0x1A1A2E, W: UInt32 = 0xFFFFFF, CY: UInt32 = 0x4ECDC4, CD: UInt32 = 0x3AA89F, G: UInt32 = 0x56E39F
+        return [
+            [T,T,T,T,T,T,T,B,B,T,T,T,T,T,T,T],
+            [T,T,T,T,T,T,B,G,G,B,T,T,T,T,T,T],
+            [T,T,T,T,B,B,B,B,B,B,B,B,T,T,T,T],
+            [T,T,T,B,W,W,W,W,W,W,W,W,B,T,T,T],
+            [T,T,B,W,W,W,W,W,W,W,W,W,W,B,T,T],
+            [T,T,B,W,W,B,B,W,W,B,B,W,W,B,T,T],  // closed eyes (—)
+            [T,T,B,W,W,W,W,W,W,W,W,W,W,B,T,T],  // no pupils
+            [T,T,B,W,W,W,W,W,W,W,W,W,W,B,T,T],
+            [T,T,T,B,W,W,B,B,B,W,W,B,T,T,T,T],
+            [T,T,T,T,B,B,B,B,B,B,B,T,T,T,T,T],
+            [T,T,T,B,CY,CY,CY,CY,CY,CY,CY,B,T,T,T,T],
+            [T,T,B,CY,CY,CY,CY,CY,CY,CY,CY,CY,B,T,T,T],
+            [T,B,CD,B,CY,CY,CY,CY,CY,CY,CY,B,CD,B,T,T],
+            [T,T,T,T,B,CY,CY,CY,CY,CY,B,T,T,T,T,T],
+            [T,T,T,T,T,B,B,T,B,B,T,T,T,T,T,T],
+            [T,T,T,T,B,B,T,T,T,B,B,T,T,T,T,T],
+        ]
+    }()
+
+    static let catBlink: [[UInt32]] = {
+        let T = C, B: UInt32 = 0x1A1A2E, O: UInt32 = 0xF0A040, OL: UInt32 = 0xD08830, W: UInt32 = 0xFFFFFF, P: UInt32 = 0xFF6B8A, R: UInt32 = 0xCC3355
+        return [
+            [T,T,T,B,B,T,T,T,T,T,T,B,B,T,T,T],
+            [T,T,B,O,O,B,T,T,T,T,B,O,O,B,T,T],
+            [T,B,O,OL,O,O,B,B,B,B,O,OL,O,O,B,T],
+            [T,B,O,O,O,O,O,O,O,O,O,O,O,O,B,T],
+            [T,B,O,O,B,B,O,O,O,O,B,B,O,O,B,T],  // closed eyes (—)
+            [T,B,O,O,O,O,O,O,O,O,O,O,O,O,B,T],  // no pupils
+            [T,T,B,O,O,O,O,W,W,O,O,O,O,B,T,T],
+            [T,T,B,O,O,O,W,P,P,W,O,O,O,B,T,T],
+            [T,T,T,B,O,O,O,W,W,O,O,O,B,T,T,T],
+            [T,T,T,T,B,B,R,R,R,R,B,B,T,T,T,T],
+            [T,T,T,B,O,O,O,O,O,O,O,O,B,T,T,T],
+            [T,T,B,O,O,O,O,O,O,O,O,O,O,B,T,T],
+            [T,T,B,O,O,O,O,O,O,O,O,O,O,B,T,T],
+            [T,T,T,B,B,B,T,T,T,B,B,B,T,T,T,T],
+            [T,T,T,B,O,B,T,T,T,B,O,B,T,T,T,T],
+            [T,T,T,T,T,T,T,T,T,T,T,T,B,O,O,B],
+        ]
+    }()
+
+    static let skullBlink: [[UInt32]] = {
+        let T = C, B: UInt32 = 0x1A1A2E, W: UInt32 = 0xFFFFFF, P: UInt32 = 0x8E44AD, PD: UInt32 = 0x6C3483
+        return [
+            [T,T,T,T,T,B,B,B,B,B,B,T,T,T,T,T],
+            [T,T,T,T,B,W,W,W,W,W,W,B,T,T,T,T],
+            [T,T,T,B,W,W,W,W,W,W,W,W,B,T,T,T],
+            [T,T,T,B,W,W,W,W,W,W,W,W,B,T,T,T],
+            [T,T,T,B,B,B,W,W,W,B,B,W,B,T,T,T],  // closed sockets
+            [T,T,T,B,W,B,W,W,W,W,B,W,B,T,T,T],  // no red pupils
+            [T,T,T,T,B,W,W,B,B,W,W,B,T,T,T,T],
+            [T,T,T,T,B,W,B,W,W,B,W,B,T,T,T,T],
+            [T,T,T,T,T,B,B,B,B,B,B,T,T,T,T,T],
+            [T,T,T,B,B,P,P,P,P,P,P,B,B,T,T,T],
+            [T,T,B,P,P,P,P,P,P,P,P,P,P,B,T,T],
+            [T,B,PD,B,P,P,P,P,P,P,P,B,PD,B,T,T],
+            [T,T,T,T,B,P,P,P,P,P,B,T,T,T,T,T],
+            [T,T,T,T,T,B,B,T,B,B,T,T,T,T,T,T],
+            [T,T,T,T,B,B,T,T,T,B,B,T,T,T,T,T],
+            [T,T,T,T,T,T,T,T,T,T,T,T,T,T,T,T],
+        ]
+    }()
+
+    static let minionBlink: [[UInt32]] = {
+        let T = C, B: UInt32 = 0x1A1A2E, Y: UInt32 = 0xFDD835, W: UInt32 = 0xFFFFFF, G: UInt32 = 0x999999, BL: UInt32 = 0x1565C0
+        return [
+            [T,T,T,T,T,B,B,B,B,B,B,T,T,T,T,T],
+            [T,T,T,T,B,Y,Y,Y,Y,Y,Y,B,T,T,T,T],
+            [T,T,T,B,Y,Y,Y,Y,Y,Y,Y,Y,B,T,T,T],
+            [T,T,T,B,Y,G,G,Y,Y,G,G,Y,B,T,T,T],
+            [T,T,T,B,G,W,W,G,G,W,W,G,B,T,T,T],
+            [T,T,T,B,G,G,G,G,G,G,G,G,B,T,T,T],  // closed goggles
+            [T,T,T,B,Y,G,G,Y,Y,G,G,Y,B,T,T,T],
+            [T,T,T,T,B,Y,Y,B,B,Y,Y,B,T,T,T,T],
+            [T,T,T,T,T,B,B,B,B,B,B,T,T,T,T,T],
+            [T,T,T,B,BL,BL,BL,BL,BL,BL,BL,B,T,T,T,T],
+            [T,T,B,Y,B,BL,BL,BL,BL,BL,B,Y,B,T,T,T],
+            [T,T,T,T,B,BL,BL,BL,BL,BL,B,T,T,T,T,T],
+            [T,T,T,T,B,BL,B,B,B,BL,B,T,T,T,T,T],
+            [T,T,T,T,B,BL,BL,T,BL,BL,B,T,T,T,T],
+            [T,T,T,T,T,B,B,T,T,B,B,T,T,T,T,T],
+            [T,T,T,T,B,B,T,T,T,B,B,T,T,T,T,T],
+        ]
+    }()
+
+    // ========== SLEEPING SPRITES (curled up / eyes as lines + Zzz) ==========
+
+    static let robotSleep: [[UInt32]] = {
+        let T = C, B: UInt32 = 0x1A1A2E, W: UInt32 = 0xFFFFFF, CY: UInt32 = 0x4ECDC4, CD: UInt32 = 0x3AA89F, G: UInt32 = 0x56E39F
+        let Z: UInt32 = 0x88AAFF  // zzz color
+        return [
+            [T,T,T,T,T,T,T,T,T,T,T,T,T,Z,Z,T],  // Z
+            [T,T,T,T,T,T,T,T,T,T,T,T,T,T,Z,T],
+            [T,T,T,T,T,T,T,T,T,T,T,T,T,Z,Z,T],  // z
+            [T,T,T,T,T,T,T,B,B,T,T,T,Z,T,Z,T],
+            [T,T,T,T,B,B,B,B,B,B,B,B,T,Z,Z,T],  // head top
+            [T,T,T,B,W,W,W,W,W,W,W,W,B,T,T,T],
+            [T,T,B,W,W,B,B,W,W,B,B,W,W,B,T,T],  // closed eyes (—)
+            [T,T,B,W,W,W,W,W,W,W,W,W,W,B,T,T],
+            [T,T,B,W,W,W,W,W,W,W,W,W,W,B,T,T],  // peaceful mouth
+            [T,T,T,B,B,B,B,B,B,B,B,B,T,T,T,T],
+            [T,T,T,B,CY,CY,CY,CY,CY,CY,CY,B,T,T,T,T],
+            [T,T,B,CY,CY,CY,CY,CY,CY,CY,CY,CY,B,T,T,T],
+            [T,T,B,CY,CY,CY,CY,CY,CY,CY,CY,CY,B,T,T,T],  // no arms, curled
+            [T,T,T,B,CY,CY,CY,CY,CY,CY,CY,B,T,T,T,T],
+            [T,T,T,T,B,B,B,B,B,B,B,B,T,T,T,T],  // tucked legs
+            [T,T,T,T,T,T,T,T,T,T,T,T,T,T,T,T],
+        ]
+    }()
+
+    static let catSleep: [[UInt32]] = {
+        // Cat curled into a ball — classic neko sleeping pose
+        let T = C, B: UInt32 = 0x1A1A2E, O: UInt32 = 0xF0A040, OL: UInt32 = 0xD08830, P: UInt32 = 0xFF6B8A
+        let Z: UInt32 = 0x88AAFF
+        return [
+            [T,T,T,T,T,T,T,T,T,T,T,T,T,Z,Z,T],
+            [T,T,T,T,T,T,T,T,T,T,T,T,T,T,Z,T],
+            [T,T,T,T,T,T,T,T,T,T,T,T,T,Z,Z,T],
+            [T,T,T,T,T,T,T,T,T,T,T,T,Z,T,Z,T],
+            [T,T,T,T,T,T,T,T,T,T,T,T,T,Z,Z,T],
+            [T,T,T,B,B,T,T,T,T,T,T,T,T,T,T,T],  // ear
+            [T,T,B,O,O,B,B,B,B,B,B,B,T,T,T,T],  // head
+            [T,T,B,O,B,B,O,O,O,O,O,O,B,T,T,T],  // closed eyes
+            [T,T,T,B,O,O,O,P,P,O,O,O,B,T,T,T],  // nose
+            [T,T,B,O,O,O,O,O,O,O,O,O,O,B,T,T],  // body curl
+            [T,B,O,O,O,O,O,O,O,O,O,O,O,O,B,T],
+            [T,B,O,O,O,O,O,O,O,O,O,O,O,O,B,T],
+            [T,B,O,O,O,O,O,O,O,O,O,O,O,O,B,T],
+            [T,T,B,O,O,O,O,O,O,O,O,O,O,B,T,T],
+            [T,T,T,B,B,B,B,B,B,B,B,B,B,T,T,T],
+            [T,T,T,T,T,T,T,T,T,T,T,T,T,T,T,T],
+        ]
+    }()
+
+    static let skullSleep: [[UInt32]] = {
+        let T = C, B: UInt32 = 0x1A1A2E, W: UInt32 = 0xFFFFFF, P: UInt32 = 0x8E44AD, PD: UInt32 = 0x6C3483
+        let Z: UInt32 = 0x88AAFF
+        return [
+            [T,T,T,T,T,T,T,T,T,T,T,T,T,Z,Z,T],
+            [T,T,T,T,T,T,T,T,T,T,T,T,T,T,Z,T],
+            [T,T,T,T,T,T,T,T,T,T,T,T,T,Z,Z,T],
+            [T,T,T,T,T,B,B,B,B,B,B,T,Z,T,Z,T],
+            [T,T,T,T,B,W,W,W,W,W,W,B,T,Z,Z,T],
+            [T,T,T,B,W,W,W,W,W,W,W,W,B,T,T,T],
+            [T,T,T,B,B,B,W,W,W,B,B,W,B,T,T,T],  // closed sockets
+            [T,T,T,B,W,B,W,W,W,W,B,W,B,T,T,T],
+            [T,T,T,T,B,W,W,W,W,W,W,B,T,T,T,T],  // peaceful
+            [T,T,T,T,T,B,B,B,B,B,B,T,T,T,T,T],
+            [T,T,T,B,B,P,P,P,P,P,P,B,B,T,T,T],
+            [T,T,B,P,P,P,P,P,P,P,P,P,P,B,T,T],
+            [T,T,B,P,P,P,P,P,P,P,P,P,P,B,T,T],  // curled
+            [T,T,T,B,P,P,P,P,P,P,P,B,T,T,T,T],
+            [T,T,T,T,B,B,B,B,B,B,B,T,T,T,T,T],
+            [T,T,T,T,T,T,T,T,T,T,T,T,T,T,T,T],
+        ]
+    }()
+
+    static let minionSleep: [[UInt32]] = {
+        let T = C, B: UInt32 = 0x1A1A2E, Y: UInt32 = 0xFDD835, G: UInt32 = 0x999999, BL: UInt32 = 0x1565C0
+        let Z: UInt32 = 0x88AAFF
+        return [
+            [T,T,T,T,T,T,T,T,T,T,T,T,T,Z,Z,T],
+            [T,T,T,T,T,T,T,T,T,T,T,T,T,T,Z,T],
+            [T,T,T,T,T,T,T,T,T,T,T,T,T,Z,Z,T],
+            [T,T,T,T,T,B,B,B,B,B,B,T,Z,T,Z,T],
+            [T,T,T,T,B,Y,Y,Y,Y,Y,Y,B,T,Z,Z,T],
+            [T,T,T,B,Y,Y,Y,Y,Y,Y,Y,Y,B,T,T,T],
+            [T,T,T,B,Y,G,G,Y,Y,G,G,Y,B,T,T,T],
+            [T,T,T,B,G,G,G,G,G,G,G,G,B,T,T,T],  // closed goggles
+            [T,T,T,B,Y,G,G,Y,Y,G,G,Y,B,T,T,T],
+            [T,T,T,T,B,Y,Y,Y,Y,Y,Y,B,T,T,T,T],  // peaceful
+            [T,T,T,B,BL,BL,BL,BL,BL,BL,BL,B,T,T,T,T],
+            [T,T,T,T,B,BL,BL,BL,BL,BL,B,T,T,T,T,T],
+            [T,T,T,T,B,BL,BL,BL,BL,BL,B,T,T,T,T,T],  // curled
+            [T,T,T,T,T,B,BL,BL,BL,B,T,T,T,T,T,T],
+            [T,T,T,T,T,T,B,B,B,T,T,T,T,T,T,T],
+            [T,T,T,T,T,T,T,T,T,T,T,T,T,T,T,T],
+        ]
+    }()
+
     // Render pixel sprite to NSImage
     static func render(_ sprite: [[UInt32]], scale: Int = 6) -> NSImage {
         let w = sprite[0].count
@@ -433,6 +618,24 @@ extension AgentSkin {
         case .cat: return PixelSprite.catWorking
         case .skull: return PixelSprite.skullWorking
         case .minion: return PixelSprite.minionWorking
+        }
+    }
+
+    var pixelBlink: [[UInt32]] {
+        switch self {
+        case .robot: return PixelSprite.robotBlink
+        case .cat: return PixelSprite.catBlink
+        case .skull: return PixelSprite.skullBlink
+        case .minion: return PixelSprite.minionBlink
+        }
+    }
+
+    var pixelSleep: [[UInt32]] {
+        switch self {
+        case .robot: return PixelSprite.robotSleep
+        case .cat: return PixelSprite.catSleep
+        case .skull: return PixelSprite.skullSleep
+        case .minion: return PixelSprite.minionSleep
         }
     }
 }
@@ -1727,11 +1930,50 @@ class PetStats {
 class MiniPetView: NSView {
     var onDoubleClick: (() -> Void)?
     var onSingleClick: (() -> Void)?
+    var onPetStroke: (() -> Void)?
     private var isDragging = false
     private var dragStartOrigin: NSPoint = .zero
 
+    // Petting detection: track mouse direction reversals while hovering
+    private var lastMouseX: CGFloat = 0
+    private var strokeDirectionChanges = 0
+    private var strokeLastDirection: Int = 0  // -1 left, 1 right, 0 none
+    private var strokeResetTimer: Timer?
+
     override var acceptsFirstResponder: Bool { true }
     override var mouseDownCanMoveWindow: Bool { false }
+
+    override func mouseMoved(with event: NSEvent) {
+        let x = event.locationInWindow.x
+        let dx = x - lastMouseX
+        let dir = dx > 2 ? 1 : (dx < -2 ? -1 : 0)
+        if dir != 0 && dir != strokeLastDirection {
+            strokeDirectionChanges += 1
+            strokeLastDirection = dir
+            if strokeDirectionChanges >= 4 {
+                strokeDirectionChanges = 0
+                onPetStroke?()
+            }
+        }
+        lastMouseX = x
+
+        // Reset if mouse stops moving
+        strokeResetTimer?.invalidate()
+        strokeResetTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: false) { [weak self] _ in
+            self?.strokeDirectionChanges = 0
+            self?.strokeLastDirection = 0
+        }
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        for area in trackingAreas { removeTrackingArea(area) }
+        addTrackingArea(NSTrackingArea(
+            rect: bounds,
+            options: [.mouseMoved, .activeAlways],
+            owner: self, userInfo: nil
+        ))
+    }
 
     override func mouseDown(with event: NSEvent) {
         if event.clickCount >= 2 {
@@ -2898,7 +3140,7 @@ struct ProviderSyncResult {
 // MARK: - Main App Delegate
 
 class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWindowDelegate {
-    static let sourceVersion = "7.3.0"
+    static let sourceVersion = "7.4.0"
     static func parseVersion(_ version: String) -> [Int] {
         return version
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -3366,6 +3608,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
         container.layer?.backgroundColor = NSColor.clear.cgColor
         container.onDoubleClick = { [weak self] in self?.toggleWindow() }
         container.onSingleClick = { [weak self] in self?.toggleMiniWalk() }
+        container.onPetStroke = { [weak self] in self?.onMiniPetStroked() }
 
         // Speech bubble above character
         miniBubbleLabel = NSTextField(labelWithString: "")
@@ -3401,6 +3644,18 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
     var miniBaseY: CGFloat = NSScreen.main?.visibleFrame.minY ?? 0
     var miniSayTimer: Timer?
     var miniStepCount = 0
+
+    // Blink state
+    var miniBlinkCounter = 0
+    var miniIsBlinking = false
+    var miniBlinkFramesLeft = 0
+
+    // Idle breathing
+    var miniBreathCounter = 0
+    var miniBreathUp = false
+
+    // Parked idle duration
+    var miniParkedTicks = 0
 
     static let miniWalkPhrases = [
         "Wandering...", "La la la~", "*walks*", "Beep boop!",
@@ -3538,14 +3793,41 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
     func updateMiniAgent() {
         guard miniImageView != nil else { return }
 
+        // Blink timer: every ~4 sec (120 ticks at 0.033s), blink for 3 frames
+        miniBlinkCounter += 1
+        if !miniIsBlinking && miniBlinkCounter >= Int.random(in: 100...160) {
+            miniIsBlinking = true
+            miniBlinkFramesLeft = 3
+            miniBlinkCounter = 0
+        }
+        if miniIsBlinking {
+            miniBlinkFramesLeft -= 1
+            if miniBlinkFramesLeft <= 0 { miniIsBlinking = false }
+        }
+
+        // Breathing counter (for idle/parked)
+        if !miniIsWalking && state != .thinking {
+            miniBreathCounter += 1
+            if miniBreathCounter >= 30 {  // ~1 sec toggle
+                miniBreathCounter = 0
+                miniBreathUp.toggle()
+            }
+            miniParkedTicks += 1
+        } else {
+            miniBreathCounter = 0
+            miniBreathUp = false
+            miniParkedTicks = 0
+        }
+
         // Choose sprite based on context
-        let sprite: [[UInt32]]
+        var sprite: [[UInt32]]
         if state == .thinking {
             sprite = currentSkin.pixelWorking
-        } else if pet.hunger < 20 {
-            sprite = currentSkin.pixelFrames[0]  // normal sprite, status shown via bubble
-        } else if pet.energy < 20 {
-            sprite = currentSkin.pixelFrames[0]  // normal sprite, status shown via bubble
+        } else if pet.energy < 20 && !miniIsWalking && miniParkedTicks > 90 {
+            // Sleeping after parked a while and tired
+            sprite = currentSkin.pixelSleep
+        } else if miniIsBlinking {
+            sprite = currentSkin.pixelBlink
         } else {
             let pixFrames = currentSkin.pixelFrames
             miniAnimFrame = (miniAnimFrame + 1) % pixFrames.count
@@ -3553,7 +3835,33 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
         }
 
         let finalSprite = miniWalkDirection < 0 ? PixelSprite.flipped(sprite) : sprite
-        miniImageView.image = PixelSprite.render(finalSprite)
+        let rendered = PixelSprite.render(finalSprite)
+        miniImageView.image = rendered
+
+        // Idle breathing: shift image 1px up when breathUp
+        if miniBreathUp && !miniIsWalking && state != .thinking {
+            var f = miniImageView.frame
+            f.origin.y = 5  // 1px up from base of 4
+            miniImageView.frame = f
+        } else {
+            var f = miniImageView.frame
+            f.origin.y = 4
+            miniImageView.frame = f
+        }
+    }
+
+    func onMiniPetStroked() {
+        // Pet was stroked! Show love reaction
+        let skinReaction: String
+        switch currentSkin {
+        case .cat: skinReaction = ["Purrrr~", "*purrs*", "Nyaa~", "Mrrrow~"].randomElement()!
+        case .robot: skinReaction = ["*happy beeps*", "Beep boop!", "*whirrs happily*", "< 3"].randomElement()!
+        case .skull: skinReaction = ["Hehe~", "*rattles happily*", "Spooky love!", "Ehhehe~"].randomElement()!
+        case .minion: skinReaction = ["Banana!", "Hehehe!", "*giggles*", "Bello!"].randomElement()!
+        }
+        showMiniBubble(skinReaction)
+        pet.happiness = min(100, pet.happiness + 5)
+        pet.save()
     }
 
     func syncMiniBubble() {
