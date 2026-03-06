@@ -3,7 +3,7 @@ class Agento < Formula
   homepage "https://github.com/egorfedorov/agentO"
   url "https://github.com/egorfedorov/agentO.git",
       tag: "v7.7.0",
-      revision: "842c4b9f3e8d58283d0f8dbaba047fa14a33b00f"
+      revision: "3e4b942d7e2d50fab9425ee367d3bd4aa8a52f29"
   license "MIT"
 
   depends_on xcode: ["14.0", :build]
