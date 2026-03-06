@@ -1908,6 +1908,7 @@ class PetStats {
     var hasCompletedOnboarding: Bool = false
     var leaderboardUsername: String = ""
     var leaderboardToken: String = ""
+    var subscriptions: [[String: Any]] = []  // [{name, price, currency, cycle, startDate, color}]
 
     var xpForNextLevel: Int { level * 100 }
 
@@ -2060,7 +2061,8 @@ class PetStats {
             "dailyQuestsCompleted": dailyQuestsCompleted,
             "hasCompletedOnboarding": hasCompletedOnboarding,
             "leaderboardUsername": leaderboardUsername,
-            "leaderboardToken": leaderboardToken
+            "leaderboardToken": leaderboardToken,
+            "subscriptions": subscriptions
         ]
         if let jsonData = try? JSONSerialization.data(withJSONObject: data),
            let json = String(data: jsonData, encoding: .utf8) {
@@ -2101,6 +2103,7 @@ class PetStats {
         stats.hasCompletedOnboarding = dict["hasCompletedOnboarding"] as? Bool ?? false
         stats.leaderboardUsername = dict["leaderboardUsername"] as? String ?? ""
         stats.leaderboardToken = dict["leaderboardToken"] as? String ?? ""
+        stats.subscriptions = dict["subscriptions"] as? [[String: Any]] ?? []
 
         // Apply time-based decay (1 point per 30 min away)
         let minutesAway = Date().timeIntervalSince(stats.lastFed) / 60
@@ -3522,6 +3525,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
         setupGlobalHotkey()
         startTimers()
         showWelcome()
+        checkSubReminders()
         refreshGitStatus()
         playSound("Funk")
         // Check for updates 5 seconds after launch
@@ -4987,7 +4991,7 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
             "/name", "/paste", "/play", "/pomo", "/pomo10", "/pomodoro", "/promptcoach",
             "/promptstats", "/ps", "/quests", "/regex", "/remind", "/reminders", "/rent", "/rest",
             "/review", "/ru", "/save", "/screenshot", "/search", "/sh", "/share", "/skin",
-            "/snippets", "/specialist", "/standup", "/stats", "/stoppomo", "/teach", "/theme", "/tip", "/optimizer",
+            "/snippets", "/specialist", "/standup", "/stats", "/stoppomo", "/sub", "/subs", "/teach", "/theme", "/tip", "/optimizer",
             "/train", "/training", "/translate", "/trivia", "/typing", "/unwatch", "/update", "/usage", "/version", "/watch", "/ollama"
         ]
     }
@@ -5757,6 +5761,32 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
                 return true
             }
             // Skin change
+            // Subscription tracker
+            if cmd == "/sub" || cmd == "/subs" {
+                showSubList()
+                return true
+            }
+            if cmd == "/sub cal" {
+                showSubCalendar()
+                return true
+            }
+            if cmd == "/sub stats" {
+                showSubStats()
+                return true
+            }
+            if cmd.hasPrefix("/sub add ") {
+                handleSubAdd(String(cmd.dropFirst(9)))
+                return true
+            }
+            if cmd.hasPrefix("/sub del ") {
+                handleSubDel(String(cmd.dropFirst(9)))
+                return true
+            }
+            if cmd.hasPrefix("/sub edit ") {
+                handleSubEdit(String(cmd.dropFirst(10)))
+                return true
+            }
+
             if cmd.hasPrefix("/skin ") {
                 let skinName = String(cmd.dropFirst(6)).lowercased()
                 if let skin = AgentSkin.allCases.first(where: { $0.rawValue.lowercased() == skinName }) {
@@ -7729,6 +7759,352 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
         }
     }
 
+    // MARK: - Subscription Tracker
+
+    func subNextDate(start: Date, cycle: String) -> Date {
+        let cal = Calendar.current
+        var d = start
+        let now = Date()
+        // Advance until next occurrence is in the future
+        while d < now {
+            switch cycle {
+            case "weekly": d = cal.date(byAdding: .weekOfYear, value: 1, to: d)!
+            case "yearly": d = cal.date(byAdding: .year, value: 1, to: d)!
+            default: d = cal.date(byAdding: .month, value: 1, to: d)! // monthly
+            }
+        }
+        return d
+    }
+
+    func subDatesInMonth(start: Date, cycle: String, year: Int, month: Int) -> [Int] {
+        let cal = Calendar.current
+        var d = start
+        var days: [Int] = []
+        // Go forward until past this month
+        let now = cal.date(from: DateComponents(year: year, month: month, day: 1))!
+        let endOfMonth = cal.date(byAdding: .month, value: 1, to: now)!
+        // First advance start to be near this month
+        while d < cal.date(byAdding: .year, value: -2, to: now)! {
+            switch cycle {
+            case "weekly": d = cal.date(byAdding: .weekOfYear, value: 52, to: d)!
+            case "yearly": d = cal.date(byAdding: .year, value: 1, to: d)!
+            default: d = cal.date(byAdding: .month, value: 12, to: d)!
+            }
+        }
+        while d < endOfMonth {
+            let comps = cal.dateComponents([.year, .month, .day], from: d)
+            if comps.year == year && comps.month == month {
+                days.append(comps.day!)
+            }
+            if d >= endOfMonth { break }
+            switch cycle {
+            case "weekly": d = cal.date(byAdding: .weekOfYear, value: 1, to: d)!
+            case "yearly": d = cal.date(byAdding: .year, value: 1, to: d)!
+            default: d = cal.date(byAdding: .month, value: 1, to: d)!
+            }
+        }
+        return days
+    }
+
+    func parseSub(_ dict: [String: Any]) -> (name: String, price: Double, currency: String, cycle: String, start: Date, color: String) {
+        let name = dict["name"] as? String ?? "?"
+        let price = dict["price"] as? Double ?? 0
+        let currency = dict["currency"] as? String ?? "USD"
+        let cycle = dict["cycle"] as? String ?? "monthly"
+        let startTs = dict["startDate"] as? TimeInterval ?? Date().timeIntervalSince1970
+        let start = Date(timeIntervalSince1970: startTs)
+        let color = dict["color"] as? String ?? "cyan"
+        return (name, price, currency, cycle, start, color)
+    }
+
+    func handleSubAdd(_ args: String) {
+        // Format: /sub add Netflix 15.99 [monthly|yearly|weekly] [USD] [2024-01-15]
+        let parts = args.components(separatedBy: " ").filter { !$0.isEmpty }
+        guard parts.count >= 2, let price = Double(parts[1]) else {
+            appendColored("Usage: /sub add <name> <price> [monthly|yearly|weekly] [currency] [start-date]\n", color: cYellow)
+            appendColored("  Example: /sub add Netflix 15.99 monthly USD\n", color: cGray)
+            appendColored("  Example: /sub add Spotify 9.99\n", color: cGray)
+            appendColored("  Example: /sub add iCloud 0.99 monthly USD 2024-03-15\n\n", color: cGray)
+            return
+        }
+        let name = parts[0]
+        let cycle = parts.count > 2 ? parts[2].lowercased() : "monthly"
+        let currency = parts.count > 3 ? parts[3].uppercased() : "USD"
+
+        var startDate = Date()
+        if parts.count > 4 {
+            let fmt = DateFormatter()
+            fmt.dateFormat = "yyyy-MM-dd"
+            if let d = fmt.date(from: parts[4]) { startDate = d }
+        }
+
+        guard ["monthly", "yearly", "weekly"].contains(cycle) else {
+            appendColored("Cycle must be: monthly, yearly, or weekly\n\n", color: cRed)
+            return
+        }
+
+        // Auto-assign color
+        let colors = ["cyan", "green", "purple", "orange", "pink", "yellow"]
+        let color = colors[pet.subscriptions.count % colors.count]
+
+        let sub: [String: Any] = [
+            "name": name,
+            "price": price,
+            "currency": currency,
+            "cycle": cycle,
+            "startDate": startDate.timeIntervalSince1970,
+            "color": color
+        ]
+        pet.subscriptions.append(sub)
+        pet.save()
+
+        let next = subNextDate(start: startDate, cycle: cycle)
+        let fmt = DateFormatter()
+        fmt.dateFormat = "MMM d"
+        appendColored("+ \(name)  \(currency) \(String(format: "%.2f", price))/\(cycle)\n", color: cGreen, bold: true)
+        appendColored("  Next charge: \(fmt.string(from: next))\n\n", color: cGray)
+        playSound("Pop")
+        bubbleLabel.stringValue = speechBubble("Tracked \(name)!")
+    }
+
+    func handleSubDel(_ args: String) {
+        let name = args.trimmingCharacters(in: .whitespaces).lowercased()
+        if let idx = pet.subscriptions.firstIndex(where: { ($0["name"] as? String ?? "").lowercased() == name }) {
+            let removed = pet.subscriptions[idx]["name"] as? String ?? "?"
+            pet.subscriptions.remove(at: idx)
+            pet.save()
+            appendColored("- Removed: \(removed)\n\n", color: cRed)
+            playSound("Pop")
+        } else {
+            appendColored("Subscription '\(args)' not found. Use /subs to see list.\n\n", color: cRed)
+        }
+    }
+
+    func handleSubEdit(_ args: String) {
+        // /sub edit Netflix price 19.99
+        let parts = args.components(separatedBy: " ").filter { !$0.isEmpty }
+        guard parts.count >= 3 else {
+            appendColored("Usage: /sub edit <name> <field> <value>\n", color: cYellow)
+            appendColored("  Fields: price, cycle, currency\n\n", color: cGray)
+            return
+        }
+        let name = parts[0].lowercased()
+        let field = parts[1].lowercased()
+        let value = parts[2]
+        guard let idx = pet.subscriptions.firstIndex(where: { ($0["name"] as? String ?? "").lowercased() == name }) else {
+            appendColored("Subscription '\(parts[0])' not found.\n\n", color: cRed)
+            return
+        }
+        switch field {
+        case "price":
+            if let p = Double(value) { pet.subscriptions[idx]["price"] = p }
+        case "cycle":
+            if ["monthly", "yearly", "weekly"].contains(value.lowercased()) { pet.subscriptions[idx]["cycle"] = value.lowercased() }
+        case "currency":
+            pet.subscriptions[idx]["currency"] = value.uppercased()
+        default:
+            appendColored("Unknown field. Use: price, cycle, currency\n\n", color: cRed)
+            return
+        }
+        pet.save()
+        appendColored("Updated \(parts[0]) \(field) -> \(value)\n\n", color: cGreen)
+    }
+
+    func showSubList() {
+        guard !pet.subscriptions.isEmpty else {
+            appendColored("No subscriptions tracked yet.\n", color: cGray)
+            appendColored("  /sub add <name> <price> [monthly|yearly|weekly] [currency]\n\n", color: cCyan)
+            return
+        }
+        let fmt = DateFormatter()
+        fmt.dateFormat = "MMM d"
+        var totalMonthly: Double = 0
+
+        appendColored("  Subscriptions\n", color: cCyan, bold: true)
+        appendColored("  " + String(repeating: "-", count: 44) + "\n", color: cDimGray)
+
+        for dict in pet.subscriptions {
+            let s = parseSub(dict)
+            let next = subNextDate(start: s.start, cycle: s.cycle)
+            let monthly: Double
+            switch s.cycle {
+            case "yearly": monthly = s.price / 12
+            case "weekly": monthly = s.price * 4.33
+            default: monthly = s.price
+            }
+            totalMonthly += monthly
+
+            let daysUntil = Calendar.current.dateComponents([.day], from: Date(), to: next).day ?? 0
+            let urgency = daysUntil <= 3 ? "!" : " "
+            let priceStr = String(format: "%.2f", s.price)
+            let line = "  \(urgency) \(s.name.padding(toLength: 16, withPad: " ", startingAt: 0)) \(s.currency) \(priceStr.padding(toLength: 8, withPad: " ", startingAt: 0)) \(s.cycle.padding(toLength: 7, withPad: " ", startingAt: 0))  \(fmt.string(from: next))"
+            let lineColor = daysUntil <= 3 ? cYellow : cGray
+            appendColored(line + "\n", color: lineColor)
+        }
+        appendColored("  " + String(repeating: "-", count: 44) + "\n", color: cDimGray)
+        appendColored("  Monthly total: ~$\(String(format: "%.2f", totalMonthly))  |  Yearly: ~$\(String(format: "%.0f", totalMonthly * 12))\n\n", color: cGreen, bold: true)
+    }
+
+    func showSubCalendar() {
+        let cal = Calendar.current
+        let now = Date()
+        let comps = cal.dateComponents([.year, .month], from: now)
+        let year = comps.year!
+        let month = comps.month!
+        let today = cal.component(.day, from: now)
+
+        let fmt = DateFormatter()
+        fmt.dateFormat = "MMMM yyyy"
+        let firstOfMonth = cal.date(from: DateComponents(year: year, month: month, day: 1))!
+        let weekday = (cal.component(.weekday, from: firstOfMonth) + 5) % 7  // Mon=0
+        let daysInMonth = cal.range(of: .day, in: .month, for: firstOfMonth)!.count
+
+        // Build map: day -> [sub names]
+        var dayMap: [Int: [String]] = [:]
+        var monthTotal: Double = 0
+        for dict in pet.subscriptions {
+            let s = parseSub(dict)
+            let days = subDatesInMonth(start: s.start, cycle: s.cycle, year: year, month: month)
+            for d in days {
+                dayMap[d, default: []].append(String(s.name.prefix(3)))
+                monthTotal += s.price
+            }
+        }
+
+        appendColored("  \(fmt.string(from: firstOfMonth))\n", color: cCyan, bold: true)
+        appendColored("  $\(String(format: "%.2f", monthTotal)) this month\n\n", color: cGreen)
+        appendColored("  Mo  Tu  We  Th  Fr  Sa  Su\n", color: cGray)
+
+        var line = "  "
+        for _ in 0..<weekday { line += "    " }
+        var col = weekday
+
+        for day in 1...daysInMonth {
+            let hasSub = dayMap[day] != nil
+            let isToday = day == today
+            let dayStr: String
+            if isToday {
+                dayStr = "[\(String(format: "%2d", day))]"
+            } else if hasSub {
+                dayStr = "(\(String(format: "%2d", day)))"
+            } else {
+                dayStr = " \(String(format: "%2d", day)) "
+            }
+            line += dayStr
+            col += 1
+            if col == 7 {
+                let c = line.contains("(") || line.contains("[") ? cYellow : cGray
+                appendColored(line + "\n", color: c)
+                line = "  "
+                col = 0
+            }
+        }
+        if col > 0 {
+            let c = line.contains("(") || line.contains("[") ? cYellow : cGray
+            appendColored(line + "\n", color: c)
+        }
+
+        // Legend
+        if !dayMap.isEmpty {
+            appendColored("\n  Charges:\n", color: cCyan)
+            for (day, names) in dayMap.sorted(by: { $0.key < $1.key }) {
+                let dateStr = "\(String(format: "%2d", day))"
+                appendColored("    \(dateStr): \(names.joined(separator: ", "))\n", color: cGray)
+            }
+        }
+        appendColored("\n", color: cGray)
+    }
+
+    func showSubStats() {
+        guard !pet.subscriptions.isEmpty else {
+            appendColored("No subscriptions. Use /sub add to start tracking.\n\n", color: cGray)
+            return
+        }
+        var monthlyTotal: Double = 0
+        var byCategory: [String: Double] = [:]  // cycle as rough category
+
+        for dict in pet.subscriptions {
+            let s = parseSub(dict)
+            let monthly: Double
+            switch s.cycle {
+            case "yearly": monthly = s.price / 12
+            case "weekly": monthly = s.price * 4.33
+            default: monthly = s.price
+            }
+            monthlyTotal += monthly
+            byCategory[s.cycle, default: 0] += monthly
+        }
+
+        appendColored("  Subscription Statistics\n", color: cCyan, bold: true)
+        appendColored("  " + String(repeating: "-", count: 36) + "\n", color: cDimGray)
+        appendColored("  Active:       \(pet.subscriptions.count) subscriptions\n", color: cGray)
+        appendColored("  Monthly:      $\(String(format: "%.2f", monthlyTotal))\n", color: cGreen, bold: true)
+        appendColored("  Yearly:       $\(String(format: "%.0f", monthlyTotal * 12))\n", color: cGreen)
+        appendColored("  Daily avg:    $\(String(format: "%.2f", monthlyTotal / 30))\n\n", color: cGray)
+
+        // Most expensive
+        let sorted = pet.subscriptions.sorted { ($0["price"] as? Double ?? 0) > ($1["price"] as? Double ?? 0) }
+        appendColored("  Most expensive:\n", color: cYellow)
+        for dict in sorted.prefix(5) {
+            let s = parseSub(dict)
+            appendColored("    \(s.name): \(s.currency) \(String(format: "%.2f", s.price))/\(s.cycle)\n", color: cGray)
+        }
+
+        // Upcoming in next 7 days
+        let cal = Calendar.current
+        let in7days = cal.date(byAdding: .day, value: 7, to: Date())!
+        var upcoming: [(String, Date, Double, String)] = []
+        for dict in pet.subscriptions {
+            let s = parseSub(dict)
+            let next = subNextDate(start: s.start, cycle: s.cycle)
+            if next <= in7days {
+                upcoming.append((s.name, next, s.price, s.currency))
+            }
+        }
+        if !upcoming.isEmpty {
+            let fmt = DateFormatter()
+            fmt.dateFormat = "MMM d"
+            appendColored("\n  Upcoming (7 days):\n", color: cYellow, bold: true)
+            for u in upcoming.sorted(by: { $0.1 < $1.1 }) {
+                appendColored("    \(fmt.string(from: u.1)): \(u.0) — \(u.3) \(String(format: "%.2f", u.2))\n", color: cGray)
+            }
+        }
+        appendColored("\n", color: cGray)
+    }
+
+    func checkSubReminders() {
+        // Called on startup — notify about today's/tomorrow's charges
+        guard !pet.subscriptions.isEmpty else { return }
+        let cal = Calendar.current
+        let tomorrow = cal.date(byAdding: .day, value: 1, to: Date())!
+        var todayCharges: [(String, Double, String)] = []
+        var tomorrowCharges: [(String, Double, String)] = []
+
+        for dict in pet.subscriptions {
+            let s = parseSub(dict)
+            let next = subNextDate(start: s.start, cycle: s.cycle)
+            if cal.isDateInToday(next) {
+                todayCharges.append((s.name, s.price, s.currency))
+            } else if cal.isDate(next, inSameDayAs: tomorrow) {
+                tomorrowCharges.append((s.name, s.price, s.currency))
+            }
+        }
+        if !todayCharges.isEmpty {
+            appendColored("  Today's charges:\n", color: cYellow, bold: true)
+            for c in todayCharges {
+                appendColored("    \(c.0): \(c.2) \(String(format: "%.2f", c.1))\n", color: cYellow)
+            }
+            appendColored("\n", color: cGray)
+        }
+        if !tomorrowCharges.isEmpty {
+            appendColored("  Tomorrow:\n", color: cGray)
+            for c in tomorrowCharges {
+                appendColored("    \(c.0): \(c.2) \(String(format: "%.2f", c.1))\n", color: cGray)
+            }
+            appendColored("\n", color: cGray)
+        }
+    }
+
     // MARK: - Welcome & Help
 
     func showWelcome() {
@@ -8738,6 +9114,12 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
                 ("/save /snippets", "→ snippet knowledge base"),
                 ("/export", "→ export snippets markdown"),
                 ("/update", "→ download/apply latest release"),
+                ("/sub add <n> <$>", "→ track subscription"),
+                ("/sub del <name>", "→ remove subscription"),
+                ("/subs", "→ list all subscriptions"),
+                ("/sub cal", "→ payment calendar"),
+                ("/sub stats", "→ spending statistics"),
+                ("/sub edit <n> <f> <v>", "→ edit sub field"),
             ])
             appendOutput("\n")
         case "pet", "brain":
