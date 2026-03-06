@@ -2787,7 +2787,7 @@ struct ProviderSyncResult {
 // MARK: - Main App Delegate
 
 class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWindowDelegate {
-    static let sourceVersion = "7.1.0"
+    static let sourceVersion = "7.1.1"
     static func parseVersion(_ version: String) -> [Int] {
         return version
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -6916,12 +6916,13 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate, NSWi
 
             // Detect source language for MyMemory API
             let sourceLang = self.detectSourceLang(text, target: targetLang)
-            var allowed = CharacterSet.urlQueryAllowed
-            allowed.remove(charactersIn: "&+=")
-            let encoded = text.addingPercentEncoding(withAllowedCharacters: allowed) ?? text
             let langPair = "\(sourceLang)|\(targetLang)"
-            let urlString = "https://api.mymemory.translated.net/get?q=\(encoded)&langpair=\(langPair)"
-            guard let url = URL(string: urlString) else {
+            var components = URLComponents(string: "https://api.mymemory.translated.net/get")!
+            components.queryItems = [
+                URLQueryItem(name: "q", value: text),
+                URLQueryItem(name: "langpair", value: langPair),
+            ]
+            guard let url = components.url else {
                 DispatchQueue.main.async {
                     self.appendColored("❌ Translation error\n\n", color: self.cRed)
                     self.setState(.error)
