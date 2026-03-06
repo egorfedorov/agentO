@@ -2524,7 +2524,7 @@ struct ProviderSyncResult {
 // MARK: - Main App Delegate
 
 class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
-    static let sourceVersion = "6.5.0"
+    static let sourceVersion = "6.6.0"
     static func parseVersion(_ version: String) -> [Int] {
         return version
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -2788,8 +2788,9 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         window.title = "Agent-O"
         window.isFloatingPanel = true
         window.level = .floating
+        window.becomesKeyOnlyIfNeeded = false
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        window.isMovableByWindowBackground = true
+        window.isMovableByWindowBackground = false
         window.titlebarAppearsTransparent = true
         window.isOpaque = false
         window.backgroundColor = NSColor(red: 0.1, green: 0.1, blue: 0.14, alpha: 1.0)
@@ -6488,7 +6489,9 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
-            let encoded = text.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? text
+            var allowed = CharacterSet.urlQueryAllowed
+            allowed.remove(charactersIn: "&+=")
+            let encoded = text.addingPercentEncoding(withAllowedCharacters: allowed) ?? text
             let urlString = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=\(targetLang)&dt=t&q=\(encoded)"
             guard let url = URL(string: urlString) else {
                 DispatchQueue.main.async {
@@ -6513,40 +6516,57 @@ class AgentODelegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
 
                     // Parse Google Translate JSON response
                     // Format: [[["translated text","original text",null,null,10]],null,"ru",...]
-                    if let json = try? JSONSerialization.jsonObject(with: data) as? [Any],
-                       let sentences = json.first as? [Any] {
-                        var translated = ""
-                        for item in sentences {
-                            if let sentence = item as? [Any], let text = sentence.first as? String {
-                                translated += text
+                    var translated = ""
+                    if let json = try? JSONSerialization.jsonObject(with: data) {
+                        if let arr = json as? [Any], let sentences = arr.first as? [Any] {
+                            for item in sentences {
+                                if let sentence = item as? [Any], let text = sentence.first as? String {
+                                    translated += text
+                                }
                             }
                         }
-                        if !translated.isEmpty {
-                            self.appendColored("✅ \(targetLang.uppercased()): ", color: self.cGreen, bold: true)
-                            self.appendOutput("\(translated)\n")
-                            // Copy to clipboard
-                            NSPasteboard.general.clearContents()
-                            NSPasteboard.general.setString(translated, forType: .string)
-                            self.lastClipboard = translated
-                            self.lastClipboardCount = NSPasteboard.general.changeCount
-                            self.appendColored("📋 Copied to clipboard!\n\n", color: self.cGray)
-                            self.bubbleLabel.stringValue = speechBubble("Translated! 📋")
-                            self.setState(.happy)
-                            self.playSound("Pop")
-
-                            // XP for translation
-                            let oldLevel = self.pet.level
-                            self.pet.onCommandRun()
-                            self.pet.save()
-                            self.refreshStatsDisplay()
-                            if self.pet.level > oldLevel {
-                                self.appendColored("⭐ LEVEL UP! → \(self.pet.level)!\n", color: self.cYellow, bold: true)
+                        // Fallback: try to extract any string from nested arrays
+                        if translated.isEmpty, let arr = json as? [Any] {
+                            func extractStrings(_ value: Any) -> String {
+                                if let s = value as? String { return s }
+                                if let a = value as? [Any] {
+                                    for item in a {
+                                        let s = extractStrings(item)
+                                        if !s.isEmpty { return s }
+                                    }
+                                }
+                                return ""
                             }
-                            return
+                            translated = extractStrings(arr)
                         }
                     }
-                    self.appendColored("❌ Could not parse translation\n\n", color: self.cRed)
-                    self.setState(.error)
+                    if !translated.isEmpty {
+                        self.appendColored("✅ \(targetLang.uppercased()): ", color: self.cGreen, bold: true)
+                        self.appendOutput("\(translated)\n")
+                        // Copy to clipboard
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(translated, forType: .string)
+                        self.lastClipboard = translated
+                        self.lastClipboardCount = NSPasteboard.general.changeCount
+                        self.appendColored("📋 Copied to clipboard!\n\n", color: self.cGray)
+                        self.bubbleLabel.stringValue = speechBubble("Translated! 📋")
+                        self.setState(.happy)
+                        self.playSound("Pop")
+
+                        // XP for translation
+                        let oldLevel = self.pet.level
+                        self.pet.onCommandRun()
+                        self.pet.save()
+                        self.refreshStatsDisplay()
+                        if self.pet.level > oldLevel {
+                            self.appendColored("⭐ LEVEL UP! → \(self.pet.level)!\n", color: self.cYellow, bold: true)
+                        }
+                    } else {
+                        let preview = String(data: data.prefix(300), encoding: .utf8) ?? "binary"
+                        self.appendColored("❌ Could not parse translation\n", color: self.cRed)
+                        self.appendColored("  Response: \(preview)\n\n", color: self.cDimGray)
+                        self.setState(.error)
+                    }
                 }
             }
             task.resume()
